@@ -5,3 +5,6 @@ export * from './numericCitationDetector.js';
 export * from './referenceParser.js';
 export * from './citationMatcher.js';
 export * from './citationStyleDetector.js';
+export * from './styleValidation/inputTypes.js';
+export * from './styleValidation/apaStyleValidator.js';
+export * from './styleValidation/styleValidators.js';
