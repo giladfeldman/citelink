@@ -9,7 +9,7 @@ is ongoing.
 
 ## API
 
-- `detectStyle(text)` — detect the citation style and paradigm
+- `detectCitationStyle(text)` — detect the citation style and paradigm
 - `detectCitations(text)` / `detectHarvardCitations(text)` / `detectNumericCitations(text)`
 - `parseReferences(text, style?)` — parse the reference list
 - `matchCitationsToReferences(citations, references, style?)` — link in-text citations to references
