@@ -2,3 +2,4 @@
 export * from './citationDetector.js';
 export * from './harvardCitationDetector.js';
 export * from './numericCitationDetector.js';
+export * from './referenceParser.js';
