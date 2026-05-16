@@ -1,2 +1,4 @@
 // Public API barrel — populated as modules are moved in (Tasks 2-9).
-export {};
+export * from './citationDetector.js';
+export * from './harvardCitationDetector.js';
+export * from './numericCitationDetector.js';
