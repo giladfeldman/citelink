@@ -1536,14 +1536,23 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
     }
   }
 
-  // Title
+  // Title — the first sentence after the year. In APA/Harvard the title runs
+  // from just after "(year)." to the first sentence-ending period; the
+  // journal / source / publisher follows. `afterYear` usually starts with the
+  // orphan ". " left by the year parenthesis (REFERENCE_PATTERNS.year does not
+  // capture the trailing period), so leading punctuation/whitespace must be
+  // stripped before the title's terminal period is located — otherwise an
+  // indexOf-style search returns 0 and the title comes out empty (the
+  // no-issue-journal bug). Anchoring on the first sentence-ending period also
+  // stops the title before the journal name on with-issue references.
   if (yearMatch && yearMatch.index !== undefined) {
     const afterYear = cleanedText.slice(yearMatch.index + yearMatch[0].length);
-    const titleEnd = journalMatch && journalMatch.index !== undefined
-      ? journalMatch.index - (yearMatch.index + yearMatch[0].length)
-      : afterYear.indexOf('.');
-    if (titleEnd > 0) {
-      ref.title = afterYear.slice(0, titleEnd).trim().replace(/^[.,]\s*/, '').trim();
+    const titleSection = afterYear.replace(/^[.,\s]+/, '');
+    const sentenceEnd = titleSection.search(/[.?!](?:\s|$)/);
+    if (sentenceEnd > 0) {
+      ref.title = titleSection.slice(0, sentenceEnd + 1).trim();
+    } else if (titleSection) {
+      ref.title = titleSection.trim();
     }
   }
 
