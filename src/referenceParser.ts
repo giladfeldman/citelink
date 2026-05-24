@@ -1548,7 +1548,15 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
   if (yearMatch && yearMatch.index !== undefined) {
     const afterYear = cleanedText.slice(yearMatch.index + yearMatch[0].length);
     const titleSection = afterYear.replace(/^[.,\s]+/, '');
-    const sentenceEnd = titleSection.search(/[.?!](?:\s|$)/);
+    // A title can legitimately contain `?` or `!` mid-title (e.g.
+    // "Science or protoscience? Ten years later."). Prefer the first `.` as
+    // the terminator so the title is not cut at an interior question mark.
+    // Only fall back to `?`/`!` when no period exists in the title section
+    // (rare; covers titles that genuinely end with `?` or `!`).
+    let sentenceEnd = titleSection.search(/\.(?:\s|$)/);
+    if (sentenceEnd < 0) {
+      sentenceEnd = titleSection.search(/[?!](?:\s|$)/);
+    }
     if (sentenceEnd > 0) {
       ref.title = titleSection.slice(0, sentenceEnd + 1).trim();
     } else if (titleSection) {
@@ -1570,8 +1578,10 @@ function parseVancouverAuthor(str: string): ParsedReferenceAuthor | null {
     return { lastName: trimmed, lastNameNormalized: normalizeName(trimmed), isOrganization: true };
   }
 
-  // Pattern: "Smith JA" — last name then initials (no comma between them)
-  const m = trimmed.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+([A-Z]{1,4})$/);
+  // Pattern: "Smith JA" — last name then initials (no comma between them).
+  // The lastname allows an optional embedded uppercase letter to handle
+  // CamelCase surnames like McKendrick, MacDonald, DeScioli, LeBel.
+  const m = trimmed.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+([A-Z]{1,4})$/);
   if (m) {
     return {
       lastName: m[1],
@@ -1591,13 +1601,24 @@ function parseVancouverReference(cleanedText: string, listNumber?: number): Pars
 
   // Vancouver year: appears after journal abbreviation, before semicolon: "J Educ Res. 2020;45(2):123-145"
   // Or: "2020 Jan 15. doi:..."
-  const yearM = cleanedText.match(/\.\s*(\d{4})[a-z]?(?:[;,.\s])/);
-  if (yearM) {
-    ref.year = yearM[1];
+  // Reject 4-digit numbers outside the plausible-year range (1800-2099) so that
+  // IEEE/Vancouver-style volume / issue / article numbers ("no. 2233", "p. 8400")
+  // and arXiv suffix digits ("1209.3632") don't masquerade as the publication year.
+  const yearCandidates = [...cleanedText.matchAll(/\.\s*((?:19|20)\d{2})([a-z])?(?=[;,.\s]|$)/g)];
+  const yearMatch = yearCandidates.find(m => {
+    const y = parseInt(m[1], 10);
+    return y >= 1800 && y <= 2099;
+  });
+  if (yearMatch) {
+    ref.year = yearMatch[1];
+    if (yearMatch[2]) ref.yearSuffix = yearMatch[2].toLowerCase();
   } else {
-    // Try year anywhere
-    const fallback = cleanedText.match(/\b((?:19|20)\d{2})[a-z]?\b/);
-    if (fallback) ref.year = fallback[1];
+    // Fallback: any (19|20)\d{2} as a word-bounded plausible year anywhere in the text
+    const fallback = cleanedText.match(/\b((?:19|20)\d{2})([a-z])?\b/);
+    if (fallback) {
+      ref.year = fallback[1];
+      if (fallback[2]) ref.yearSuffix = fallback[2].toLowerCase();
+    }
   }
 
   // Vancouver journal info: 2020;45(2):123-145
@@ -1636,7 +1657,14 @@ function parseVancouverReference(cleanedText: string, listNumber?: number): Pars
   if (authorTitleSplit) {
     const authorSection = splitType === 'quote' ? authorTitleSplit[1] : authorTitleSplit[1];
     // Handle "et al" in Vancouver
-    const etAlRemoved = authorSection.replace(/,?\s*et\s+al\.?$/i, '');
+    // Also normalize the "and" connector: "X Y and W Z" → "X Y, W Z" so that the
+    // comma-split below picks up the second author. Without this, a two-author
+    // ref like "Pommereau F and Gaucherel C" parses as a single author whose
+    // lastName is the whole string. The Oxford-comma form ", and " collapses to
+    // ", " (avoiding an empty author chunk).
+    const etAlRemoved = authorSection
+      .replace(/,?\s*et\s+al\.?$/i, '')
+      .replace(/,?\s+and\s+/gi, ', ');
     const authorParts = etAlRemoved.split(/,\s*/);
     for (const part of authorParts) {
       const a = parseVancouverAuthor(part.trim());
