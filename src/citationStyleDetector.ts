@@ -369,7 +369,16 @@ export function detectCitationStyle(text: string): StyleDetectionResult {
       };
     }
 
-    if (effectiveSuperscriptCount > bracketCount) {
+    // Discriminator between bracketed Vancouver / IEEE and superscript Nature / AMA.
+    // Use only the HARD superscript signal (Unicode superscript chars) against
+    // bracketCount; `effectiveSuperscriptCount` adds `plainDigitCount`, a noisy
+    // PDF-extraction proxy that includes stats decimals, page numbers, and table
+    // cells. When a paper has a meaningful bracketed-citation count (≥ 5), real
+    // bracket citations should dominate noisy plain-digit superscripts.
+    const hardSupVsBrackets = bracketCount >= 5
+      ? superscriptCount > bracketCount
+      : effectiveSuperscriptCount > bracketCount;
+    if (hardSupVsBrackets) {
       // Superscript → Nature or AMA
       if (yearAtEnd) {
         return {
