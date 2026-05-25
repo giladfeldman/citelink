@@ -77,25 +77,71 @@ const ORGANIZATION_ABBREVIATIONS: Record<string, string[]> = {
   'WTO': ['World Trade Organization'],
 };
 
+// Surname-particle whitelist. The optional middle group in author-capture
+// patterns is meant to accept compound surnames like "Van der Berg" / "De la
+// Cruz" / "Von Restorff", NOT arbitrary sentence prefixes. A bare `[a-z]+`
+// previously matched "Replication of Fischhoff (1975)" as one three-word
+// author, simultaneously inventing spurious citations and missing the real
+// "Fischhoff (1975)". The fix restricts the middle word to known surname
+// particles (Dutch/German/French/Italian/Spanish/Portuguese/Scandinavian/
+// Semitic). Match is case-insensitive so "Van Der Berg" works too.
+const SURNAME_PARTICLE =
+  '(?:de|del|della|dello|der|den|des|di|du|da|dal|dalla|dei|degli|delle|dos|das|du|el|af|av|la|le|los|las|ten|ter|van|von|y|zu|zur|al|ben|bin|ibn|abu|st|saint)';
+// SURNAME_LASTNAME allows ONE embedded uppercase letter to admit CamelCase
+// surnames like McCullough / DeScioli / MacDonald / O'Connor — without
+// admitting "FooBarBaz" or two-word phrases. The reference parser got this
+// fix in cycle 3 (vancouverMultiAuthorAndConnector); cycle 8 ports it to the
+// citation detector after the gate enhancement surfaced 25+ missed
+// "McCullough et al." citations in chan_feldman_2025_cogemo.
+const SURNAME_LASTNAME =
+  "[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-Z][a-zà-ÿā-ž'-]+)?";
+const COMPOUND_SURNAME =
+  `${SURNAME_LASTNAME}(?:\\s+${SURNAME_PARTICLE}\\s+${SURNAME_LASTNAME})?`;
+
 // Comprehensive APA 7 citation patterns
 const CITATION_PATTERNS = {
   // ============ PARENTHETICAL PATTERNS ============
   
   // Single author: (Smith, 2020) or (Smith, 2020a) or (Smith, n.d.) or (Smith, in press)
-  singleParenthetical: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s*,\s*(\d{4}[a-z]?|n\.d\.|in\s+press)\s*\)/gi,
+  singleParenthetical: new RegExp(
+    `\\(\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.|in\\s+press)\\s*\\)`,
+    'gi',
+  ),
   
   // Single with page: (Smith, 2020, p. 15) or (Smith, 2020, pp. 15-20)
-  singleWithPage: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s*,\s*(\d{4}[a-z]?)\s*,\s*(pp?\.\s*[\d–\-]+)\s*\)/gi,
+  singleWithPage: new RegExp(
+    `\\(\\s*(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?)\\s*,\\s*(pp?\\.\\s*[\\d–\\-]+)\\s*\\)`,
+    'gi',
+  ),
   
   // Two authors parenthetical: (Smith & Jones, 2020) - uses ampersand
-  twoAuthorParenthetical: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s*&\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s*,\s*(\d{4}[a-z]?|n\.d\.)\s*\)/gi,
+  twoAuthorParenthetical: new RegExp(
+    `\\(\\s*(${COMPOUND_SURNAME})\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    'gi',
+  ),
   
   // Two authors with page: (Smith & Jones, 2020, p. 15)
-  twoAuthorWithPage: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s*&\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s*,\s*(\d{4}[a-z]?)\s*,\s*(pp?\.\s*[\d–\-]+)\s*\)/gi,
+  twoAuthorWithPage: new RegExp(
+    `\\(\\s*(${SURNAME_LASTNAME})\\s*&\\s*(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?)\\s*,\\s*(pp?\\.\\s*[\\d–\\-]+)\\s*\\)`,
+    'gi',
+  ),
   
+  // Multi-author parenthetical (3-6 authors): "(Hoffrage, Hertwig, & Gigerenzer,
+  // 2000)", "(Bosco, Aguinis, Field, Pierce, & Dalton, 2016)". APA 6 / many
+  // psychology papers list all authors instead of using "et al."; APA 7 mandates
+  // et al. for 3+. The classifyCitation helper collapses 3+ authors → et_al
+  // automatically; this pattern just needs to capture them.
+  multiAuthorParenthetical: new RegExp(
+    `\\(\\s*(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    'g',
+  ),
+
   // Et al. parenthetical: (Smith et al., 2020) - handles common errors
   // Handles: et al., et al, et. al., etal., Et Al., ET AL.
-  etAlParenthetical: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s*,?\s+et\s*\.?\s*al\.?\s*,?\s*(\d{4}[a-z]?|n\.d\.)\s*\)/gi,
+  etAlParenthetical: new RegExp(
+    `\\(\\s*(${SURNAME_LASTNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    'gi',
+  ),
 
   // ============ HARVARD NO-COMMA PATTERNS (B34) ============
   // Some Harvard / British style guides drop the comma between author and year:
@@ -105,46 +151,81 @@ const CITATION_PATTERNS = {
   // match constructions like "(see Figure 2020)" or "(model 2020 baseline)".
 
   // Single author Harvard no-comma: (Smith 2020) or (Smith 2020a)
-  singleParentheticalHarvardNoComma:
-    /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?)\s*\)/g,
+  // ALSO accidentally matches "(January 2023)" / "(April 2023)" date references —
+  // the consumer filters via isMonthName() before adding the detection.
+  singleParentheticalHarvardNoComma: new RegExp(
+    `\\(\\s*(${COMPOUND_SURNAME})\\s+(\\d{4}[a-z]?)\\s*\\)`,
+    'g',
+  ),
 
   // Two authors Harvard no-comma (uses "and"): (Smith and Jones 2020)
-  twoAuthorParentheticalHarvardNoComma:
-    /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+and\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?)\s*\)/g,
+  twoAuthorParentheticalHarvardNoComma: new RegExp(
+    `\\(\\s*(${SURNAME_LASTNAME})\\s+and\\s+(${SURNAME_LASTNAME})\\s+(\\d{4}[a-z]?)\\s*\\)`,
+    'g',
+  ),
 
   // Et al. Harvard no-comma: (Smith et al. 2020)
-  etAlParentheticalHarvardNoComma:
-    /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+(\d{4}[a-z]?)\s*\)/gi,
-  
+  etAlParentheticalHarvardNoComma: new RegExp(
+    `\\(\\s*(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+(\\d{4}[a-z]?)\\s*\\)`,
+    'gi',
+  ),
+
   // Et al. with page: (Smith et al., 2020, p. 15)
-  etAlWithPage: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s*,\s*(\d{4}[a-z]?)\s*,\s*(pp?\.\s*[\d–\-]+)\s*\)/gi,
+  etAlWithPage: new RegExp(
+    `\\(\\s*(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?\\s*,\\s*(\\d{4}[a-z]?)\\s*,\\s*(pp?\\.\\s*[\\d–\\-]+)\\s*\\)`,
+    'gi',
+  ),
   
   // ============ NARRATIVE PATTERNS ============
   
   // Single author narrative: Smith (2020)
-  singleNarrative: /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
-  
+  singleNarrative: new RegExp(
+    `\\b(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
+
   // Two authors narrative: Smith and Jones (2020) - uses "and"
-  twoAuthorNarrative: /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+and\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
+  twoAuthorNarrative: new RegExp(
+    `\\b(${COMPOUND_SURNAME})\\s+and\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
   
   // Et al. narrative: Smith et al. (2020)
-  etAlNarrative: /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
+  etAlNarrative: new RegExp(
+    `\\b(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
 
   // Possessive single: Smith's (2020) study
-  possessiveSingle: /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)['']s\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
+  possessiveSingle: new RegExp(
+    `\\b(${SURNAME_LASTNAME})['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
 
   // Possessive two authors: Smith and Jones's (2020) study
-  possessiveTwoAuthor: /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+and\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)['']s\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
+  possessiveTwoAuthor: new RegExp(
+    `\\b(${SURNAME_LASTNAME})\\s+and\\s+(${SURNAME_LASTNAME})['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
 
   // Possessive et al.: Smith et al.'s (2020) study
-  possessiveEtAl: /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?['']s\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
+  possessiveEtAl: new RegExp(
+    `\\b(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
 
   // And colleagues: Smith and colleagues (2020) or Smith & colleagues (2020)
   // Must match before two-author narrative pattern
-  andColleagues: /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(?:and|&)\s+colleagues\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
+  andColleagues: new RegExp(
+    `\\b(${SURNAME_LASTNAME})\\s+(?:and|&)\\s+colleagues\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
 
   // With colleagues: Smith with colleagues (2020)
-  withColleagues: /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+with\s+colleagues\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
+  withColleagues: new RegExp(
+    `\\b(${SURNAME_LASTNAME})\\s+with\\s+colleagues\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
   
   // ============ GROUP/ORGANIZATION PATTERNS ============
   
@@ -218,6 +299,25 @@ function parseYear(yearStr: string): { year: string; suffix?: string } {
     return { year: yearStr.toLowerCase() };
   }
   return { year: yearStr };
+}
+
+// Month names — when a parenthetical like "(January 2023)" or "(April, 2023)"
+// is a date reference rather than an author citation, the author-capture
+// patterns mis-detect the month as a single-word lastname. citationguard-
+// iterate cycle 11 — chan_feldman_2025_cogemo had "(January 2023)" and
+// "(April 2023)" surface as spurious detections after gate enhancement
+// (cycle 6). Filtering the captured first-author against this set drops the
+// false positives without losing real citations (no academic author has a
+// month name as their only lastname).
+const MONTH_NAMES = new Set([
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december',
+  'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec',
+]);
+
+/** True if the captured "first author" is actually a month name. */
+function isMonthName(str: string): boolean {
+  return MONTH_NAMES.has(str.trim().toLowerCase().replace(/\.$/, ''));
 }
 
 /**
@@ -505,6 +605,30 @@ export function detectCitations(text: string): DetectedCitation[] {
     });
   }
   
+  // ============ MULTI-AUTHOR PARENTHETICAL (3-6 AUTHORS) ============
+  // Run before twoAuthorParenthetical so "(Hoffrage, Hertwig, & Gigerenzer,
+  // 2000)" isn't partially consumed by a two-author match on the trailing
+  // pair. classifyCitation collapses 3+ authors → 'et_al'.
+  CITATION_PATTERNS.multiAuthorParenthetical.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.multiAuthorParenthetical.exec(text)) !== null) {
+    const { year, suffix } = parseYear(match[3]);
+    const authors = [
+      ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
+      createParsedAuthor(match[2]),
+    ];
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: classifyCitation(authors, false, false),
+      citationStyle: 'parenthetical',
+      authors,
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length),
+    });
+  }
+
   // ============ TWO AUTHORS PARENTHETICAL ============
   CITATION_PATTERNS.twoAuthorParenthetical.lastIndex = 0;
   while ((match = CITATION_PATTERNS.twoAuthorParenthetical.exec(text)) !== null) {
@@ -550,9 +674,10 @@ export function detectCitations(text: string): DetectedCitation[] {
   // ============ SINGLE PARENTHETICAL ============
   CITATION_PATTERNS.singleParenthetical.lastIndex = 0;
   while ((match = CITATION_PATTERNS.singleParenthetical.exec(text)) !== null) {
+    if (isMonthName(match[1])) continue;  // "(January 2023)" is a date, not an author
     const { year, suffix } = parseYear(match[2]);
     const authors = parseAuthors(match[1]);
-    
+
     addCitation({
       raw: match[0],
       normalized: normalizeCitation(match[0]),
@@ -613,6 +738,7 @@ export function detectCitations(text: string): DetectedCitation[] {
   // ============ HARVARD NO-COMMA: SINGLE PARENTHETICAL (B34) ============
   CITATION_PATTERNS.singleParentheticalHarvardNoComma.lastIndex = 0;
   while ((match = CITATION_PATTERNS.singleParentheticalHarvardNoComma.exec(text)) !== null) {
+    if (isMonthName(match[1])) continue;  // "(January 2023)" is a date, not an author
     const { year, suffix } = parseYear(match[2]);
     const authors = parseAuthors(match[1]);
     addCitation({
@@ -813,12 +939,26 @@ export function detectCitations(text: string): DetectedCitation[] {
     // Split by semicolon and process each citation
     const multipleCites = match[1].split(';').map(cite => cite.trim());
     let currentPos = match.index + 1; // Start after opening parenthesis
-    
-    for (const citeText of multipleCites) {
+
+    for (const rawCiteText of multipleCites) {
+      // Strip leading signal-phrase prefixes ("e.g.", "i.e.", "cf.", "see",
+      // "as in", "e.g.,") — these prevent the anchored `^` regexes below
+      // from matching the first item of a multi-citation bundle like
+      // "(e.g. Enright & Coyle, 1998; Strelan & Covic, 2006)". Without
+      // stripping, every first item that follows a signal phrase is missed
+      // and counts as both a detection-recall miss AND (downstream) a
+      // matching miss.
+      const citeText = rawCiteText.replace(
+        /^(?:e\.g\.?|i\.e\.?|cf\.?|see(?: also)?|as in|c\.f\.?)\s*,?\s+/i,
+        '',
+      );
       // Try to match individual citation patterns
-      
+
       // Et al. pattern
-      const etAlMatch = citeText.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s*,?\s+et\s*\.?\s*al\.?\s*,?\s*(\d{4}[a-z]?|n\.d\.)$/i);
+      const etAlMatch = citeText.match(new RegExp(
+        `^(${SURNAME_LASTNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        'i',
+      ));
       if (etAlMatch) {
         const { year, suffix } = parseYear(etAlMatch[2]);
         addCitation({
@@ -840,7 +980,10 @@ export function detectCitations(text: string): DetectedCitation[] {
       }
       
       // Two author pattern
-      const twoAuthorMatch = citeText.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s*&\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s*,\s*(\d{4}[a-z]?|n\.d\.)$/i);
+      const twoAuthorMatch = citeText.match(new RegExp(
+        `^(${SURNAME_LASTNAME})\\s*&\\s*(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        'i',
+      ));
       if (twoAuthorMatch) {
         const { year, suffix } = parseYear(twoAuthorMatch[3]);
         addCitation({
@@ -861,8 +1004,37 @@ export function detectCitations(text: string): DetectedCitation[] {
         continue;
       }
       
+      // Multi-author pattern (3-6 authors): "Bosco, Aguinis, Field, & Dalton, 2016"
+      const multiAuthorMatch = citeText.match(new RegExp(
+        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        'i',
+      ));
+      if (multiAuthorMatch) {
+        const { year, suffix } = parseYear(multiAuthorMatch[3]);
+        const authors = [
+          ...multiAuthorMatch[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
+          createParsedAuthor(multiAuthorMatch[2]),
+        ];
+        addCitation({
+          raw: `(${citeText})`,
+          normalized: normalizeCitation(`(${citeText})`),
+          type: classifyCitation(authors, false, false),
+          citationStyle: 'parenthetical',
+          authors,
+          year,
+          yearSuffix: suffix,
+          position: { start: currentPos, end: currentPos + citeText.length },
+          context: extractContext(text, currentPos, citeText.length),
+        });
+        currentPos += citeText.length + 2;
+        continue;
+      }
+
       // Single author pattern
-      const singleMatch = citeText.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s*,\s*(\d{4}[a-z]?|n\.d\.)$/i);
+      const singleMatch = citeText.match(new RegExp(
+        `^(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        'i',
+      ));
       if (singleMatch) {
         const { year, suffix } = parseYear(singleMatch[2]);
         const authors = parseAuthors(singleMatch[1]);
