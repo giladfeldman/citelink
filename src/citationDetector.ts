@@ -85,8 +85,13 @@ const ORGANIZATION_ABBREVIATIONS: Record<string, string[]> = {
 // "Fischhoff (1975)". The fix restricts the middle word to known surname
 // particles (Dutch/German/French/Italian/Spanish/Portuguese/Scandinavian/
 // Semitic). Match is case-insensitive so "Van Der Berg" works too.
+// Case-insensitive on the first letter so "Van Knippenberg" / "De Bruin" /
+// "Von Restorff" (capital-initial particle, common in narrative reference
+// lists) match alongside the lowercase canonical forms ("van der", "de la",
+// "von"). The lowercase ASCII characters after the leading letter are
+// strict — particles are too short to risk further variation.
 const SURNAME_PARTICLE =
-  '(?:de|del|della|dello|der|den|des|di|du|da|dal|dalla|dei|degli|delle|dos|das|du|el|af|av|la|le|los|las|ten|ter|van|von|y|zu|zur|al|ben|bin|ibn|abu|st|saint)';
+  '(?:[Dd]e|[Dd]el|[Dd]ella|[Dd]ello|[Dd]er|[Dd]en|[Dd]es|[Dd]i|[Dd]u|[Dd]a|[Dd]al|[Dd]alla|[Dd]ei|[Dd]egli|[Dd]elle|[Dd]os|[Dd]as|[Ee]l|[Aa]f|[Aa]v|[Ll]a|[Ll]e|[Ll]os|[Ll]as|[Tt]en|[Tt]er|[Vv]an|[Vv]on|[Yy]|[Zz]u|[Zz]ur|[Aa]l|[Bb]en|[Bb]in|[Ii]bn|[Aa]bu|[Ss]t|[Ss]aint)';
 // SURNAME_LASTNAME allows ONE embedded uppercase letter to admit CamelCase
 // surnames like McCullough / DeScioli / MacDonald / O'Connor — without
 // admitting "FooBarBaz" or two-word phrases. The reference parser got this
@@ -95,8 +100,14 @@ const SURNAME_PARTICLE =
 // "McCullough et al." citations in chan_feldman_2025_cogemo.
 const SURNAME_LASTNAME =
   "[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-Z][a-zà-ÿā-ž'-]+)?";
+// COMPOUND_SURNAME allows 0-2 leading particles ("Van Knippenberg",
+// "Von Restorff", "De Bruin", "van der Maas", "de la Cruz") in addition to
+// the middle-particle form ("Van der Berg"). Both branches are matched as a
+// single unit so multi-author patterns see compound surnames as one unit.
+// The {0,2} bound covers up to two stacked particles ("van der", "de la",
+// "von der") before the surname; anything beyond two is vanishingly rare.
 const COMPOUND_SURNAME =
-  `${SURNAME_LASTNAME}(?:\\s+${SURNAME_PARTICLE}\\s+${SURNAME_LASTNAME})?`;
+  `(?:${SURNAME_PARTICLE}\\s+){0,2}${SURNAME_LASTNAME}(?:\\s+${SURNAME_PARTICLE}\\s+${SURNAME_LASTNAME})?`;
 // Optional signal-phrase prefix inside parens, e.g. "(e.g., Lakens et al.,
 // 2018)" or "(see Hoffrage & Pohl, 2003)". cycle 9 stripped this in the
 // multi-citation split handler; cycle 14 extends the strip to single-citation
@@ -105,6 +116,11 @@ const COMPOUND_SURNAME =
 // the author position.
 const SIGNAL_PREFIX =
   '(?:e\\.g\\.,?|i\\.e\\.,?|cf\\.,?|see(?:\\s+also)?\\.?,?|as\\s+in|c\\.f\\.,?)\\s+';
+// Optional initial(s) prefix on a surname: "S. Lee" / "M. D. Lee" — used to
+// disambiguate co-authors who share a surname. Period is REQUIRED after each
+// initial (so the pronoun "I" can't accidentally match). 0-3 initials.
+// Non-capturing — the surname stays the captured key. Cycle 16.
+const INITIAL_PREFIX = '(?:[A-Z]\\.\\s*){0,3}';
 
 // Comprehensive APA 7 citation patterns
 const CITATION_PATTERNS = {
@@ -112,26 +128,29 @@ const CITATION_PATTERNS = {
   
   // Single author: (Smith, 2020) or (Smith, 2020a) or (Smith, n.d.) or (Smith, in press)
   // Optional leading signal-phrase prefix ("e.g.,", "see", "cf.", etc.)
+  // Optional leading initial(s) ("S. Lee, 2020").
   singleParenthetical: new RegExp(
-    `\\(\\s*(?:${SIGNAL_PREFIX})?(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.|in\\s+press)\\s*\\)`,
+    `\\(\\s*(?:${SIGNAL_PREFIX})?${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.|in\\s+press)\\s*\\)`,
     'gi',
   ),
   
   // Single with page: (Smith, 2020, p. 15) or (Smith, 2020, pp. 15-20)
   singleWithPage: new RegExp(
-    `\\(\\s*(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?)\\s*,\\s*(pp?\\.\\s*[\\d–\\-]+)\\s*\\)`,
+    `\\(\\s*${INITIAL_PREFIX}(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?)\\s*,\\s*(pp?\\.\\s*[\\d–\\-]+)\\s*\\)`,
     'gi',
   ),
   
-  // Two authors parenthetical: (Smith & Jones, 2020) - uses ampersand
+  // Two authors parenthetical: (Smith & Jones, 2020) - uses ampersand.
+  // Optional initial prefix on each surname for disambiguation (S. Lee &
+  // Feeley, 2018 / M. D. Lee & Wagenmakers, 2013).
   twoAuthorParenthetical: new RegExp(
-    `\\(\\s*(?:${SIGNAL_PREFIX})?(${COMPOUND_SURNAME})\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    `\\(\\s*(?:${SIGNAL_PREFIX})?${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*&\\s*${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
     'gi',
   ),
   
   // Two authors with page: (Smith & Jones, 2020, p. 15)
   twoAuthorWithPage: new RegExp(
-    `\\(\\s*(${SURNAME_LASTNAME})\\s*&\\s*(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?)\\s*,\\s*(pp?\\.\\s*[\\d–\\-]+)\\s*\\)`,
+    `\\(\\s*${INITIAL_PREFIX}(${SURNAME_LASTNAME})\\s*&\\s*${INITIAL_PREFIX}(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?)\\s*,\\s*(pp?\\.\\s*[\\d–\\-]+)\\s*\\)`,
     'gi',
   ),
   
@@ -163,6 +182,17 @@ const CITATION_PATTERNS = {
   // than the whole thing in parens.
   mixedListEtAlNarrative: new RegExp(
     `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
+
+  // Multi-author narrative with "and" (APA 6 / older style): "Hart, Lane, and
+  // Chinn (2018)", "Arkes, Wortmann, Saville, and Harkness (1981)". 2-5
+  // named authors with "and" before the last. classifyCitation collapses
+  // 3+ authors → 'et_al'. Cycle 15. Without `i` flag — same reason as
+  // mixedListEtAlNarrative (cycle 13): `\b` would otherwise start matches
+  // at lowercase words preceding the real author list.
+  multiAuthorAndNarrative: new RegExp(
+    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+and\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
     'g',
   ),
 
@@ -221,9 +251,10 @@ const CITATION_PATTERNS = {
     'g',
   ),
   
-  // Et al. narrative: Smith et al. (2020)
+  // Et al. narrative: Smith et al. (2020). Optional trailing page or note inside
+  // the parens: "Brandt et al. (2014, p. 218)", "Smith et al. (2020, Experiment 3)".
   etAlNarrative: new RegExp(
-    `\\b(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
     'g',
   ),
 
@@ -636,6 +667,30 @@ export function detectCitations(text: string): DetectedCitation[] {
     });
   }
   
+  // ============ MULTI-AUTHOR NARRATIVE WITH "AND" ============
+  // Run before twoAuthorNarrative so "Hart, Lane, and Chinn (2018)" isn't
+  // partially consumed by a two-author match on "Lane and Chinn (2018)".
+  // classifyCitation collapses 3+ authors → 'et_al'.
+  CITATION_PATTERNS.multiAuthorAndNarrative.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.multiAuthorAndNarrative.exec(text)) !== null) {
+    const { year, suffix } = parseYear(match[3]);
+    const authors = [
+      ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
+      createParsedAuthor(match[2]),
+    ];
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: classifyCitation(authors, false, false),
+      citationStyle: 'narrative',
+      authors,
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length),
+    });
+  }
+
   // ============ MIXED-LIST NARRATIVE WITH TRAILING ET AL. ============
   CITATION_PATTERNS.mixedListEtAlNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.mixedListEtAlNarrative.exec(text)) !== null) {
@@ -1055,9 +1110,10 @@ export function detectCitations(text: string): DetectedCitation[] {
         continue;
       }
       
-      // Two author pattern
+      // Two author pattern (with optional initial prefix on each — "S. Lee &
+      // Feeley, 2018" / "M. D. Lee & Wagenmakers, 2013")
       const twoAuthorMatch = citeText.match(new RegExp(
-        `^(${SURNAME_LASTNAME})\\s*&\\s*(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        `^${INITIAL_PREFIX}(${SURNAME_LASTNAME})\\s*&\\s*${INITIAL_PREFIX}(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
         'i',
       ));
       if (twoAuthorMatch) {
@@ -1132,9 +1188,9 @@ export function detectCitations(text: string): DetectedCitation[] {
         continue;
       }
 
-      // Single author pattern
+      // Single author pattern (with optional initial prefix — "S. Lee, 2018")
       const singleMatch = citeText.match(new RegExp(
-        `^(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
         'i',
       ));
       if (singleMatch) {

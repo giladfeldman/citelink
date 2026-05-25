@@ -1,5 +1,60 @@
 # Changelog
 
+## 0.6.0
+
+Additional citation patterns surfaced by the cycle-6 gate diagnostics
+(citationguard-iterate cycles 15-19):
+
+- **Cycle 15 — multi-author narrative with "and"** ("Hart, Lane, and Chinn
+  (2018)", "Arkes, Wortmann, Saville, and Harkness (1981)") — new
+  `multiAuthorAndNarrative` pattern. Same shape as `multiAuthorParenthetical`
+  but for the narrative form. Regression test:
+  `multiAuthorAndNarrative.test.ts`.
+
+- **Cycle 16 — initial-prefixed surnames** ("S. Lee & Feeley, 2018",
+  "M. D. Lee & Wagenmakers, 2013, p. 105") — co-author surname
+  disambiguator with leading initial(s). New `INITIAL_PREFIX` constant
+  (`(?:[A-Z]\.\s*){0,3}`) inlined into `singleParenthetical`,
+  `twoAuthorParenthetical`, `singleWithPage`, `twoAuthorWithPage`, and the
+  multi-citation split-handler's `twoAuthorMatch` / `singleMatch`. The
+  initial is consumed but the captured first author stays the surname.
+  Regression test: `initialPrefixedSurname.test.ts`.
+
+- **Cycle 17 — capitalized surname particles** ("Van Knippenberg",
+  "Von Restorff", "De Bruin"). `SURNAME_PARTICLE` is now case-insensitive
+  on the first letter (`[Vv]an`, `[Dd]e`, `[Vv]on`, etc.) so narrative
+  reference-list style with capital-initial particles works alongside the
+  lowercase canonical form. Regression test:
+  `capParticleAndEtAlPage.test.ts`.
+
+- **Cycle 18 — etAlNarrative with trailing page/note.** "Brandt et al.
+  (2014, p. 218)", "Smith et al. (2020, Experiment 3)" — etAlNarrative
+  now allows an optional `(?:,\s*[^)]+)?` after the year inside the same
+  paren group. Same regression file.
+
+- **Cycle 19 — multi-particle stacking.** "Wagenmakers, Wetzels, Borsboom,
+  van der Maas, & Kievit, 2012" — the COMPOUND_SURNAME's leading particle
+  group now allows {0,2} particles instead of {0,1}, covering "van der"
+  / "de la" / "von der" as the surname's leading section.
+
+Cumulative impact vs v0.5.0:
+
+| Paper | intext F1 | matching acc |
+|---|---|---|
+| chen_2021_jesp | 0.740 → 0.760 (+0.020) | 0.719 → 0.752 (+0.033) |
+| chan_feldman_2025_cogemo | 0.924 (no relevant patterns) | 0.312 (no change) |
+| collabra_90203 | 0.915 → 0.927 (+0.012) | 0.788 → 0.815 (+0.027) |
+
+Cumulative impact vs v0.3.1 (pre-iterate baseline, 14-cycle total):
+
+| Paper | intext F1 | matching acc |
+|---|---|---|
+| chen | 0.673 → **0.760** (+0.087) | 0.549 → **0.752** (+0.203) |
+| chan_feldman | 0.716 → **0.924** (+0.208) | 0.254 → 0.312 (+0.058) |
+| collabra | 0.830 → **0.927** (+0.097) | 0.726 → **0.815** (+0.089) |
+
+Tests: 22 suites / 267 tests pass (was 19 / 254). 3 new regression test files.
+
 ## 0.5.0
 
 Multi-author detection extensions (citationguard-iterate cycles 12-14):

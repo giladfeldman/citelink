@@ -1,6 +1,6 @@
 {
   "name": "citelink",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Citation detection, reference parsing, and citation-reference matching for academic documents.",
   "license": "MIT",
   "type": "module",
