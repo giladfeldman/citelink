@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.5.0
+
+Multi-author detection extensions (citationguard-iterate cycles 12-14):
+
+- **Cycle 12 — multi-author parenthetical with trailing et al.** APA 7
+  "Author1, Author2, ..., et al., YEAR" disambiguator for same-year same-first-
+  author refs. "(Bartoš, Maier, Wagenmakers, et al., 2022)" / "(Maier, Bartoš,
+  et al., 2022)" now detected; added at top level + in multi-citation bundle
+  split-handler. Regression test: `mixedListEtAlTrailing.test.ts`.
+
+- **Cycle 13 — same as cycle 12, narrative form.** "Bartoš, Maier,
+  Wagenmakers, et al. (2022)" — same shape, year in trailing parens. The
+  `i` flag was deliberately omitted on these new patterns so the `[A-Z]`
+  first-letter requirement isn't collapsed (the `\b` lookahead would otherwise
+  start matches at lowercase words preceding the real author list).
+
+- **Cycle 14 — signal-phrase prefix in single-citation parens.** Cycle 9
+  stripped "e.g."/"i.e."/"cf."/"see"/"see also"/"as in"/"c.f." prefixes
+  inside multi-citation `;`-bundles. Cycle 14 extends the same strip to
+  single-citation parens — "(see Hoffrage & Pohl, 2003)", "(e.g., Lakens
+  et al., 2018)", "(cf. Smith, 2020)" — by inlining an optional
+  `SIGNAL_PREFIX` group after `\(` in `singleParenthetical`,
+  `twoAuthorParenthetical`, and `etAlParenthetical`. Regression test:
+  `signalPrefixSingleParen.test.ts`.
+
+Cumulative impact vs v0.4.0 (cycles 7-11) baseline:
+
+| Paper | intext F1 | matching acc |
+|---|---|---|
+| chen_2021_jesp | 0.730 → 0.740 (+0.010) | 0.693 → 0.719 (+0.026) |
+| chan_feldman_2025_cogemo | 0.931 → 0.924 (-0.007 within ε) | 0.312 → 0.312 (0) |
+| collabra_90203 | 0.862 → 0.915 (+0.053) | 0.767 → 0.788 (+0.021) |
+| plos_med_1 / ieee_access_2 / nat_comms_2 | unchanged (no relevant patterns) | unchanged |
+
+vs v0.3.1 (pre-iterate-cycle-7) baseline:
+
+| Paper | intext F1 | matching acc |
+|---|---|---|
+| chen | 0.673 → 0.740 (+0.067) | 0.549 → 0.719 (+0.170) |
+| chan_feldman | 0.716 → 0.924 (+0.208) | 0.254 → 0.312 (+0.058) |
+| collabra | 0.830 → 0.915 (+0.085) | 0.726 → 0.788 (+0.062) |
+
+Tests: 19 suites / 254 tests (was 18/250); 4 new regression test files.
+
 ## 0.4.0
 
 This release is a cumulative hardening of `citationDetector`'s author-capture

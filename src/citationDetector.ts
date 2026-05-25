@@ -97,14 +97,23 @@ const SURNAME_LASTNAME =
   "[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-Z][a-zà-ÿā-ž'-]+)?";
 const COMPOUND_SURNAME =
   `${SURNAME_LASTNAME}(?:\\s+${SURNAME_PARTICLE}\\s+${SURNAME_LASTNAME})?`;
+// Optional signal-phrase prefix inside parens, e.g. "(e.g., Lakens et al.,
+// 2018)" or "(see Hoffrage & Pohl, 2003)". cycle 9 stripped this in the
+// multi-citation split handler; cycle 14 extends the strip to single-citation
+// patterns so a signal-prefixed paren still detects its citation. Trailing
+// whitespace consumed so the rest of the pattern keeps using `\s*` for
+// the author position.
+const SIGNAL_PREFIX =
+  '(?:e\\.g\\.,?|i\\.e\\.,?|cf\\.,?|see(?:\\s+also)?\\.?,?|as\\s+in|c\\.f\\.,?)\\s+';
 
 // Comprehensive APA 7 citation patterns
 const CITATION_PATTERNS = {
   // ============ PARENTHETICAL PATTERNS ============
   
   // Single author: (Smith, 2020) or (Smith, 2020a) or (Smith, n.d.) or (Smith, in press)
+  // Optional leading signal-phrase prefix ("e.g.,", "see", "cf.", etc.)
   singleParenthetical: new RegExp(
-    `\\(\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.|in\\s+press)\\s*\\)`,
+    `\\(\\s*(?:${SIGNAL_PREFIX})?(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.|in\\s+press)\\s*\\)`,
     'gi',
   ),
   
@@ -116,7 +125,7 @@ const CITATION_PATTERNS = {
   
   // Two authors parenthetical: (Smith & Jones, 2020) - uses ampersand
   twoAuthorParenthetical: new RegExp(
-    `\\(\\s*(${COMPOUND_SURNAME})\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    `\\(\\s*(?:${SIGNAL_PREFIX})?(${COMPOUND_SURNAME})\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
     'gi',
   ),
   
@@ -136,10 +145,32 @@ const CITATION_PATTERNS = {
     'g',
   ),
 
+  // Mixed-list with trailing et al. (APA 7 same-year disambiguator):
+  // "(Bartoš, Maier, Wagenmakers, et al., 2022)", "(Maier, Bartoš, et al.,
+  // 2022)". Used when two refs share first author + year and need 2+ named
+  // authors before collapsing the rest to et al.
+  // The `g` flag without `i` is intentional — case-insensitive matching would
+  // let the [A-Z] requirement collapse and accept lowercase first letters
+  // ("reanalysis, Bartoš, …" — the first \b match position is at "r"
+  // unless capitalization is strictly enforced).
+  mixedListEtAlParenthetical: new RegExp(
+    `\\(\\s*(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    'g',
+  ),
+
+  // Mixed-list narrative form: "Bartoš, Maier, Wagenmakers, et al. (2022)".
+  // Same disambiguator pattern but with the year in trailing parens rather
+  // than the whole thing in parens.
+  mixedListEtAlNarrative: new RegExp(
+    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    'g',
+  ),
+
   // Et al. parenthetical: (Smith et al., 2020) - handles common errors
   // Handles: et al., et al, et. al., etal., Et Al., ET AL.
+  // Optional leading signal-phrase prefix (cycle 14).
   etAlParenthetical: new RegExp(
-    `\\(\\s*(${SURNAME_LASTNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    `\\(\\s*(?:${SIGNAL_PREFIX})?(${SURNAME_LASTNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
     'gi',
   ),
 
@@ -605,6 +636,51 @@ export function detectCitations(text: string): DetectedCitation[] {
     });
   }
   
+  // ============ MIXED-LIST NARRATIVE WITH TRAILING ET AL. ============
+  CITATION_PATTERNS.mixedListEtAlNarrative.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.mixedListEtAlNarrative.exec(text)) !== null) {
+    const { year, suffix } = parseYear(match[2]);
+    const authors = [
+      ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
+      createParsedAuthor('et al.', true),
+    ];
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: 'et_al',
+      citationStyle: 'narrative',
+      authors,
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length),
+    });
+  }
+
+  // ============ MIXED-LIST WITH TRAILING ET AL. ============
+  // Run before multiAuthorParenthetical and twoAuthorParenthetical so
+  // "(Bartoš, Maier, Wagenmakers, et al., 2022)" isn't partially consumed
+  // by an inner multi-author match on the named prefix.
+  CITATION_PATTERNS.mixedListEtAlParenthetical.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.mixedListEtAlParenthetical.exec(text)) !== null) {
+    const { year, suffix } = parseYear(match[2]);
+    const authors = [
+      ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
+      createParsedAuthor('et al.', true),
+    ];
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: 'et_al',
+      citationStyle: 'parenthetical',
+      authors,
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length),
+    });
+  }
+
   // ============ MULTI-AUTHOR PARENTHETICAL (3-6 AUTHORS) ============
   // Run before twoAuthorParenthetical so "(Hoffrage, Hertwig, & Gigerenzer,
   // 2000)" isn't partially consumed by a two-author match on the trailing
@@ -1004,6 +1080,32 @@ export function detectCitations(text: string): DetectedCitation[] {
         continue;
       }
       
+      // Mixed-list with trailing et al.: "Bartoš, Maier, Wagenmakers, et al., 2022"
+      const mixedEtAlMatch = citeText.match(new RegExp(
+        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        'i',
+      ));
+      if (mixedEtAlMatch) {
+        const { year, suffix } = parseYear(mixedEtAlMatch[2]);
+        const authors = [
+          ...mixedEtAlMatch[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
+          createParsedAuthor('et al.', true),
+        ];
+        addCitation({
+          raw: `(${citeText})`,
+          normalized: normalizeCitation(`(${citeText})`),
+          type: 'et_al',
+          citationStyle: 'parenthetical',
+          authors,
+          year,
+          yearSuffix: suffix,
+          position: { start: currentPos, end: currentPos + citeText.length },
+          context: extractContext(text, currentPos, citeText.length),
+        });
+        currentPos += citeText.length + 2;
+        continue;
+      }
+
       // Multi-author pattern (3-6 authors): "Bosco, Aguinis, Field, & Dalton, 2016"
       const multiAuthorMatch = citeText.match(new RegExp(
         `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
