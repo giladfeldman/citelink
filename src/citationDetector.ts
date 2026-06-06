@@ -106,8 +106,11 @@ const SURNAME_PARTICLE =
 // the suffix is consumed so the pattern keeps matching, then removed from the
 // normalized author by createParsedAuthor so the key stays "hom". Cycle 21 (R2).
 const GENERATIONAL_SUFFIX = '(?:\\s+(?:Jr|Sr|II|III|IV)\\.?)?';
+// The lowercase class includes "ß" (U+00DF) explicitly: the "à-ÿ" range starts
+// at U+00E0, one code point above ß, so "Groß" would otherwise truncate to
+// "Gro" and the citation be missed. Cycle 23.
 const SURNAME_LASTNAME =
-  "[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-Z][a-zà-ÿā-ž'-]+)?" + GENERATIONAL_SUFFIX;
+  "[A-ZÀ-Ÿ][a-zßà-ÿā-ž'-]+(?:[A-Z][a-zßà-ÿā-ž'-]+)?" + GENERATIONAL_SUFFIX;
 // COMPOUND_SURNAME allows 0-2 leading particles ("Van Knippenberg",
 // "Von Restorff", "De Bruin", "van der Maas", "de la Cruz") in addition to
 // the middle-particle form ("Van der Berg"). Both branches are matched as a

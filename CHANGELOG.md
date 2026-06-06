@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.3 (unreleased)
+
+Citationguard-iterate **cycle 23** — eszett (ß) in surnames.
+
+- **A surname containing "ß" (U+00DF) was truncated.** The lowercase surname
+  character class ran `à-ÿ` (U+00E0–U+00FF), which begins one code point above
+  ß, so "Groß" matched only "Gro" and "(Groß & Bayen, 2015)" was missed. "ß" is
+  now in the class. Regression test: `tests/eszettSurname.test.ts` (3 cases).
+
 ## 0.7.2 (unreleased)
 
 Citationguard-iterate **cycle 22** — compound surname in two-author bundle entries.
