@@ -756,6 +756,50 @@ describe('Citation-Reference Matching', () => {
       expect(results[0].alternativeMatches).toBeDefined();
       expect(results[0].alternativeMatches!.length).toBeGreaterThan(0);
     });
+
+    // Cycle 18 — 2026-05-26 cycle-1 chen canary regression.
+    // When the reference list has TWO entries with identical (author, year,
+    // yearSuffix) — e.g. two "Fischhoff (1975)" with no suffix to break the
+    // tie — the matcher cannot disambiguate from the citation alone. Prior
+    // behavior was status='ambiguous', which Citationguard's compare-citelink
+    // scorer treated as no-match, dropping all 21/21 Fischhoff (1975)
+    // citations in chen_2021_jesp from the agreement count. The fix: when
+    // ALL alternative matches share the bestMatch's (author, year, suffix)
+    // key, treat as 'matched' to the highest-confidence one. The two-suffix
+    // case above (2020a vs 2020b) is preserved as genuinely ambiguous.
+    it('should NOT mark same-key duplicates as ambiguous (gate the chen Fischhoff 1975 regression)', () => {
+      const citation = createTestCitation({
+        raw: '(Fischhoff, 1975)',
+        type: 'single',
+        authors: [{ raw: 'Fischhoff', normalized: 'fischhoff', isEtAl: false, isOrganization: false }],
+        year: '1975',
+      });
+      const references = [
+        createTestReference({
+          raw: 'Fischhoff, B. (1975). Hindsight ≠ foresight.',
+          authorCount: 1,
+          firstAuthorLastName: 'Fischhoff',
+          firstAuthorLastNameNormalized: 'fischhoff',
+          allAuthorLastNames: ['Fischhoff'],
+          allAuthorLastNamesNormalized: ['fischhoff'],
+          year: '1975',
+        }),
+        createTestReference({
+          raw: 'Fischhoff, B. (1975). I knew it would happen.',
+          authorCount: 1,
+          firstAuthorLastName: 'Fischhoff',
+          firstAuthorLastNameNormalized: 'fischhoff',
+          allAuthorLastNames: ['Fischhoff'],
+          allAuthorLastNamesNormalized: ['fischhoff'],
+          year: '1975',
+        }),
+      ];
+      const results = matchCitationToReferences(citation, references);
+      expect(results[0].status).toBe('matched');
+      // alternativeMatches still populated so downstream tools see the duplicate.
+      expect(results[0].alternativeMatches).toBeDefined();
+      expect(results[0].alternativeMatches!.length).toBeGreaterThan(0);
+    });
   });
 
   describe('Match Statistics', () => {

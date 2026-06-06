@@ -1,5 +1,66 @@
 # Changelog
 
+## 0.7.0 (unreleased)
+
+Citationguard-iterate **cycle 18** — fixes driven by the 2026-05-26
+Sonnet-watches-Opus canary audit (chen_2021_jesp, chan_feldman_2025_cogemo,
+collabra_90203). Aggregate Sonnet findings 60 → 39 across two re-audit rounds.
+Test suite 267 → 275.
+
+- **Sentence-connector author hallucinations** — sentence-initial adverbs
+  ("Also,", "Furthermore,", "Therefore,", "Recently,") were parsed as the
+  first author of the narrative citation that followed (e.g. "Also, Werth and
+  Strack (2003)" → author "Also"). New `SENTENCE_CONNECTORS` set +
+  `isSentenceConnector()` guard applied to `multiAuthorAndNarrative`,
+  `mixedListEtAlNarrative`, `mixedListEtAlParenthetical`,
+  `multiAuthorParenthetical`, `etAlNarrative`, `twoAuthorNarrative`,
+  `singleNarrative`. Eliminated 4 cross-paper HALLUCINATIONs.
+
+- **Running page-footer absorbed as a reference** — "Journal of Experimental
+  Social Psychology 96 (2021) — 104154" repeated on every page slipped between
+  references and was parsed as a reference entry. New `RUNNING_PAGE_FOOTER`
+  filter in `extractReferenceSection`. (SECTION-BOUNDARY.)
+
+- **Download-watermark absorbed as a reference** — "Downloaded from <URL> by
+  <institution> on <date>" parsed as 3 references in collabra. New
+  `DOWNLOAD_WATERMARK` filter. (HALLUCINATION ×3.)
+
+- **Same-(author,year) reference duplicates rejected as ambiguous** — two
+  "Fischhoff (1975)" entries (no a/b suffix) made the matcher mark all 21
+  in-text Fischhoff 1975 citations 'ambiguous' → scored as no-match. The
+  matcher now treats same-`(author, year, yearSuffix)` alternatives as
+  'matched' to the highest-confidence ref (alternatives preserved); genuinely
+  different suffixes (2020a vs 2020b) stay 'ambiguous'. Recovered 22
+  INTEXT-MATCHING instances. Regression test in `citationMatching.test.ts`.
+
+- **Same-author multi-year parentheticals not split** — "(Bishop, 2019, 2020a,
+  2020b)", "(Thaler, 1985, 1999)", "(Dickert et al., 2012, 2015)" emitted only
+  the first year. The previous `sameAuthorMultipleYears` / `sameAuthorSameYear`
+  patterns were defined but NEVER consumed by any loop. Replaced with
+  `sameAuthorMultiYear` (2+ years, optional "et al.", optional signal prefix)
+  with a real consumer loop, PLUS a fragment-level multi-year handler inside
+  the `multipleCitations` semicolon-split loop (for bundle items like
+  "(...; Dickert et al., 2012, 2015; ...)"). Each year gets a distinct source
+  position so `addCitation`'s position-dedup keeps all siblings; the
+  end-of-detection de-overlap pass is now identity-aware (keys on
+  author+year+suffix) so equal-span siblings aren't collapsed. Regression
+  suite `sameAuthorMultiYear.test.ts` (7 tests).
+
+- **Bundle-connector prefixes** — semicolon-bundle items joined by prose
+  connectors ("...; and Renkewitz & Keiner, 2019", "..., in Mayiwar et al.,
+  2023") had the leading "and "/"in " defeat the `^`-anchored fragment
+  matchers. The fragment connector-strip now also removes a leading "and "/
+  "in " when followed by an uppercase surname.
+
+Known limits documented in the audit ledger (`MetaScienceTools/CitationGuard/
+tmp/iterate/cycle-canary-smoke/`): multi-citation parenthetical SECONDARY-entry
+detection (Mazursky/Hom/Guilbault/KNAW inside long bundles), Maier/Bartoš
+multi-same-year title-swap disambiguation, and citations embedded inside
+reference-list titles remain open. Soft-hyphen / Unicode-mangling artifacts and
+dropped references in chan_feldman/collabra are docpluck text-extraction
+defects (filed, fixed in docpluck-iterate per CitationGuard CLAUDE.md domain
+boundary).
+
 ## 0.6.0
 
 Additional citation patterns surfaced by the cycle-6 gate diagnostics

@@ -857,8 +857,31 @@ function extractReferenceSection(text: string, style?: CitationStyleType): strin
     /^(?:Accepted by|Action Editor|Handling Editor|Received|Revised|Published)\s*:?\s/i,
   ];
 
+  // Running page-footer pattern — journal name + volume + year-in-parens +
+  // article-number / page-range. PDFs of journal articles repeat this footer
+  // on every page (e.g. "Journal of Experimental Social Psychology 96 (2021)
+  // — 104154"); when one slips between two references the splitter treats it
+  // as a new entry, producing a SECTION-BOUNDARY defect (cycle-1 chen canary).
+  // Filter ENTIRELY (don't push) so it doesn't disrupt the splitter.
+  // Conservative: requires journal-like prefix (no comma — real references
+  // start with "Last, F."), volume digits, year-in-parens, and a trailing
+  // number / page range. cycle 18 (2026-05-26).
+  const RUNNING_PAGE_FOOTER = /^[A-Z][A-Za-z'’&\-:.\s]{4,80}\s+\d{1,4}\s*\((19|20)\d{2}\)\s*[\s—\-–]*\s*\d{1,7}(?:[-–]\d{1,7})?\.?\s*$/;
+  // Download-watermark pattern — "Downloaded from <URL> by <institution> on
+  // <date>" appears on every page of UCPress / OUP / Wiley / etc. open-access
+  // PDFs and was parsed as 3 separate references in the cycle-1 collabra
+  // canary (HALLUCINATION class). Filter entirely, same way as the running
+  // page-footer. cycle 18 (2026-05-26).
+  const DOWNLOAD_WATERMARK = /^Downloaded\s+from\s+https?:\/\/\S+\s+by\s+.+\s+on\s+\d{1,2}\s+\w+\s+\d{4}\s*$/i;
+
   for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
     const trimmed = lines[lineIdx].trim();
+
+    // Drop running page footers and download watermarks entirely so they
+    // don't disrupt the splitter.
+    if (RUNNING_PAGE_FOOTER.test(trimmed) || DOWNLOAD_WATERMARK.test(trimmed)) {
+      continue;
+    }
 
     // Skip empty lines, page numbers, pipe separators, and PMC manuscript artifacts
     if (/^\s*$/.test(trimmed) || /^\s*\|?\s*\d{1,4}\s*$/.test(trimmed) || trimmed === '|'

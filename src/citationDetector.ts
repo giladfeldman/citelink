@@ -308,12 +308,22 @@ const CITATION_PATTERNS = {
   
   // Multiple citations: (Smith, 2020; Jones, 2019)
   multipleCitations: /\(\s*([^)]+;\s*[^)]+)\s*\)/g,
-  
-  // Same author multiple years: (Smith, 2019, 2020)
-  sameAuthorMultipleYears: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s*,\s*(\d{4}[a-z]?)\s*,\s*(\d{4}[a-z]?)\s*\)/gi,
-  
-  // Same author same year: (Smith, 2020a, 2020b)
-  sameAuthorSameYear: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s*,\s*(\d{4}[a-z])\s*,\s*(\d{4}[a-z])\s*\)/gi,
+
+  // Same-author multi-year: "(Bishop, 2019, 2020a, 2020b)", "(Thaler, 1985,
+  // 1999)", "(e.g., Dickert et al., 2012, 2015)". One author (optionally with
+  // an "et al."), then 2+ comma-separated years. Each year becomes its own
+  // citation sharing the author. Cycle 18 (2026-05-26 canary audit): the
+  // previous `sameAuthorMultipleYears` / `sameAuthorSameYear` patterns were
+  // defined but never consumed by any loop, so every bare-year continuation
+  // ("2020b", "1999", "2015") was an INTEXT-DETECTION-MISS. This pattern is
+  // consumed by an actual loop below. Optional signal prefix ("e.g.,") and
+  // optional "et al." are stripped/handled in the loop. The group captures
+  // the author, an optional et-al marker, and the full comma-separated year
+  // tail; the loop splits the tail on commas. `i` flag for case tolerance.
+  sameAuthorMultiYear: new RegExp(
+    `\\(\\s*(?:${SIGNAL_PREFIX})?(${COMPOUND_SURNAME})\\s*(,?\\s+et\\s*\\.?\\s*al\\.?)?\\s*,\\s*((?:\\d{4}[a-z]?)(?:\\s*,\\s*\\d{4}[a-z]?){1,8})\\s*\\)`,
+    'gi',
+  ),
 };
 
 /**
@@ -380,6 +390,42 @@ const MONTH_NAMES = new Set([
 /** True if the captured "first author" is actually a month name. */
 function isMonthName(str: string): boolean {
   return MONTH_NAMES.has(str.trim().toLowerCase().replace(/\.$/, ''));
+}
+
+// Sentence-initial connectors and adverbs. The 2026-05-26 cycle-1 canary
+// audit surfaced four distinct hallucinations of this class across three
+// canary papers — citelink parsed sentence-initial "Also,", "Furthermore,",
+// "Therefore,", "Recently," as first author when followed by a real
+// narrative citation ("Also, Werth and Strack (2003)" matched
+// multiAuthorAndNarrative with first author = "Also"). Filtering the captured
+// first author against this set drops the spurious detection AND lets
+// downstream patterns (twoAuthorNarrative, etAlNarrative) pick up the real
+// citation that follows. Conservative blocklist — only words that (a) appear
+// at sentence-start in academic prose AND (b) are not credible surnames in
+// the reference-list context. Matched case-insensitively, trailing period
+// tolerated.
+const SENTENCE_CONNECTORS = new Set([
+  // additive
+  'also', 'additionally', 'furthermore', 'moreover', 'besides', 'likewise', 'similarly',
+  // adversative
+  'however', 'nevertheless', 'nonetheless', 'conversely', 'instead', 'otherwise', 'yet', 'still',
+  // causal
+  'therefore', 'thus', 'hence', 'consequently', 'accordingly',
+  // temporal / sequential
+  'recently', 'previously', 'currently', 'subsequently', 'finally', 'initially',
+  'originally', 'eventually', 'meanwhile', 'first', 'second', 'third', 'lastly',
+  // emphasis
+  'importantly', 'notably', 'interestingly', 'specifically', 'indeed', 'clearly',
+  'obviously', 'certainly', 'particularly', 'especially', 'crucially', 'critically',
+  // generalising
+  'overall', 'generally', 'typically', 'usually', 'often',
+  // alternative
+  'alternatively',
+]);
+
+/** True if the captured "first author" is actually a sentence-initial connector. */
+function isSentenceConnector(str: string): boolean {
+  return SENTENCE_CONNECTORS.has(str.trim().toLowerCase().replace(/\.$/, ''));
 }
 
 /**
@@ -673,6 +719,13 @@ export function detectCitations(text: string): DetectedCitation[] {
   // classifyCitation collapses 3+ authors → 'et_al'.
   CITATION_PATTERNS.multiAuthorAndNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.multiAuthorAndNarrative.exec(text)) !== null) {
+    // Sentence-connector guard (2026-05-26 canary audit cycle): the leading
+    // captured token in the comma-separated author list is the part most
+    // susceptible to absorbing a sentence-initial adverb (e.g. "Also, Werth
+    // and Strack (2003)" → first author = "Also"). Skip and let downstream
+    // narrative patterns pick up the real citation.
+    const firstToken = match[1].split(/\s*,\s*/)[0] ?? '';
+    if (isSentenceConnector(firstToken)) continue;
     const { year, suffix } = parseYear(match[3]);
     const authors = [
       ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
@@ -694,6 +747,9 @@ export function detectCitations(text: string): DetectedCitation[] {
   // ============ MIXED-LIST NARRATIVE WITH TRAILING ET AL. ============
   CITATION_PATTERNS.mixedListEtAlNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.mixedListEtAlNarrative.exec(text)) !== null) {
+    // Sentence-connector guard (mirrors multiAuthorAndNarrative).
+    const firstToken = match[1].split(/\s*,\s*/)[0] ?? '';
+    if (isSentenceConnector(firstToken)) continue;
     const { year, suffix } = parseYear(match[2]);
     const authors = [
       ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
@@ -718,6 +774,9 @@ export function detectCitations(text: string): DetectedCitation[] {
   // by an inner multi-author match on the named prefix.
   CITATION_PATTERNS.mixedListEtAlParenthetical.lastIndex = 0;
   while ((match = CITATION_PATTERNS.mixedListEtAlParenthetical.exec(text)) !== null) {
+    // Sentence-connector guard (very rare inside parens but harmless to apply).
+    const firstToken = match[1].split(/\s*,\s*/)[0] ?? '';
+    if (isSentenceConnector(firstToken)) continue;
     const { year, suffix } = parseYear(match[2]);
     const authors = [
       ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
@@ -742,6 +801,9 @@ export function detectCitations(text: string): DetectedCitation[] {
   // pair. classifyCitation collapses 3+ authors → 'et_al'.
   CITATION_PATTERNS.multiAuthorParenthetical.lastIndex = 0;
   while ((match = CITATION_PATTERNS.multiAuthorParenthetical.exec(text)) !== null) {
+    // Sentence-connector guard (very rare inside parens but harmless to apply).
+    const firstToken = match[1].split(/\s*,\s*/)[0] ?? '';
+    if (isSentenceConnector(firstToken)) continue;
     const { year, suffix } = parseYear(match[3]);
     const authors = [
       ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
@@ -951,12 +1013,16 @@ export function detectCitations(text: string): DetectedCitation[] {
   // ============ ET AL. NARRATIVE ============
   CITATION_PATTERNS.etAlNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.etAlNarrative.exec(text)) !== null) {
+    // Sentence-connector guard — "Recently et al. (2021)" should not parse
+    // as a citation; "Recently, Moche and Västfjäll (2021)" should let the
+    // multiAuthorAndNarrative loop find the real citation downstream.
+    if (isSentenceConnector(match[1])) continue;
     const { year, suffix } = parseYear(match[2]);
     const authors = [
       createParsedAuthor(match[1]),
       createParsedAuthor('et al.', true)
     ];
-    
+
     addCitation({
       raw: match[0],
       normalized: normalizeCitation(match[0]),
@@ -1017,6 +1083,8 @@ export function detectCitations(text: string): DetectedCitation[] {
   // ============ TWO AUTHORS NARRATIVE ============
   CITATION_PATTERNS.twoAuthorNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.twoAuthorNarrative.exec(text)) !== null) {
+    // Sentence-connector guard — same rationale as etAlNarrative.
+    if (isSentenceConnector(match[1])) continue;
     const { year, suffix } = parseYear(match[3]);
     const authors = [
       createParsedAuthor(match[1]),
@@ -1041,7 +1109,10 @@ export function detectCitations(text: string): DetectedCitation[] {
   while ((match = CITATION_PATTERNS.singleNarrative.exec(text)) !== null) {
     const { year, suffix } = parseYear(match[2]);
     const authors = [createParsedAuthor(match[1])];
-    
+
+    // Sentence-connector guard (2026-05-26 canary audit cycle).
+    if (isSentenceConnector(match[1])) continue;
+
     // Skip if author looks like a common word
     const authorLower = match[1].toLowerCase();
     const commonWords = ['the', 'this', 'that', 'these', 'those', 'their', 'there', 'where', 'when', 'while', 'which', 'what', 'with', 'from', 'into', 'upon', 'about', 'after', 'before', 'between', 'through', 'during', 'without', 'within', 'among', 'along', 'across', 'behind', 'beyond', 'under', 'over', 'above', 'below', 'around', 'toward', 'towards', 'against', 'throughout', 'despite', 'figure', 'table', 'section', 'chapter', 'study', 'research', 'analysis', 'results', 'method', 'discussion', 'conclusion', 'introduction', 'abstract', 'however', 'therefore', 'furthermore', 'moreover', 'nevertheless', 'although', 'whereas', 'because', 'since', 'unless', 'until', 'while'];
@@ -1060,6 +1131,53 @@ export function detectCitations(text: string): DetectedCitation[] {
     });
   }
   
+  // ============ SAME-AUTHOR MULTI-YEAR ============
+  // "(Bishop, 2019, 2020a, 2020b)", "(Thaler, 1985, 1999)", "(e.g., Dickert
+  // et al., 2012, 2015)". Emits one citation per year, all sharing the author.
+  // Runs BEFORE multipleCitations and the single/two-author parenthetical
+  // loops so the bare-year tail isn't dropped. cycle 18 (2026-05-26).
+  CITATION_PATTERNS.sameAuthorMultiYear.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.sameAuthorMultiYear.exec(text)) !== null) {
+    const authorName = match[1];
+    if (isSentenceConnector(authorName) || isMonthName(authorName)) continue;
+    const isEtAl = !!match[2];
+    const years = match[3].split(/\s*,\s*/).map(y => y.trim()).filter(Boolean);
+    if (years.length < 2) continue; // must be a genuine multi-year list
+    const authors = isEtAl
+      ? [createParsedAuthor(authorName), createParsedAuthor('et al.', true)]
+      : [createParsedAuthor(authorName)];
+    // Each year becomes its own citation. addCitation() dedupes by exact
+    // (start-end) position, so siblings must get DISTINCT positions or only
+    // the first survives. Locate each year token's offset inside the matched
+    // text (searching forward from the previous year so repeated years still
+    // advance) and give each sibling a narrow position window there. The
+    // scorer multisets by citKey (author|year), so these narrow windows only
+    // matter for sorting + de-overlap, both of which the identity-aware
+    // de-overlap pass below now respects.
+    const matchStart = match.index;
+    const matchText = match[0];
+    let searchFrom = 0;
+    for (const rawYear of years) {
+      const { year, suffix } = parseYear(rawYear);
+      if (!year) continue;
+      const yearOffset = matchText.indexOf(rawYear, searchFrom);
+      const start = yearOffset >= 0 ? matchStart + yearOffset : matchStart;
+      const end = yearOffset >= 0 ? start + rawYear.length : matchStart + matchText.length;
+      if (yearOffset >= 0) searchFrom = yearOffset + rawYear.length;
+      addCitation({
+        raw: matchText,
+        normalized: normalizeCitation(matchText),
+        type: classifyCitation(authors, false, false),
+        citationStyle: 'parenthetical',
+        authors,
+        year,
+        yearSuffix: suffix,
+        position: { start, end },
+        context: extractContext(text, matchStart, matchText.length),
+      });
+    }
+  }
+
   // ============ MULTIPLE CITATIONS ============
   CITATION_PATTERNS.multipleCitations.lastIndex = 0;
   while ((match = CITATION_PATTERNS.multipleCitations.exec(text)) !== null) {
@@ -1079,11 +1197,59 @@ export function detectCitations(text: string): DetectedCitation[] {
       // stripping, every first item that follows a signal phrase is missed
       // and counts as both a detection-recall miss AND (downstream) a
       // matching miss.
-      const citeText = rawCiteText.replace(
-        /^(?:e\.g\.?|i\.e\.?|cf\.?|see(?: also)?|as in|c\.f\.?)\s*,?\s+/i,
-        '',
-      );
+      // Strip a leading signal phrase OR bundle connector. Beyond the
+      // "e.g./i.e./cf./see/as in" signal phrases, multi-citation bundles
+      // join later items with prose connectors — "(Lee, 2019; and
+      // Renkewitz & Keiner, 2019)", "(Slovic, 2007, in Mayiwar et al.,
+      // 2023)". The leading "and "/"in " on those fragments defeats the
+      // `^`-anchored matchers below, dropping the citation. cycle 18
+      // (2026-05-26). "and"/"in" are only stripped when followed by an
+      // uppercase letter (a surname), so prose like "and 2019" is untouched.
+      const citeText = rawCiteText
+        .replace(/^(?:e\.g\.?|i\.e\.?|cf\.?|see(?: also)?|as in|c\.f\.?)\s*,?\s+/i, '')
+        .replace(/^(?:and|in)\s+(?=[A-ZÀ-Ÿ])/i, '');
       // Try to match individual citation patterns
+
+      // Multi-year fragment FIRST: "Dickert et al., 2012, 2015",
+      // "Thaler, 1985, 1999", "Bishop, 2019, 2020a, 2020b" appearing as a
+      // semicolon-bundle item (e.g. "(...; Dickert et al., 2012, 2015;
+      // Slovic & Västfjäll, 2010)"). The single/two/et-al matchers below
+      // are `$`-anchored on a SINGLE trailing year, so a multi-year tail
+      // fails all of them and the whole fragment is silently dropped. Emit
+      // one citation per year, sharing the author. cycle 18 (2026-05-26).
+      const multiYearFrag = citeText.match(new RegExp(
+        `^(${COMPOUND_SURNAME})(\\s*,?\\s+et\\s*\\.?\\s*al\\.?)?\\s*,\\s*((?:\\d{4}[a-z]?)(?:\\s*,\\s*\\d{4}[a-z]?){1,8})$`,
+        'i',
+      ));
+      if (multiYearFrag && !isSentenceConnector(multiYearFrag[1]) && !isMonthName(multiYearFrag[1])) {
+        const fragIsEtAl = !!multiYearFrag[2];
+        const fragYears = multiYearFrag[3].split(/\s*,\s*/).map(y => y.trim()).filter(Boolean);
+        const fragAuthors = fragIsEtAl
+          ? [createParsedAuthor(multiYearFrag[1]), createParsedAuthor('et al.', true)]
+          : [createParsedAuthor(multiYearFrag[1])];
+        let yearSearchFrom = 0;
+        for (const rawYear of fragYears) {
+          const { year, suffix } = parseYear(rawYear);
+          if (!year) continue;
+          const off = citeText.indexOf(rawYear, yearSearchFrom);
+          const yStart = off >= 0 ? currentPos + off : currentPos;
+          const yEnd = off >= 0 ? yStart + rawYear.length : currentPos + citeText.length;
+          if (off >= 0) yearSearchFrom = off + rawYear.length;
+          addCitation({
+            raw: `(${citeText})`,
+            normalized: normalizeCitation(`(${citeText})`),
+            type: classifyCitation(fragAuthors, false, false),
+            citationStyle: 'parenthetical',
+            authors: fragAuthors,
+            year,
+            yearSuffix: suffix,
+            position: { start: yStart, end: yEnd },
+            context: extractContext(text, currentPos, citeText.length),
+          });
+        }
+        currentPos += citeText.length + 2;
+        continue;
+      }
 
       // Et al. pattern
       const etAlMatch = citeText.match(new RegExp(
@@ -1217,15 +1383,38 @@ export function detectCitations(text: string): DetectedCitation[] {
   citations.sort((a, b) => a.position.start - b.position.start);
 
   // Remove citations whose positions are contained within a longer citation
-  // (e.g., "Lopez and Rey (2017)" is inside "Merida-Lopez and Rey (2017)")
+  // (e.g., "Lopez and Rey (2017)" is inside "Merida-Lopez and Rey (2017)").
+  //
+  // Identity key guards two cases against false removal:
+  //  1. Same-author multi-year siblings (cycle 18) — "(Bishop, 2019, 2020a,
+  //     2020b)" emits three citations at the SAME source span; without the
+  //     identity check each would be "contained" by the others and ALL three
+  //     would be dropped.
+  //  2. Genuine duplicates (same span AND same identity) are still collapsed
+  //     to one.
+  // A citation is dropped only if another citation has a STRICTLY larger span
+  // containing it, OR an equal span with a DIFFERENT-and-already-kept identity
+  // is the same physical detection (true duplicate, same identity).
+  const identityKey = (c: DetectedCitation) =>
+    `${c.authors.map(a => a.normalized).join('+')}|${c.year}|${c.yearSuffix ?? ''}`;
   const deoverlapped: DetectedCitation[] = [];
+  const keptKeys = new Set<string>();
   for (const c of citations) {
-    const isContained = citations.some(other =>
+    const cKey = identityKey(c);
+    const strictlyContained = citations.some(other =>
       other !== c &&
+      identityKey(other) !== cKey &&
       other.position.start <= c.position.start &&
-      other.position.end >= c.position.end
+      other.position.end >= c.position.end &&
+      (other.position.end - other.position.start) > (c.position.end - c.position.start)
     );
-    if (!isContained) deoverlapped.push(c);
+    if (strictlyContained) continue;
+    // Collapse exact-identity duplicates (same author+year+suffix), keeping
+    // the first by position (already sorted).
+    const dupKey = `${cKey}@${c.position.start}-${c.position.end}`;
+    if (keptKeys.has(dupKey)) continue;
+    keptKeys.add(dupKey);
+    deoverlapped.push(c);
   }
 
   return deoverlapped;
