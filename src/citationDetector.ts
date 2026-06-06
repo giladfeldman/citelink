@@ -90,8 +90,13 @@ const ORGANIZATION_ABBREVIATIONS: Record<string, string[]> = {
 // lists) match alongside the lowercase canonical forms ("van der", "de la",
 // "von"). The lowercase ASCII characters after the leading letter are
 // strict — particles are too short to risk further variation.
+// The Dutch contracted-article forms "van't" / "van's" (and bare "'t" / "'s",
+// the elided "het"/"des") are listed FIRST so the alternation prefers the
+// longer contracted form over bare "van". They match an apostrophe directly
+// (no whitespace), which a `${PARTICLE}\s+` consumer would otherwise reject.
+// Cycle 25 — "van't Veer".
 const SURNAME_PARTICLE =
-  '(?:[Dd]e|[Dd]el|[Dd]ella|[Dd]ello|[Dd]er|[Dd]en|[Dd]es|[Dd]i|[Dd]u|[Dd]a|[Dd]al|[Dd]alla|[Dd]ei|[Dd]egli|[Dd]elle|[Dd]os|[Dd]as|[Ee]l|[Aa]f|[Aa]v|[Ll]a|[Ll]e|[Ll]os|[Ll]as|[Tt]en|[Tt]er|[Vv]an|[Vv]on|[Yy]|[Zz]u|[Zz]ur|[Aa]l|[Bb]en|[Bb]in|[Ii]bn|[Aa]bu|[Ss]t|[Ss]aint)';
+  "(?:[Vv]an['’]t|[Vv]an['’]s|['’]t|['’]s|[Dd]e|[Dd]el|[Dd]ella|[Dd]ello|[Dd]er|[Dd]en|[Dd]es|[Dd]i|[Dd]u|[Dd]a|[Dd]al|[Dd]alla|[Dd]ei|[Dd]egli|[Dd]elle|[Dd]os|[Dd]as|[Ee]l|[Aa]f|[Aa]v|[Ll]a|[Ll]e|[Ll]os|[Ll]as|[Tt]en|[Tt]er|[Vv]an|[Vv]on|[Yy]|[Zz]u|[Zz]ur|[Aa]l|[Bb]en|[Bb]in|[Ii]bn|[Aa]bu|[Ss]t|[Ss]aint)";
 // SURNAME_LASTNAME allows ONE embedded uppercase letter to admit CamelCase
 // surnames like McCullough / DeScioli / MacDonald / O'Connor — without
 // admitting "FooBarBaz" or two-word phrases. The reference parser got this
