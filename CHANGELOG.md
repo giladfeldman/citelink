@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.2 (unreleased)
+
+Citationguard-iterate **cycle 22** — compound surname in two-author bundle entries.
+
+- **A particle surname ("Van Nuland", "De Bruin", "van der Berg") as a
+  two-author entry inside a semicolon bundle was missed.** The standalone
+  two-author parenthetical pattern already used `COMPOUND_SURNAME`, but the
+  anchored bundle-fragment two-author pattern (which scores each ';'-split
+  fragment) used the particle-less `SURNAME_LASTNAME`, so
+  "(…; Hom Jr & Van Nuland, 2019; …)" lost its middle entry. The bundle pattern
+  now uses `COMPOUND_SURNAME` for both authors. Combined with cycle 21, recovers
+  the chen_2021_jesp "Hom Jr & Van Nuland" citations (intext F1 0.911 → 0.916).
+  Regression test: `tests/compoundBundleTwoAuthor.test.ts` (4 cases).
+
 ## 0.7.1 (unreleased)
 
 Citationguard-iterate **cycle 21 (R2)** — generational suffix on surnames.

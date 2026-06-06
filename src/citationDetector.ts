@@ -1290,9 +1290,13 @@ export function detectCitations(text: string): DetectedCitation[] {
       }
       
       // Two author pattern (with optional initial prefix on each — "S. Lee &
-      // Feeley, 2018" / "M. D. Lee & Wagenmakers, 2013")
+      // Feeley, 2018" / "M. D. Lee & Wagenmakers, 2013"). Uses COMPOUND_SURNAME
+      // so a particle surname ("Van Nuland", "De Bruin", "van der Berg") is
+      // detected as a bundle-secondary entry — the standalone two-author paren
+      // pattern already does; cycle 22 brings the anchored bundle fragment to
+      // parity, recovering "(…; Hom Jr & Van Nuland, 2019; …)".
       const twoAuthorMatch = citeText.match(new RegExp(
-        `^${INITIAL_PREFIX}(${SURNAME_LASTNAME})\\s*&\\s*${INITIAL_PREFIX}(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*&\\s*${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
         'i',
       ));
       if (twoAuthorMatch) {
