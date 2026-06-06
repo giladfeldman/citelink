@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.9 (unreleased)
+
+Citationguard-iterate **cycle 4** (this run) — reference-section bleed.
+
+- **Author-year citations were detected inside the reference list itself.** A
+  replication/meta-analysis paper's reference entries cite their originals in the
+  entry title (collabra_90203: "... extension of Kogut and Ritov (2005a) Study
+  2 ..."), and `detectCitations` / `detectHarvardCitations` scanned the whole
+  document, emitting those as spurious in-text citations. The numeric detector
+  already filtered on `findReferenceSectionStart`; `analyze()` now applies the
+  same boundary to the author-year paths (a no-op for numeric). collabra
+  extra_pred 6 → 4 (intext F1 0.952 → 0.959), chan 9 → 5 (0.932 → 0.946); no
+  recall loss; chen unaffected (its extra_pred are gold under-counts, not bleed).
+  Regression test: `tests/referenceSectionBleed.test.ts`.
+
 ## 0.7.8 (unreleased)
 
 Citationguard-iterate **cycle 3** (this run) — Latin Extended-A surnames.

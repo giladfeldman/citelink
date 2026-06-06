@@ -39,15 +39,26 @@ export function analyze(text: string): CitationAnalysis {
     style.style === 'asa' ||
     style.style === 'chicago-ad';
 
+  const referenceSectionStart = findReferenceSectionStart(text) ?? undefined;
   let citations: DetectedCitation[];
   if (isNumeric) {
-    const referenceSectionStart = findReferenceSectionStart(text) ?? undefined;
     citations = detectNumericCitations(text, referenceSectionStart);
   } else if (isHarvardLike) {
     citations = detectHarvardCitations(text);
   } else {
     // APA, AOM, Chicago — all use the comma-before-year parenthetical pattern
     citations = detectCitations(text);
+  }
+
+  // Drop any author-year citation detected INSIDE the reference section
+  // (reference-list bleed): a replication/meta-analysis paper's reference titles
+  // routinely cite their originals (e.g. a reference entry "... a replication of
+  // Kogut and Ritov (2005) ...") which the author-year detectors would otherwise
+  // emit as spurious in-text citations. The numeric detector already filters
+  // internally on the same boundary; this makes the author-year paths consistent
+  // and is a no-op for numeric. Citations with no position are kept (start ?? 0).
+  if (referenceSectionStart !== undefined) {
+    citations = citations.filter((c) => (c.position?.start ?? 0) < referenceSectionStart);
   }
 
   const references = parseReferences(text, style.style);
