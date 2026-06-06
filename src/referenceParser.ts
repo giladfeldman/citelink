@@ -945,15 +945,32 @@ function extractReferenceSection(text: string, style?: CitationStyleType): strin
           || /^Author\s+Manuscript$/i.test(nextLine)
           || /Author manuscript;\s*available in PMC/i.test(nextLine)
           || /^[A-Z]{2,}(?:\s+[A-Z]{2,})*\s+et\s+al\.?$/i.test(nextLine)) continue;
-        // Check if next content line looks like a reference (author pattern or numbered ref)
+        // Check if this content line looks like a reference (author pattern or numbered ref)
         if (nextLine.match(/^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+[,\s]/) ||
             nextLine.match(/^\[\d+\]/) ||
             nextLine.match(/^\d+\.\s*[A-Z]/) ||
             nextLine.match(/\(\d{4}[a-z]?\)/) ||
             nextLine.match(/\b(19|20)\d{2}[a-z]?[;.]/)) {
           looksLikePageHeader = true;
+          break;
         }
-        break; // Only check the first non-empty line
+        // Not a reference start. If it's a CONTINUATION fragment, the all-caps
+        // running header split a reference mid-entry (e.g. a "COGNITION AND
+        // EMOTION\n1247" header landed inside the Hareli entry, between
+        // "...forgiveness. Motivation" and the continuation lines "and Emotion,
+        // 30(3), 189–197." then "006-9025-x" [a DOI suffix]). Such fragments
+        // start lowercase, with a digit/page-number/volume token, with a DOI
+        // suffix, or with an opening bracket — never with capitalized prose.
+        // References DO resume a line or two later, so keep scanning the window
+        // for the next genuine reference start rather than treating the header
+        // as the end of the section. A capitalized non-reference line, by
+        // contrast, is real post-references prose, so stop there as before.
+        // (Numbered-reference starts like "1. Smith" / "[1]" already matched the
+        // reference-start patterns above, so a digit here is a fragment, not a ref.)
+        if (/^[a-zà-ÿ0-9&(\[\-–.]/.test(nextLine) || /^(?:and|der|van|de|von|et|of|the|in)\b/i.test(nextLine)) {
+          continue;
+        }
+        break; // genuine capitalized post-references prose → references ended
       }
       if (!looksLikePageHeader) {
         break;
