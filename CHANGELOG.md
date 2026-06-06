@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.5 (unreleased)
+
+Citationguard-iterate **cycle 25** — Dutch contracted-article particle ("van't").
+
+- **A "van't Veer" / "van 't Hooft" surname was missed.** The particle whitelist
+  matched "van" only when followed by whitespace, so the contracted "van't"
+  (apostrophe, no space) defeated the surname pattern and
+  "(van't Veer & Giner-Sorolla, 2016)" was dropped. The whitelist now includes
+  the contracted forms "van't" / "van's" / bare "'t" / "'s" (straight or curly
+  apostrophe). Regression test: `tests/dutchContractedParticle.test.ts` (3 cases).
+  chen_2021_jesp intext F1 0.918 → 0.923.
+
 ## 0.7.4 (unreleased)
 
 Citationguard-iterate **cycle 24 (R1)** — "see for example" signal prefix.
