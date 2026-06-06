@@ -535,15 +535,38 @@ export function matchCitationToReferences(
   
   // Determine status for best match
   const bestMatch = results[0];
-  
+
   // Check for ambiguity (multiple high-scoring matches)
   const ambiguousMatches = results
     .slice(1)
     .filter(m => (bestMatch.confidence - m.confidence) < MATCHING_CONFIG.AMBIGUOUS_SCORE_DIFFERENCE)
     .slice(0, 3);
-  
+
+  // Same-key-ambiguity guard (2026-05-26 cycle-1 chen canary): when the
+  // ambiguous alternatives share the SAME (first-author, year, yearSuffix)
+  // as bestMatch, the ambiguity is unresolvable from the citation alone —
+  // both candidate references have identical disambiguating anchors (e.g.
+  // two "Fischhoff (1975)" entries in the reference list with no a/b
+  // suffix). Citelink picks the highest-confidence one and marks it
+  // 'matched' rather than 'ambiguous'; the alternativeMatches list is
+  // still populated so downstream tools can see the duplicates. Without
+  // this guard, 21/21 (Fischhoff, 1975) detections in chen_2021_jesp
+  // scored as no-match purely because the reference list had two same-
+  // (author, year) entries with no suffix to break the tie. When suffixes
+  // DO differ (e.g. 2020a vs 2020b) the ambiguity IS real — the original
+  // 'ambiguous' status is preserved.
+  const bestAuthorKey = String(bestMatch.reference?.firstAuthorLastName ?? '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 8);
+  const bestYearKey = String(bestMatch.reference?.year ?? '').match(/\d{4}/)?.[0] ?? '';
+  const bestSuffixKey = String(bestMatch.reference?.yearSuffix ?? '').toLowerCase();
+  const allSameKey = ambiguousMatches.length > 0 && ambiguousMatches.every(m => {
+    const ak = String(m.reference?.firstAuthorLastName ?? '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 8);
+    const yk = String(m.reference?.year ?? '').match(/\d{4}/)?.[0] ?? '';
+    const sk = String(m.reference?.yearSuffix ?? '').toLowerCase();
+    return ak === bestAuthorKey && yk === bestYearKey && sk === bestSuffixKey;
+  });
+
   if (bestMatch.confidence >= MATCHING_CONFIG.AUTO_MATCH_THRESHOLD) {
-    if (ambiguousMatches.length > 0) {
+    if (ambiguousMatches.length > 0 && !allSameKey) {
       bestMatch.status = 'ambiguous';
       bestMatch.alternativeMatches = ambiguousMatches.map(m => ({
         reference: m.reference!,
@@ -551,9 +574,15 @@ export function matchCitationToReferences(
       }));
     } else {
       bestMatch.status = 'matched';
+      if (allSameKey) {
+        bestMatch.alternativeMatches = ambiguousMatches.map(m => ({
+          reference: m.reference!,
+          confidence: m.confidence
+        }));
+      }
     }
   } else if (bestMatch.confidence >= MATCHING_CONFIG.SUGGESTED_MATCH_THRESHOLD) {
-    if (ambiguousMatches.length > 0) {
+    if (ambiguousMatches.length > 0 && !allSameKey) {
       bestMatch.status = 'ambiguous';
       bestMatch.alternativeMatches = ambiguousMatches.map(m => ({
         reference: m.reference!,
@@ -561,6 +590,12 @@ export function matchCitationToReferences(
       }));
     } else {
       bestMatch.status = 'suggested';
+      if (allSameKey) {
+        bestMatch.alternativeMatches = ambiguousMatches.map(m => ({
+          reference: m.reference!,
+          confidence: m.confidence
+        }));
+      }
     }
   } else {
     bestMatch.status = 'no_match';
