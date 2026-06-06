@@ -90,7 +90,7 @@ export function detectNumericCitations(
 
   // ── Narrative numeric: "Smith [1]" or "Smith et al. [1,2]" ──
   const narrativePattern =
-    /([A-ZÀ-Ÿ][a-zà-ÿ'-]+(?:\s+et\s+al\.?)?)\s*\[(\d+(?:\s*[-–—,]\s*\d+)*)\]/g;
+    /([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+et\s+al\.?)?)\s*\[(\d+(?:\s*[-–—,]\s*\d+)*)\]/g;
 
   while ((m = narrativePattern.exec(text)) !== null) {
     if (referenceSectionStart !== undefined && m.index >= referenceSectionStart) continue;

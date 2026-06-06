@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.8 (unreleased)
+
+Citationguard-iterate **cycle 3** (this run) — Latin Extended-A surnames.
+
+- **A surname with a Latin Extended-A character (U+0100–U+017F) was truncated,
+  promoting the second author to first.** The multi-author reference
+  `authorPattern` LastName body class was `[A-Za-zÀ-ÿ'-]+`, stopping at U+00FF,
+  so "Bartoš, F., Maier, M., …" parsed first author = "Maier" (the "š" U+0161
+  truncated "Bartoš", the broken entry was skipped). 3 mis-parsed references +
+  cascading matching misses on collabra_90203. The numericCitationDetector
+  narrative pattern had the same gap. Both now use `ā-ž`, matching the convention
+  the rest of the codebase already followed. collabra references F1 0.869 →
+  0.938, matching accuracy 0.897 → 0.945; ASCII unaffected; no corpus regression.
+  Regression test: `tests/latinExtendedSurname.test.ts`.
+
 ## 0.7.7 (unreleased)
 
 Citationguard-iterate **cycle 2** (this run) — reference section truncated by a
