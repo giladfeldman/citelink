@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.1 (unreleased)
+
+Citationguard-iterate **cycle 21 (R2)** — generational suffix on surnames.
+
+- **Generational suffix (Jr / Sr / II / III / IV) on a surname broke detection.**
+  A trailing "Hom Jr" defeated every author-capture pattern that expected a
+  "&", ",", or year immediately after the surname, so "(Hom Jr & Van Nuland,
+  2019)" and "Hom Jr (2019)" were missed entirely. `SURNAME_LASTNAME` now
+  consumes an optional generational suffix (so every pattern — anchored bundle
+  fragments included — tolerates it), and `createParsedAuthor` strips the suffix
+  from the normalized author so the citation key stays "hom", not "hom jr".
+  Regression test: `tests/generationalSuffix.test.ts` (5 cases). (Surfaced by
+  the cycle-20 gold-group-expansion gate fix on chen_2021_jesp.)
+
 ## 0.7.0 (unreleased)
 
 Citationguard-iterate **cycle 18** — fixes driven by the 2026-05-26
