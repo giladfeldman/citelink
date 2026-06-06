@@ -1020,6 +1020,12 @@ function extractReferenceSection(text: string, style?: CitationStyleType): strin
   const cleanedSection = refSection
     // Handle hyphenation at line breaks: "Educa-\ntional" -> "Educational"
     .replace(/([a-zA-ZÀ-Ÿà-ÿā-ž])-\s*\n\s*([a-zA-ZÀ-Ÿà-ÿā-ž])/g, '$1$2')
+    // Join a numeric RANGE split across a line break: a page/year range like
+    // "243–\n248." or "COVID-\n19." otherwise leaves the trailing number alone
+    // on its line, where the numbered-reference splitter mistakes it for a new
+    // reference number ("248. ...") — fabricating a bogus reference and stealing
+    // the real next entry's number. Rejoin the range so it stays one token.
+    .replace(/(\d)\s*[-–—]\s*\n\s*(\d)/g, '$1–$2')
     // Normalize line breaks
     .replace(/\r\n/g, '\n')
     // Remove multiple trailing spaces at end of lines

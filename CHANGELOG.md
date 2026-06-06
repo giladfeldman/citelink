@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.10 (unreleased)
+
+Citationguard-iterate **cycle 6** (this run) — numbered reference fabricated from
+a line-split page range (HALLUCINATION class).
+
+- **A page/year range split across a line break fabricated a reference.** On
+  plos_med_1 (Vancouver) a reference ended "... 111:243–" with "248. https://..."
+  on the next line; the numbered-reference splitter read "248." as a new
+  reference number, fabricating reference #248 and mis-numbering the real next
+  entry. `extractReferenceSection` now joins a digit range split across a line
+  ("243–\n248" → "243–248"), mirroring the word-hyphenation join. Fabricated
+  high-numbered references are gone (plos max listNumber 248 → 33); plos
+  references F1 0.853 → 0.866; no corpus regression. For an academic-integrity
+  tool a fabricated reference is the worst failure mode, so this matters beyond
+  the metric. Regression test: `tests/numberedRefPageRangeSplit.test.ts`.
+
 ## 0.7.9 (unreleased)
 
 Citationguard-iterate **cycle 4** (this run) — reference-section bleed.
