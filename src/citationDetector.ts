@@ -98,8 +98,16 @@ const SURNAME_PARTICLE =
 // fix in cycle 3 (vancouverMultiAuthorAndConnector); cycle 8 ports it to the
 // citation detector after the gate enhancement surfaced 25+ missed
 // "McCullough et al." citations in chan_feldman_2025_cogemo.
+// Optional generational suffix (Jr / Sr / II / III / IV) after a surname. A
+// trailing "Hom Jr" defeated every author-capture pattern that expected a "&",
+// ",", or year immediately after the surname, so "(Hom Jr & Van Nuland, 2019)"
+// was missed entirely. Baked into SURNAME_LASTNAME (so every pattern — anchored
+// bundle fragments included — tolerates it) as a captured-but-stripped tail:
+// the suffix is consumed so the pattern keeps matching, then removed from the
+// normalized author by createParsedAuthor so the key stays "hom". Cycle 21 (R2).
+const GENERATIONAL_SUFFIX = '(?:\\s+(?:Jr|Sr|II|III|IV)\\.?)?';
 const SURNAME_LASTNAME =
-  "[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-Z][a-zà-ÿā-ž'-]+)?";
+  "[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-Z][a-zà-ÿā-ž'-]+)?" + GENERATIONAL_SUFFIX;
 // COMPOUND_SURNAME allows 0-2 leading particles ("Van Knippenberg",
 // "Von Restorff", "De Bruin", "van der Maas", "de la Cruz") in addition to
 // the middle-particle form ("Van der Berg"). Both branches are matched as a
@@ -454,10 +462,15 @@ function isOrganizationName(str: string): boolean {
 function createParsedAuthor(raw: string, isEtAl: boolean = false): ParsedCitationAuthor {
   const trimmed = raw.trim();
   const isOrg = isOrganizationAbbreviation(trimmed) || isOrganizationName(trimmed);
-  
+
+  // Strip a trailing generational suffix (Jr / Sr / II / III / IV) from the
+  // normalized key so "Hom Jr" matches the reference "Hom". normalizeText has
+  // already lowercased and removed the period, so the suffix is a bare word.
+  const normalized = normalizeText(trimmed).replace(/\s+(?:jr|sr|ii|iii|iv)$/i, '');
+
   return {
     raw: trimmed,
-    normalized: normalizeText(trimmed),
+    normalized,
     isEtAl,
     isOrganization: isOrg,
     abbreviation: isOrganizationAbbreviation(trimmed) ? trimmed.toUpperCase() : undefined
