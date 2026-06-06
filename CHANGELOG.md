@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.6 (unreleased)
+
+Citationguard-iterate **cycle 26** — institutional acronym-colon author.
+
+- **An institutional author written "ACRONYM: Full Name" was missed.** The group
+  patterns covered "(WHO, 2020)", "(World Health Organization, 2020)", and
+  "(Name [WHO], 2020)", but not the acronym-colon-name form
+  ("KNAW: Royal Dutch Academy of Arts and Sciences, 2018"), which also appears as
+  a semicolon-bundle entry and may wrap across a line break inside the name. New
+  `groupAcronymColon` pattern + a bundle-fragment handler, keyed on the acronym,
+  tolerant of internal whitespace; guarded against non-acronym lead-ins
+  ("Note: Smith, 2020"). Regression test: `tests/institutionalAcronymColon.test.ts`.
+  Recovered the chen_2021_jesp KNAW citation (intext F1 0.923 → 0.925).
+
 ## 0.7.5 (unreleased)
 
 Citationguard-iterate **cycle 25** — Dutch contracted-article particle ("van't").

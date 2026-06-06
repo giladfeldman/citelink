@@ -312,6 +312,10 @@ const CITATION_PATTERNS = {
   
   // Abbreviation only: (WHO, 2020) or (CDC, 2020)
   groupAbbrevOnly: /\(\s*([A-Z]{2,})\s*,\s*(\d{4}[a-z]?|n\.d\.)\s*\)/g,
+
+  // Acronym-colon institutional author: (KNAW: Royal Dutch Academy of Arts and
+  // Sciences, 2018). Keyed on the acronym. Name part may contain and/&/commas.
+  groupAcronymColon: /\(\s*(?:(?:e\.g\.|i\.e\.|see)[\s,]+)?([A-Z]{2,})\s*:\s*[A-Z][A-Za-z&,'’.\-\s]+?\s*,\s*(\d{4}[a-z]?|n\.d\.)\s*\)/g,
   
   // Full organization name: (World Health Organization, 2020)
   // Matches organizations starting with common prefixes
@@ -646,6 +650,28 @@ export function detectCitations(text: string): DetectedCitation[] {
     });
   }
   
+  // ============ GROUP ACRONYM-COLON (institutional author) ============
+  CITATION_PATTERNS.groupAcronymColon.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.groupAcronymColon.exec(text)) !== null) {
+    const abbrev = match[1];
+    if (abbrev.length < 2 || abbrev.length > 10) continue;
+    const { year, suffix } = parseYear(match[2]);
+    const author = createParsedAuthor(abbrev);
+    author.isOrganization = true;
+    author.abbreviation = abbrev.toUpperCase();
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: 'group',
+      citationStyle: 'parenthetical',
+      authors: [author],
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length),
+    });
+  }
+
   // ============ GROUP FULL NAME ============
   CITATION_PATTERNS.groupFullName.lastIndex = 0;
   while ((match = CITATION_PATTERNS.groupFullName.exec(text)) !== null) {
@@ -1230,6 +1256,30 @@ export function detectCitations(text: string): DetectedCitation[] {
         .replace(/^(?:e\.g\.?|i\.e\.?|cf\.?|see(?:[\s,]+(?:also|for\s+example|e\.g\.?))?|as in|c\.f\.?)\s*,?\s+/i, '')
         .replace(/^(?:and|in)\s+(?=[A-ZÀ-Ÿ])/i, '');
       // Try to match individual citation patterns
+
+      // Institutional acronym-colon author FIRST: "KNAW: Royal Dutch Academy of
+      // Arts and Sciences, 2018" as a bundle item. Keyed on the acronym. The
+      // name part may contain "and"/"&"/commas (institution names do), so it is
+      // matched non-greedily up to the trailing ", YEAR". cycle 26.
+      const acronymColonFrag = citeText.match(
+        /^([A-Z]{2,})\s*:\s*[A-Z][A-Za-z&,'’.\-\s]+?\s*,\s*(\d{4}[a-z]?|n\.d\.)$/,
+      );
+      if (acronymColonFrag) {
+        const { year, suffix } = parseYear(acronymColonFrag[2]);
+        addCitation({
+          raw: `(${citeText})`,
+          normalized: normalizeCitation(`(${citeText})`),
+          type: 'group',
+          citationStyle: 'parenthetical',
+          authors: [createParsedAuthor(acronymColonFrag[1])],
+          year,
+          yearSuffix: suffix,
+          position: { start: currentPos, end: currentPos + citeText.length },
+          context: extractContext(text, currentPos, citeText.length),
+        });
+        currentPos += citeText.length + 2;
+        continue;
+      }
 
       // Multi-year fragment FIRST: "Dickert et al., 2012, 2015",
       // "Thaler, 1985, 1999", "Bishop, 2019, 2020a, 2020b" appearing as a
