@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.4 (unreleased)
+
+Citationguard-iterate **cycle 24 (R1)** — "see for example" signal prefix.
+
+- **The multi-word signal prefix "see for example" (and "see, e.g.") was not
+  stripped.** The fragment-prefix strip and `SIGNAL_PREFIX` recognised "see" /
+  "see also" but not "see for example" / "see, e.g.", so
+  "(see for example Arkes et al., 1981; Harley et al., 2004)" lost its first
+  entry. Both strip sites now accept "see for example" / "see e.g." / "see, e.g."
+  (comma- or space-separated). Regression test:
+  `tests/signalPrefixSeeForExample.test.ts` (4 cases). Cumulative cycles 21–24:
+  chen_2021_jesp intext F1 0.911 → 0.918, matching 0.915 → 0.928.
+
 ## 0.7.3 (unreleased)
 
 Citationguard-iterate **cycle 23** — eszett (ß) in surnames.

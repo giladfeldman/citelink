@@ -126,7 +126,7 @@ const COMPOUND_SURNAME =
 // whitespace consumed so the rest of the pattern keeps using `\s*` for
 // the author position.
 const SIGNAL_PREFIX =
-  '(?:e\\.g\\.,?|i\\.e\\.,?|cf\\.,?|see(?:\\s+also)?\\.?,?|as\\s+in|c\\.f\\.,?)\\s+';
+  '(?:e\\.g\\.,?|i\\.e\\.,?|cf\\.,?|see(?:[\\s,]+(?:also|for\\s+example|e\\.g\\.?))?\\.?,?|as\\s+in|c\\.f\\.,?)\\s+';
 // Optional initial(s) prefix on a surname: "S. Lee" / "M. D. Lee" — used to
 // disambiguate co-authors who share a surname. Period is REQUIRED after each
 // initial (so the pronoun "I" can't accidentally match). 0-3 initials.
@@ -1222,7 +1222,7 @@ export function detectCitations(text: string): DetectedCitation[] {
       // (2026-05-26). "and"/"in" are only stripped when followed by an
       // uppercase letter (a surname), so prose like "and 2019" is untouched.
       const citeText = rawCiteText
-        .replace(/^(?:e\.g\.?|i\.e\.?|cf\.?|see(?: also)?|as in|c\.f\.?)\s*,?\s+/i, '')
+        .replace(/^(?:e\.g\.?|i\.e\.?|cf\.?|see(?:[\s,]+(?:also|for\s+example|e\.g\.?))?|as in|c\.f\.?)\s*,?\s+/i, '')
         .replace(/^(?:and|in)\s+(?=[A-ZÀ-Ÿ])/i, '');
       // Try to match individual citation patterns
 
