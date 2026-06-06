@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.7 (unreleased)
+
+Citationguard-iterate **cycle 2** (this run) — reference section truncated by a
+mid-entry running header.
+
+- **An all-caps running page header that lands INSIDE a reference truncated the
+  whole rest of the list.** On chan_feldman_2025_cogemo the header
+  "COGNITION AND EMOTION" + page number "1247" was injected by extraction between
+  "...forgiveness. Motivation" and the continuation "and Emotion, 30(3),
+  189–197." `extractReferenceSection` matched the all-caps line, looked ahead a
+  single content line (Hareli's orphaned lowercase continuation, which has no
+  reference-start signature) and stopped — dropping all 50 references after
+  Hareli (McCullough, Hendrickson, Strelan, Worthington, … Zwaan). citelink
+  parsed 40/90 refs; matching accuracy was 0.33 because the in-text cites had no
+  reference to resolve to. The header look-ahead now skips continuation
+  fragments (lowercase / digit / DOI-suffix / bracket) and keeps scanning the
+  window for the next genuine reference start, stopping only on capitalized
+  post-references prose. chan refs parsed 40 → 90; references F1 0.446 → 0.711,
+  matching accuracy 0.326 → 0.949. No regression on other corpus papers.
+  Regression test: `tests/referenceSectionRunningHeaderSplit.test.ts`.
+
 ## 0.7.6 (unreleased)
 
 Citationguard-iterate **cycle 26** — institutional acronym-colon author.
