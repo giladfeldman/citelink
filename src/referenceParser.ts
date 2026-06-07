@@ -1958,12 +1958,35 @@ function parseNatureReference(cleanedText: string, listNumber?: number): ParsedR
       }
     }
   } else {
-    // Standard Nature: "Smith, J. A. & Jones, B. C. Title..."
-    // Authors end where the title begins — look for a period followed by a title-like word.
-    const authorEnd = cleanedText.search(/\.\s+(?:(?:An?|The|In|On|To)\s+)?(?:[A-Z]{2,}\s+)?[A-Za-z][a-z]{2,}/);
-    if (authorEnd > 0) {
-      const authorSection = cleanedText.slice(0, authorEnd).trim();
-      ref.authors = parseAuthorsFromSection(authorSection);
+    // Standard Nature: "Smith, J. A. & Jones, B. C. Title..." or
+    // "Smith, J. A. et al. Title...". The author list ends either at an explicit
+    // "et al." (the unambiguous anchor — ~80% of Nature refs) or at the period
+    // after the last author. The period heuristic alone mis-fires when the TITLE
+    // begins with an acronym / hyphenated-caps token (COVID-19, SARS-CoV-2,
+    // IL-12, N-methyl-d-aspartate) or a ligature word (inﬂammatory): those are
+    // not [A-Z][a-z]{2,} words, so the search skipped the real boundary and
+    // latched onto a later ". Journal" period — emitting the JOURNAL as the title
+    // (nat_comms refs #11/16/22/33/45/57 parsed "Brain"/"Sci"/"Proc"/"Exp"). The
+    // et-al anchor and a broadened title-word class fix both.
+    let titleStartPos = -1;
+    const etAlNature = cleanedText.match(/\bet\s+al\.\s+/);
+    if (etAlNature && etAlNature.index !== undefined && etAlNature.index > 0) {
+      ref.authors = parseAuthorsFromSection(cleanedText.slice(0, etAlNature.index).trim());
+      titleStartPos = etAlNature.index + etAlNature[0].length;
+    } else {
+      // Period after the last author, where the title begins. Title-word
+      // alternatives: an article; an ALLCAPS-word + space; a normal Capitalized
+      // word (now ligature-tolerant via the ﬁ/ﬂ class); OR an acronym /
+      // hyphenated-caps compound (COVID-19, IL-12, N-methyl). The last requires
+      // an internal hyphen, which distinguishes it from a bare author initial
+      // ("A.") so the boundary is never placed mid-author-list.
+      const authorEnd = cleanedText.search(
+        /\.\s+(?:(?:An?|The|In|On|To)\s+)?(?:(?:[A-Z]{2,}\s+)?[A-Za-z][a-zﬁﬂﬀﬃﬄ]{2,}|[A-Z][A-Za-z]*[-–][A-Za-z0-9])/
+      );
+      if (authorEnd > 0) {
+        ref.authors = parseAuthorsFromSection(cleanedText.slice(0, authorEnd).trim());
+        titleStartPos = authorEnd + 2;
+      }
     }
 
     // Fallback for organization authors (e.g., "R Core Team, R: A Language...")
@@ -1979,27 +2002,20 @@ function parseNatureReference(cleanedText: string, listNumber?: number): ParsedR
             initials: '',
             isOrganization: true,
           });
-          authorEndPos = firstComma + 2;
+          if (titleStartPos < 0) titleStartPos = firstComma + 2;
         }
       }
     }
 
-    // Title: between authors and journal
-    if (authorEnd > 0) {
-      const afterAuthors = cleanedText.slice(authorEnd + 2);
+    // Title: between the author boundary and the journal.
+    if (titleStartPos > 0) {
+      const afterAuthors = cleanedText.slice(titleStartPos);
       const titleEnd = afterAuthors.search(/\.\s+(?:[A-Z][a-z]+\.?\s+\d|[A-Z][a-z]+\s+\d|Preprint|arXiv)/);
       if (titleEnd > 0) {
         ref.title = afterAuthors.slice(0, titleEnd).trim();
       } else {
         const dotPos = afterAuthors.indexOf('.');
         if (dotPos > 0) ref.title = afterAuthors.slice(0, dotPos).trim();
-      }
-    } else if (authorEndPos > 0) {
-      // Title for org-author fallback
-      const afterAuthors = cleanedText.slice(authorEndPos).trim();
-      const dotPos = afterAuthors.indexOf('.');
-      if (dotPos > 0) {
-        ref.title = afterAuthors.slice(0, dotPos).trim();
       }
     }
   }
