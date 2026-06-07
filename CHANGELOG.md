@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.13 (unreleased)
+
+Citationguard-iterate **session 2026-06-07b, cycle 4** — superscript citation
+list glued to a disease-name compound was never detected (INTEXT-DETECTION class).
+
+- **"COVID-1914,27" (i.e. "COVID-19" + superscript "14,27") detected nothing.**
+  The compound's own 2-digit number and the citation digits fuse into one run, so
+  the plain-digit pattern (which needs a `[a-z.)"]` separator before the digits)
+  never matched, and the preceding-digit guard would have rejected it anyway. New
+  pattern: a 2+-member comma/range list glued to a `[A-Za-z]{3,}-\d\d` token is a
+  citation (a real number is never written "1914,27"). Restricted to a 2-digit
+  compound suffix so a 1-digit compound (IL-6) can't mis-split, and the mandatory
+  list keeps a lone year-like suffix out.
+
+nat_comms_2 in-text detection misses 12 → 6 (markers 14/21/22/27/40/41/52
+recovered); intext F1 0.886 → 0.932; matching 0.784 → 0.865; zero precision
+change on every numeric paper. The remaining 6 nat_comms misses are docpluck
+text-extraction losses (superscripts 28/30/41/46 dropped during PDF extraction)
+— filed, not a citelink defect. Regression test:
+`tests/compoundSuperscriptCitation.test.ts`.
+
 ## 0.7.12 (unreleased)
 
 Citationguard-iterate **session 2026-06-07b, cycle 3** — plain-digit

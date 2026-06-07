@@ -272,6 +272,43 @@ export function detectNumericCitations(
     });
   }
 
+  // ── Superscript citation glued to a disease-name compound: "COVID-1914,27" ──
+  // A superscript citation list extracted right after a "WORD-NN" compound
+  // (COVID-19, MERS-19-style) has NO [a-z.)"] separator and is preceded by a
+  // digit, so the plain-digit pattern never matches it and the preceding-digit
+  // guard would reject it anyway. The compound's own 2-digit number and the
+  // citation digits fuse into one run ("COVID-19"+"14,27" → "COVID-1914,27").
+  // The disambiguator is the COMMA/RANGE list: a real number is never written
+  // "1914,27", so a 2+-member short-number list glued to a "WORD-NN" token is a
+  // citation. Restricted to [A-Za-z]{3,}-\d\d (disease-name-like) so a 1-digit
+  // compound (IL-6) can't mis-split, and the mandatory list keeps a lone
+  // year-like suffix out. (citationguard-iterate session 2026-06-07b cycle 4;
+  // surfaced on nat_comms_2 markers 14,27 / 21,22 / 40,41 / 14,52.)
+  const compoundSuperscriptPattern =
+    /[A-Za-z]{3,}-\d\d(\d{1,2}(?:[,–—-]\d{1,3})+)(?!\d)/g;
+  while ((m = compoundSuperscriptPattern.exec(text)) !== null) {
+    if (referenceSectionStart !== undefined && m.index >= referenceSectionStart) continue;
+    const listStr = m[1];
+    const numbers = expandNumericRange(listStr);
+    if (numbers.length === 0 || numbers.some(n => n > 300 || n === 0)) continue;
+    const digitStart = m.index + m[0].length - listStr.length;
+    const digitEnd = digitStart + listStr.length;
+    const posKey = `${digitStart}-${digitEnd}`;
+    if (processedPositions.has(posKey)) continue;
+    processedPositions.add(posKey);
+    citations.push({
+      raw: listStr,
+      normalized: `[${listStr}]`,
+      type: 'numeric' as any,
+      citationStyle: 'parenthetical',
+      authors: [] as ParsedCitationAuthor[],
+      year: '',
+      citationNumbers: numbers,
+      position: { start: digitStart, end: digitEnd },
+      context: extractContext(text, digitStart, listStr.length),
+    });
+  }
+
   // ── Parenthetical numeric: (1), (1, 2), (1–3), (1, 3–5, 7) ──
   // Used by PNAS, some science journals. High false-positive risk — needs careful filtering.
   // Only activated when bracket citations are scarce (< 3) to avoid double-counting.
