@@ -181,8 +181,14 @@ export function detectNumericCitations(
   // ── Plain digit superscripts (from PDF extraction) ──
   // When superscript numbers are extracted from PDFs, they often become plain
   // digits attached to the preceding word: "integrity1", "events5,", "adults.2,3"
+  // Anchored at BOTH ends: the FP word must be the ENTIRE preceding word, not a
+  // suffix of it. End-anchored-only ($) matched any word ENDING in an FP token —
+  // "follow-up"→"up" matched "pp?" (page), "online"→matched "Line" — so a real
+  // superscript citation ("follow-up26", "online47") was discarded. Anchoring ^
+  // makes "up" ≠ "p" and "online" ≠ "Line" while "page"/"pp"/"Table"/"Fig" still
+  // match exactly. (citationguard-iterate session 2026-06-07b cycle 3.)
   const PLAIN_DIGIT_FP_WORD =
-    /(?:Table|Figure|Fig|Eq|Equation|Chapter|Section|Step|Item|page|pages|pp?|Appendix|Supplement|Panel|Part|Scheme|Algorithm|Listing|Line|Row|Column|Criterion|Condition|Model|Experiment|Sample|Group|Phase|Trial|Block|Protocol|Hypothesis|Version|vol|no|CO|H2O|COVID|SARS|mp|km|mg|kg|Hz|kHz|MHz|GHz|dB|mm|cm|nm|pH)$/i;
+    /^(?:Table|Figure|Fig|Eq|Equation|Chapter|Section|Step|Item|page|pages|pp?|Appendix|Supplement|Panel|Part|Scheme|Algorithm|Listing|Line|Row|Column|Criterion|Condition|Model|Experiment|Sample|Group|Phase|Trial|Block|Protocol|Hypothesis|Version|vol|no|CO|H2O|COVID|SARS|mp|km|mg|kg|Hz|kHz|MHz|GHz|dB|mm|cm|nm|pH)$/i;
 
   const plainDigitPattern = /([a-z.)"])(\d{1,3}(?:[,–-]\d{1,3})*)/g;
   while ((m = plainDigitPattern.exec(text)) !== null) {
@@ -237,7 +243,11 @@ export function detectNumericCitations(
     const wordMatch = beforeText.match(/([A-Za-z]+)[.)"]*$/);
     if (wordMatch && PLAIN_DIGIT_FP_WORD.test(wordMatch[1])) continue;
     // Skip if preceding word contains consecutive uppercase (acronym/name: IMpower150, BRCA1)
-    if (wordMatch && /[A-Z]{2}/.test(wordMatch[1])) continue;
+    // EXCEPT when the digit immediately follows a closing paren — "(CSF)13" is a
+    // superscript citation after a parenthetical acronym, not an acronym-with-an-
+    // embedded-number like "BRCA1". The acronym guard was never meant for the
+    // after-paren case. (citationguard-iterate session 2026-06-07b cycle 3.)
+    if (wordMatch && m[1] !== ')' && /[A-Z]{2}/.test(wordMatch[1])) continue;
 
     // Position key: the digit portion starts at m.index + m[1].length
     const digitStart = m.index + m[1].length;

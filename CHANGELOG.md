@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.12 (unreleased)
+
+Citationguard-iterate **session 2026-06-07b, cycle 3** — plain-digit
+(PDF-superscript) citation detection discarded real citations (INTEXT-DETECTION
+class).
+
+- **PLAIN_DIGIT_FP_WORD was end-anchored only**, so it matched any word ENDING in
+  a false-positive token: "follow-up26" → "up" matched "pp?" (page) and "online47"
+  → matched "Line", dropping the superscripts. Now anchored at BOTH ends (^…$):
+  the FP word must be the WHOLE preceding word. "page"/"pp"/"Table"/"Fig" still
+  match exactly and are still skipped.
+- **The consecutive-uppercase acronym guard ("BRCA1", "IMpower150") also killed a
+  superscript that follows a parenthetical acronym** — "(CSF)13" — because "CSF"
+  precedes the digit. Exempted when the digit immediately follows a closing paren
+  (a citation signal, not a name-with-embedded-number).
+
+nat_comms_2 in-text detection misses 15 → 12 (markers 13, 26, +1 recovered);
+intext F1 0.861 → 0.886; **zero precision change on every numeric paper** (plos,
+ieee, nat_comms extra_pred counts unchanged — the loosening added no false
+positives). Regression test: `tests/plainDigitFpGuardAnchoring.test.ts`.
+
 ## 0.7.11 (unreleased)
 
 Citationguard-iterate **session 2026-06-07b, cycle 2** — Nature numbered
