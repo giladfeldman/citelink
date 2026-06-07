@@ -219,6 +219,20 @@ export function detectNumericCitations(
     // Skip if inside a URL (e.g., "https://osf.io/dbn92" — "n92" is not a citation)
     const preUrl = text.slice(Math.max(0, m.index - 80), m.index + 1);
     if (/https?:\/\/\S+$/.test(preUrl)) continue;
+    // Skip if the digit sits inside a BARE domain / URL token (no http:// prefix),
+    // e.g. "isaric4c.net" → "4" is not a citation, or "osf.io/dbn92". An academic-
+    // integrity tool must never fabricate a citation from a digit inside a web
+    // address. (citationguard-iterate 2026-06-07e — nat_comms isaric4c.net FP.)
+    let tokStart = m.index;
+    while (tokStart > 0 && !/\s/.test(text[tokStart - 1])) tokStart--;
+    let tokEnd = afterEnd;
+    while (tokEnd < text.length && !/\s/.test(text[tokEnd])) tokEnd++;
+    const token = text.slice(tokStart, tokEnd);
+    if (
+      /(?:https?:\/\/|www\.)/i.test(token) ||
+      /[A-Za-z0-9-]+\.(?:com|net|org|io|edu|gov|app|info|biz|co|ac|uk|de)\b/i.test(token)
+    )
+      continue;
     // Skip percentage patterns: "86%"
     if (afterEnd < text.length && text[afterEnd] === '%') continue;
     // Skip if preceded by "pp." or "p." (page numbers)

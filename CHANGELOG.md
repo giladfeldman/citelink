@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.17 (unreleased)
+
+Citationguard-iterate **session 2026-06-07e** — numeric-citation precision
+(INTEXT-DETECTION false-positive). For an academic-integrity tool, fabricating a
+citation is worse than missing one; this closes a fabrication path.
+
+- **No longer fabricates a numeric citation from a digit inside a bare URL/domain
+  token.** The plain-digit superscript detector matched "c4" inside
+  "isaric4c.net" (nat_comms_2 methods) and emitted a bogus `[4]`. The pre-existing
+  guard only caught `http://`-prefixed URLs; bare domains (`isaric4c.net`,
+  `osf.io/dbn92`) now also suppress detection. Verified no over-skip: genuine
+  glued superscripts on normal words (`severity43`, `(CSF)13`) still detected.
+  nat_comms_2 intext.f1 0.919→0.925; no other corpus paper changed.
+  Test `numericUrlDomainFpGuard.test.ts` (fails-before/passes-after proven).
+
+NOTE: the remaining nat_comms_2 numeric misses (markers 28/30/41/46) are an
+irreducible **extraction floor** — pdftotext flattens those superscripts to
+baseline and relocates them away from their word (they survive only as
+author-affiliation numbers). Per the triage boundary and the anti-hallucination
+policy they are NOT recoverable in citelink without fabricating a marker; docpluck
+confirmed won't-fix (no pdftotext flag; splitting would regress detection).
+
 ## 0.7.16 (unreleased)
 
 Citationguard-iterate **session 2026-06-07c** — run-on reference splitting
