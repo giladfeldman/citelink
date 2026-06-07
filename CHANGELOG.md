@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.7.11 (unreleased)
+
+Citationguard-iterate **session 2026-06-07b, cycle 2** — Nature numbered
+reference parsed the JOURNAL name as the title (CITATION-PARSING class).
+
+- **A Nature reference whose title begins with an acronym / hyphenated-caps token
+  (COVID-19, SARS-CoV-2, IL-12, N-methyl-…, GM-CSF) or a ligature word
+  (inﬂammatory) emitted the journal name as the title.** `parseNatureReference`
+  located the author/title boundary by scanning for ". " followed by a
+  `[A-Z][a-z]{2,}` word; an acronym title-start is not such a word, so the scan
+  skipped the real boundary and latched onto a later ". Journal" period —
+  producing "Brain 144, 2696–2708 (2021)", "Brain Pathol", "Sci", "Proc", "Exp"
+  as the parsed title for nat_comms_2 refs #11/16/22/33/34/45/57. The fix anchors
+  the author list on the unambiguous "et al." marker (≈80% of Nature refs) and
+  broadens the title-word class to accept acronym / hyphen-caps / ligature-leading
+  titles. nat_comms_2 references F1 0.786 → 0.889 (against regenerated gold); no
+  corpus regression. Surfaced only after the nat_comms_2 AI gold was regenerated
+  — the prior gold's title_start had bled into the journal, so citelink's wrong
+  parse and the wrong gold cancelled out (a blind-gate masking, the reason
+  gold-first matters). Regression test: `tests/natureAcronymTitleStart.test.ts`.
+- Residual (filed, not fixed here): 2 nat_comms refs differ only by a semantic
+  hyphen lost to line-break dehyphenation ("cardio-respiratory" →
+  "cardiorespiratory", "neutrophil-associated" → "neutrophilassociated"). The
+  same document also splits "inde-pendent" → "independent" (hyphen correctly
+  removed), so the two cannot be told apart without a dictionary. Filed as a
+  text-normalization item; not a regression-prone heuristic.
+
 ## 0.7.10 (unreleased)
 
 Citationguard-iterate **cycle 6** (this run) — numbered reference fabricated from
