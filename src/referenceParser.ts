@@ -1021,11 +1021,20 @@ function extractReferenceSection(text: string, style?: CitationStyleType): strin
     // Handle hyphenation at line breaks: "Educa-\ntional" -> "Educational"
     .replace(/([a-zA-ZÀ-Ÿà-ÿā-ž])-\s*\n\s*([a-zA-ZÀ-Ÿà-ÿā-ž])/g, '$1$2')
     // Join a numeric RANGE split across a line break: a page/year range like
-    // "243–\n248." or "COVID-\n19." otherwise leaves the trailing number alone
-    // on its line, where the numbered-reference splitter mistakes it for a new
-    // reference number ("248. ...") — fabricating a bogus reference and stealing
-    // the real next entry's number. Rejoin the range so it stays one token.
+    // "243–\n248." otherwise leaves the trailing number alone on its line, where
+    // the numbered-reference splitter mistakes it for a new reference number
+    // ("248. ...") — fabricating a bogus reference and stealing the real next
+    // entry's number. Rejoin the range so it stays one token.
     .replace(/(\d)\s*[-–—]\s*\n\s*(\d)/g, '$1–$2')
+    // Join a hyphenated alphanumeric compound split across a line break where the
+    // tail is a NUMBER: "COVID-\n19", "SARS-CoV-\n2", "IL-\n6". The hyphen is
+    // SEMANTIC (part of the term) so it is KEPT — unlike the word-hyphenation rule
+    // above, which removes it. Without this the orphaned "19." starts its own line
+    // and the numbered-reference splitter reads it as reference #19, truncating
+    // the real entry (its year/journal lost) and fabricating a fragment. Same
+    // failure family as the digit-range split (v0.7.10); surfaced on nat_comms_2
+    // ref #2 (Xu …, COVID-19, year dropped). (session 2026-06-07b, N1.)
+    .replace(/([A-Za-zÀ-Ÿà-ÿā-ž])-\s*\n\s*(\d)/g, '$1-$2')
     // Normalize line breaks
     .replace(/\r\n/g, '\n')
     // Remove multiple trailing spaces at end of lines

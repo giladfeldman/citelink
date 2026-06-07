@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.15 (unreleased)
+
+Citationguard-iterate **session 2026-06-07b, N1** — hyphenated compound split
+across a line break with a numeric tail truncated a reference (HALLUCINATION /
+CITATION-PARSING class).
+
+- **"COVID-\n19", "SARS-CoV-\n2", "IL-\n6" fabricated a fragment + truncated the
+  real entry.** "Xu … Long-term neurologic outcomes of COVID-\n19. Nat. Med. …
+  (2022)." left the orphaned "19." on its own line; the numbered-reference
+  splitter read it as reference #19, cut the Xu entry at "COVID-" (its year +
+  journal lost), and fabricated a fragment. The fix rejoins the compound KEEPING
+  the semantic hyphen ("COVID-19") — same family as the v0.7.10 digit-range split,
+  but for letter-hyphen-digit. nat_comms_2 references F1 0.889 → 0.914; matching
+  0.865 → 0.878; no corpus regression. Regression test:
+  `tests/compoundHyphenLineSplit.test.ts`.
+
 ## 0.7.14 (unreleased)
 
 Citationguard-iterate **session 2026-06-07b, cycle 5** — acronym-colon
