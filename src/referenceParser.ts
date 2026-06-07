@@ -1100,6 +1100,39 @@ function getAuthorYearSplitRegex(style?: CitationStyleType): RegExp {
 }
 
 /**
+ * Split a block that still contains MULTIPLE complete APA references concatenated
+ * without a separating newline. This is a pdftotext extraction artifact: reference
+ * entries get joined across a line, sometimes after a DOI with no trailing period
+ * (e.g. "...75.6.1586 McCullough, M. E., & Rachal, K. C. (1997). Interpersonal
+ * forgiving..."). Step 1c's inline splitter skips blocks that are mostly
+ * newline-separated, so a few run-on lines survive intact and only the first
+ * reference on the line is parsed — every later citation to the swallowed entries
+ * then fails to match (chan_feldman_2025_cogemo: McCullough et al. cited 64×,
+ * 0 matched, against docpluck-academic text — citationguard-iterate 2026-06-07b).
+ *
+ * Splits ONLY on the unambiguous APA entry opener: an author list
+ * (Surname, Initials[, coauthors / & coauthor / et al.]) ending in a parenthetical
+ * year followed by '.' or ',', where the boundary is preceded by a reference-end
+ * signal (period, close-paren, or digit). That signature does not occur inside a
+ * reference title, and the preceding-char guard avoids mid-sentence author mentions
+ * ("...reply to Jones, K. (2019)..."). Returns [block] unchanged when no confident
+ * interior boundary exists, so it is a no-op on already-clean references. The
+ * continuation-merge pass in splitIntoReferences repairs any rare over-split.
+ */
+export function splitConcatenatedApaReferences(block: string): string[] {
+  if (block.length < 120) return [block];
+  const author =
+    `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*` +
+    `[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+,\\s+[A-Z]\\.(?:[-\\s]?[A-Z]\\.)*`;
+  const boundary = new RegExp(
+    `(?<=[).\\d])\\s+(?=${author}(?:,\\s+(?:&\\s+|and\\s+)?(?:${author}|et\\s+al\\.?))*\\s*\\((?:19|20)\\d{2}[a-z]?\\)[.,])`,
+    'g'
+  );
+  const parts = block.split(boundary).map(s => s.trim()).filter(s => s.length > 20);
+  return parts.length > 1 ? parts : [block];
+}
+
+/**
  * Split reference section into individual references
  * Uses an aggressive recursive splitting strategy to handle lost line breaks.
  */
@@ -1325,6 +1358,16 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     }
 
     refinedRefs.push(...parts);
+  }
+
+  // Post-split run-on references: a refined block may still hold MULTIPLE complete
+  // references concatenated with no separating newline (pdftotext joining entries,
+  // including after a DOI with no trailing period). Step 1c skips blocks that are
+  // mostly newline-separated, so those survive here. Split on the unambiguous APA
+  // author-list-then-parenthetical-year opener. No-op on numeric styles and on
+  // already-clean refs; the continuation-merge below repairs any over-split.
+  if (!isNumericStyle) {
+    refinedRefs = refinedRefs.flatMap(splitConcatenatedApaReferences);
   }
 
   // Post-split fragment merging: merge fragments that are clearly continuations

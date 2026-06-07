@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.16 (unreleased)
+
+Citationguard-iterate **session 2026-06-07c** — run-on reference splitting
+(REFERENCE-PARSING class). Surfaced only against the docpluck-academic (pdftotext)
+extraction substrate — the production input — after the iterate fixtures were
+regenerated from raw-pymupdf to docpluck `--level academic`.
+
+- **Multiple complete APA references concatenated on one line are now each parsed.**
+  pdftotext joins reference entries (sometimes across a DOI with no trailing
+  period, e.g. "…75.6.1586 McCullough, M. E., & Rachal, K. C. (1997)…"), so one
+  line held Maio (2008) + McCullough (2013) + McCullough (1998) + McCullough (1997).
+  splitIntoReferences' step-1c inline splitter skips blocks that are mostly
+  newline-separated, so only the first entry parsed and the rest were swallowed.
+  New `splitConcatenatedApaReferences` post-pass splits on the unambiguous APA
+  opener (author list ending in a parenthetical year + '.'/',' preceded by a
+  reference-end signal), guarded against mid-title false splits; the existing
+  continuation-merge repairs any over-split.
+- Impact (chan_feldman_2025_cogemo, the replication target McCullough et al. cited
+  64× in-text): **matching accuracy 0.645 → 0.957**, references.f1 0.849 → 0.883.
+  chen 0.484 → 0.536, collabra +0.014. No change on numeric-style papers (no-op).
+- Test: `tests/runOnReferenceSplit.test.ts` (real chan extracted text, plus
+  guard assertions for clean refs + mid-title author mentions).
+
 ## 0.7.15 (unreleased)
 
 Citationguard-iterate **session 2026-06-07b, N1** — hyphenated compound split
