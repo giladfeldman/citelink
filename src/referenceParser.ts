@@ -1135,7 +1135,15 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
       `${compoundParticle}${particlePrefix}[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+,\\s*[A-Z](?:\\.|[a-zà-ÿā-ž])|` +  // With comma: "LastName, I." or "LastName, First"
       `${compoundParticle}${particlePrefix}[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+\\s+[A-Z]{1,3}[,.\\s]` +            // Vancouver: "LastName ABC,"
       asaNoCommaPattern +
-      `)|^(?:\\*\\s*)?[A-ZÀ-Ÿ]{2,}[.\\s]+\\((?:19|20)\\d{2}`
+      `)|^(?:\\*\\s*)?[A-ZÀ-Ÿ]{2,}[.\\s]+\\((?:19|20)\\d{2}` +
+      // Acronym-colon org author: "KNAW: Royal Dutch Academy of Arts and
+      // Sciences. (2018)." The year is NOT adjacent to the acronym (it follows
+      // the spelled-out name), so the WHO-style "ACRONYM. (year)" alternative
+      // above misses it and the entry gets merged into the previous reference.
+      // An all-caps acronym + colon + a capitalized word at line start is a
+      // distinctive org-author reference opener. (citationguard-iterate session
+      // 2026-06-07b cycle 5; surfaced on chen_2021_jesp "KNAW: …".)
+      `|^(?:\\*\\s*)?[A-ZÀ-Ÿ]{2,}:\\s+[A-ZÀ-Ÿ]`
     );
     const allJoinedRefs: string[] = [];
 
@@ -1538,7 +1546,22 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
   // Authors: everything before year
   if (yearMatch && yearMatch.index !== undefined) {
     const authorSection = cleanedText.slice(0, yearMatch.index).trim();
-    ref.authors = parseAuthorsFromSection(authorSection);
+    // Acronym-colon org author: "KNAW: Royal Dutch Academy of Arts and Sciences."
+    // The author is the ACRONYM ("KNAW") — that is how it is cited in-text
+    // ("(KNAW, 2018)") and how the reference key must read to match. Parsing the
+    // whole spelled-out name as the surname produces a key nothing matches.
+    // (citationguard-iterate session 2026-06-07b cycle 5.)
+    const acronymOrg = authorSection.match(/^([A-ZÀ-Ÿ]{2,}):\s+[A-ZÀ-Ÿ]/);
+    if (acronymOrg) {
+      ref.authors = [{
+        lastName: acronymOrg[1],
+        lastNameNormalized: normalizeName(acronymOrg[1]),
+        initials: '',
+        isOrganization: true,
+      }];
+    } else {
+      ref.authors = parseAuthorsFromSection(authorSection);
+    }
   } else if (ref.year) {
     // Bare year fallback: extract authors from before the bare year
     // For "Bello Luiz. 2024. Title." or "McAllum K, Simpson ML. Title. 2021;43:263"

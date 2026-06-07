@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.14 (unreleased)
+
+Citationguard-iterate **session 2026-06-07b, cycle 5** — acronym-colon
+organisation reference lost / mis-keyed (CITATION-PARSING class).
+
+- **"KNAW: Royal Dutch Academy of Arts and Sciences. (2018). …" was merged into
+  the previous reference** (the year is not adjacent to the acronym — it follows
+  the spelled-out name — so the WHO-style "ACRONYM. (year)" new-ref opener missed
+  it). splitIntoReferences now also opens a reference at "ACRONYM: Capitalized".
+- **Once split, the author carried the whole spelled-out name** as its surname, so
+  the reference key matched nothing. parseAPAReference now parses the author as the
+  ACRONYM ("KNAW") — how the work is cited in-text ("(KNAW, 2018)") and how the key
+  must read.
+
+chen_2021_jesp references F1 0.955 → 0.960; matching 0.928 → 0.935 (the KNAW
+citation now resolves); no corpus regression. Regression test:
+`tests/acronymColonOrgReference.test.ts`.
+
 ## 0.7.13 (unreleased)
 
 Citationguard-iterate **session 2026-06-07b, cycle 4** — superscript citation
