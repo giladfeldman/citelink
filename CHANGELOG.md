@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.19 (unreleased)
+
+Citationguard-iterate **session 2026-06-07e** — Vancouver journal-abbreviation
+false split (REFERENCE-PARSING). Surfaced on plos_med_1 (O1-residual).
+
+- **A Vancouver reference whose title is followed by a multi-word journal
+  abbreviation beginning "<Word> J <Word>…" ("Eur J Obstet Gynecol Reprod Biol",
+  "Int J Gynaecol Obstet" — J = "Journal") is no longer false-split at the
+  title→journal period.** Step-1c inline splitting validated the journal fragment
+  as a new reference because its `refStartPattern` Vancouver alternative accepted
+  "Surname Initials" followed by a BARE SPACE, so "Eur J Obstet…" matched
+  "Surname=Eur, initial=J". The yearless author+title half was then dropped,
+  leaving the journal as an author-less reference (Cornelissen #9, Munro #25 had
+  empty authors). The initials must now be followed by a comma (next author) or
+  period (end of authors), not a space. plos_med_1 refs.f1 0.848→0.909, matching
+  0.919→**1.000**; no other corpus paper changed. Test
+  `vancouverJournalAbbrevFalseSplit.test.ts` (fails-before/passes-after proven).
+
 ## 0.7.18 (unreleased)
 
 Citationguard-iterate **session 2026-06-07e** — organizational-author reference

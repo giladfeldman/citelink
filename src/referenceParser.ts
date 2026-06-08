@@ -1289,7 +1289,16 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     // a new reference author pattern followed by a year within ~300 chars.
     // Handles: APA "Smith, J.", ASA "Smith, John", Vancouver "Smith J,"
     // Also: no-period initials "Smart, C," (some British journals)
-    const refStartPattern = /^[A-ZÀ-Ÿ][\wà-ÿā-ž'-]+(?:,\s+[A-Z](?:\.|[a-zà-ÿā-ž]{1,20}|,)|\s+[A-Z]{1,3}[,.\s])/;
+    // Vancouver author initials must be followed by a COMMA (next author) or a
+    // PERIOD (end of author list → title) — NOT a bare space. A bare space let a
+    // multi-word JOURNAL abbreviation masquerade as "Surname Initial": "Eur J
+    // Obstet…" / "Int J Gynaecol…" (J = "Journal") matched "Surname=Eur, init=J",
+    // so step 1c FALSE-split a Vancouver entry at its title→journal period and
+    // dropped the (yearless) author+title half, leaving the journal as an
+    // author-less reference (plos Cornelissen #9, Munro #25). Requiring [,.]
+    // after the initials keeps every real "Smith JA," / "Smith JA. Title" start.
+    // (citationguard-iterate 2026-06-07e — O1-residual.)
+    const refStartPattern = /^[A-ZÀ-Ÿ][\wà-ÿā-ž'-]+(?:,\s+[A-Z](?:\.|[a-zà-ÿā-ž]{1,20}|,)|\s+[A-Z]{1,3}[,.])/;
     const validSplits: number[] = [0]; // always include start of block
     for (const pos of candidates) {
       const chunk = block.substring(pos, pos + 300);
