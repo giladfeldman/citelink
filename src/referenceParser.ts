@@ -407,7 +407,8 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   const authorPattern = new RegExp(
     `(?:${particleAlt}\\s+)?` +                     // Optional particle prefix
     `(?:[A-ZÀ-Ÿ][A-Za-zÀ-ÿā-ž'-]+` +              // LastName (allows camelCase + Latin Extended-A, e.g. "Bartoš")
-    `(?:\\s+[a-z]+(?:\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+))?` + // Optional "van der Berg" continuation
+    `(?:\\s+[a-z]+(?:\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)` +  // Optional "van der Berg" continuation
+    `|\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?` +                // OR one capitalized 2nd surname word ("Ross Russell")
     `(?:-(?:[a-z]+\\s+)?[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)*)` + // Optional hyphenated part
     `\\s*,\\s*` +                                     // Comma separator
     `(?:[A-ZÀ-Ÿ]\\.?\\s*)+` +                       // Initials (A. B. or AB)

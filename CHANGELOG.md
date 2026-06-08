@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.20 (unreleased)
+
+Citationguard-iterate **session 2026-06-07e** — two-word compound surname
+(REFERENCE-PARSING). Surfaced on nat_comms_2 (O3).
+
+- **A two-word compound surname in "Surname, Initials" form ("Ross Russell, A. L.")
+  no longer parses as just the last word ("Russell").** The `parseAuthorsFromSection`
+  surname-continuation group only accepted a lowercase particle ("van der Berg"),
+  so the capitalized 2nd word was dropped and the regex re-anchored at "Russell".
+  Added an alternative for one capitalized 2nd surname word, kept safe by the
+  required trailing ", Initials" and by the 2nd word needing lowercase letters
+  (so an initial like "A" in "Smith A," is never eaten). nat_comms_2 refs.f1
+  0.872→0.889, matching 0.851→0.865; no other corpus paper changed. Test
+  `compoundSurnameTwoWord.test.ts` (fails-before/passes-after + over-merge guards).
+
 ## 0.7.19 (unreleased)
 
 Citationguard-iterate **session 2026-06-07e** — Vancouver journal-abbreviation
