@@ -1703,6 +1703,24 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
     if (sentenceEnd < 0) {
       sentenceEnd = titleSection.search(/[?!](?:\s|$)/);
     }
+    // A leading PART-NUMBER / volume prefix that ends in a period — a roman
+    // numeral ("VII.") or "Pt. 1.", "No. 3.", "Vol. 2.", "Ch. 4." — ends in
+    // exactly the "period + space" the title terminator anchors on, so the title
+    // would collapse to just that prefix (Pearson & Filon 1898: "VII. Mathematical
+    // contributions…" → "VII."). When the candidate first sentence IS only such a
+    // prefix, skip it and re-anchor on the NEXT sentence period so the real title
+    // survives. Slicing still starts at 0, so the prefix stays part of the title;
+    // a rare false match merely extends the title, never truncates it.
+    // (citationguard-iterate 2026-06-08.)
+    if (sentenceEnd > 0) {
+      const head = titleSection.slice(0, sentenceEnd + 1).trim();
+      if (/^(?:[IVXLCDM]{1,6}|(?:Pt|Vol|No|Ch|Sec|Bk|Part)\.?\s*\d*)\.$/i.test(head)) {
+        const rest = titleSection.slice(sentenceEnd + 1);
+        let nextEnd = rest.search(/\.(?:\s|$)/);
+        if (nextEnd < 0) nextEnd = rest.search(/[?!](?:\s|$)/);
+        if (nextEnd > 0) sentenceEnd = sentenceEnd + 1 + nextEnd;
+      }
+    }
     if (sentenceEnd > 0) {
       ref.title = titleSection.slice(0, sentenceEnd + 1).trim();
     } else if (titleSection) {

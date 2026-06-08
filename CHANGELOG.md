@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.22 (unreleased)
+
+Citationguard-iterate **session 2026-06-08** — APA reference title with a leading
+part-number prefix truncated to the prefix (REFERENCE-PARSING). Surfaced on
+chan_feldman_2025_cogemo (Pearson & Filon 1898).
+
+- **A reference title beginning with a part-number / volume prefix that ends in a
+  period — a roman numeral ("VII."), or "Pt. 1.", "No. 3.", "Vol. 2.", "Ch. 4." —
+  is no longer truncated to just that prefix.** The title is extracted as "the
+  first sentence after the year", anchored on the first period-then-space; a
+  leading "VII." ends in exactly that, so the whole title collapsed to "VII."
+  (Pearson 1898: "VII. Mathematical contributions to the theory of evolution…").
+  When the candidate first sentence is only such a prefix, it is skipped and the
+  terminator re-anchors on the next sentence period; slicing still starts at 0, so
+  the prefix stays in the title and a rare false match only extends the title,
+  never truncates it. chan_feldman_2025_cogemo refs.f1 0.916→0.927; no other
+  corpus paper changed. Test `titlePartNumberPrefix.test.ts`
+  (fails-before/passes-after + ordinary-title no-regression guard).
+
 ## 0.7.21 (unreleased)
 
 Citationguard-iterate **session 2026-06-08** — plain-digit superscript recovery
