@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.21 (unreleased)
+
+Citationguard-iterate **session 2026-06-08** — plain-digit superscript recovery
+fabricated citations from math variables in bracket-paradigm papers
+(INTEXT-DETECTION false positive). Surfaced on ieee_access_2 + plos_med_1.
+
+- **The plain-digit "superscript" recovery in `detectNumericCitations` no longer
+  fires in bracket-paradigm papers (IEEE / Vancouver).** That branch un-flattens
+  Nature/AMA superscript citations that PDF extraction glued onto the preceding
+  word ("integrity1" = integrity¹); it ran unconditionally, so in a bracket paper
+  (citations written "[n]") it read a digit glued to a word as a citation — the
+  IEEE Access ODE-modelling paper's math variables "beta1"/"beta2" became
+  citations "a1"/"a2" (10 fabricated in-text citations), and plos_med_1 produced
+  "s1"/"i2". An academic-integrity tool must never invent a citation from a
+  variable. The branch is now gated on bracket scarcity (suppressed when ≥3 "[n]"
+  citations are present), mirroring the parenthetical-numeric and standalone-number
+  branches that already self-suppress the same way. Superscript-paradigm papers
+  (nat_comms_2: 0 brackets, 581 glued superscripts) are untouched. ieee_access_2
+  in-text F1 0.904→0.990, plos_med_1 0.841→**1.000**; no other corpus paper
+  changed. Test `plainDigitSuppressedInBracketParadigm.test.ts`
+  (fails-before/passes-after + superscript-paradigm no-regression guard).
+
 ## 0.7.20 (unreleased)
 
 Citationguard-iterate **session 2026-06-07e** — two-word compound surname

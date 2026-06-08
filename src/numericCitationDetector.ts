@@ -190,8 +190,22 @@ export function detectNumericCitations(
   const PLAIN_DIGIT_FP_WORD =
     /^(?:Table|Figure|Fig|Eq|Equation|Chapter|Section|Step|Item|page|pages|pp?|Appendix|Supplement|Panel|Part|Scheme|Algorithm|Listing|Line|Row|Column|Criterion|Condition|Model|Experiment|Sample|Group|Phase|Trial|Block|Protocol|Hypothesis|Version|vol|no|CO|H2O|COVID|SARS|mp|km|mg|kg|Hz|kHz|MHz|GHz|dB|mm|cm|nm|pH)$/i;
 
+  // Gate: the plain-digit recovery is a SUPERSCRIPT-paradigm mechanism — it
+  // un-flattens Nature/AMA superscript citations that PDF extraction glued onto
+  // the preceding word ("integrity1" = integrity¹). In a BRACKET-paradigm paper
+  // (Vancouver / IEEE — citations written "[n]") a digit glued to a word is a
+  // math variable ("beta1"/"beta2" → fabricated "a1"/"a2"), a stat value, or a
+  // table label — never a citation. An academic-integrity tool must never invent
+  // a citation from a variable, so suppress this branch when bracket citations
+  // are abundant (≥3), mirroring the parenthetical-numeric (~L340) and
+  // standalone-number (~L408) branches that already self-suppress the same way.
+  // nat_comms_2 (0 brackets, superscript paradigm) keeps the recovery untouched.
+  // (citationguard-iterate 2026-06-08 — ieee_access_2 "beta1/beta2", plos_med_1.)
+  const bracketParadigm =
+    citations.filter(c => String(c.raw).startsWith('[')).length >= 3;
+
   const plainDigitPattern = /([a-z.)"])(\d{1,3}(?:[,–-]\d{1,3})*)/g;
-  while ((m = plainDigitPattern.exec(text)) !== null) {
+  while (!bracketParadigm && (m = plainDigitPattern.exec(text)) !== null) {
     if (referenceSectionStart !== undefined && m.index >= referenceSectionStart) continue;
 
     const digitStr = m[2];
