@@ -417,6 +417,23 @@ function isMonthName(str: string): boolean {
   return MONTH_NAMES.has(str.trim().toLowerCase().replace(/\.$/, ''));
 }
 
+// Capitalized prose words that are NOT credible surnames — function words,
+// document-structure nouns, discourse nouns. Shared by the single-narrative
+// guard and the prose-bundled-parenthetical pass so "(Discussion, 2020)" /
+// "Section (2020)" can't masquerade as an author citation. Folded into a Set
+// (was an inline array in the single-narrative loop).
+const COMMON_NON_AUTHOR_WORDS = new Set([
+  'the', 'this', 'that', 'these', 'those', 'their', 'there', 'where', 'when',
+  'while', 'which', 'what', 'with', 'from', 'into', 'upon', 'about', 'after',
+  'before', 'between', 'through', 'during', 'without', 'within', 'among',
+  'along', 'across', 'behind', 'beyond', 'under', 'over', 'above', 'below',
+  'around', 'toward', 'towards', 'against', 'throughout', 'despite', 'figure',
+  'table', 'section', 'chapter', 'study', 'research', 'analysis', 'results',
+  'method', 'discussion', 'conclusion', 'introduction', 'abstract', 'however',
+  'therefore', 'furthermore', 'moreover', 'nevertheless', 'although', 'whereas',
+  'because', 'since', 'unless', 'until', 'while',
+]);
+
 // Sentence-initial connectors and adverbs. The 2026-05-26 cycle-1 canary
 // audit surfaced four distinct hallucinations of this class across three
 // canary papers — citelink parsed sentence-initial "Also,", "Furthermore,",
@@ -1166,9 +1183,7 @@ export function detectCitations(text: string): DetectedCitation[] {
     if (isSentenceConnector(match[1])) continue;
 
     // Skip if author looks like a common word
-    const authorLower = match[1].toLowerCase();
-    const commonWords = ['the', 'this', 'that', 'these', 'those', 'their', 'there', 'where', 'when', 'while', 'which', 'what', 'with', 'from', 'into', 'upon', 'about', 'after', 'before', 'between', 'through', 'during', 'without', 'within', 'among', 'along', 'across', 'behind', 'beyond', 'under', 'over', 'above', 'below', 'around', 'toward', 'towards', 'against', 'throughout', 'despite', 'figure', 'table', 'section', 'chapter', 'study', 'research', 'analysis', 'results', 'method', 'discussion', 'conclusion', 'introduction', 'abstract', 'however', 'therefore', 'furthermore', 'moreover', 'nevertheless', 'although', 'whereas', 'because', 'since', 'unless', 'until', 'while'];
-    if (commonWords.includes(authorLower)) continue;
+    if (COMMON_NON_AUTHOR_WORDS.has(match[1].toLowerCase())) continue;
     
     addCitation({
       raw: match[0],
@@ -1466,6 +1481,86 @@ export function detectCitations(text: string): DetectedCitation[] {
     }
   }
   
+  // ============ PROSE-BUNDLED PARENTHETICAL ============
+  // A parenthetical can bundle citations separated by PROSE rather than a ';',
+  // or carry a trailing prose note: "(Hong & Reed, 2021, reanalysis with RoBMA
+  // in Bartoš, Maier, Wagenmakers, et al., 2022)" / "(Smith, 2020, in their
+  // main analysis)". The semicolon splitter (multipleCitations) never fires (no
+  // ';'), and the (...)-anchored single/two-author/et-al/mixed-list patterns all
+  // fail because non-citation prose sits between the year and the closing ')',
+  // so BOTH citations are lost (collabra_90203 L94: Hong & Reed 2021 + Bartoš
+  // et al. 2022 both missed — citationguard-iterate 2026-06-08d D3/D6). This
+  // pass scans the interior of each ';'-free parenthetical for "<Surname-list>
+  // [et al.], YYYY" groups and emits each at its TRUE position. It is
+  // OVERLAP-AWARE: a candidate overlapping a citation an earlier pattern already
+  // detected is dropped, so a cleanly-handled paren ("(Smith, 2020)", "(Thaler,
+  // 1985, 1999)") is never re-emitted — no occurrence-count inflation. NO `i`
+  // flag: the [A-ZÀ-Ÿ] surname anchor in COMPOUND_SURNAME must hold so lowercase
+  // prose ("reanalysis with robma in") cannot masquerade as an author; the
+  // sentence-connector / month / common-word guards drop the residual FPs.
+  const PROSE_PAREN = /\(([^)]{1,400})\)/g;
+  // Author list: comma-separated surnames, optionally closed by a final
+  // "& Surname" / "and Surname" (incl. the Oxford-comma forms ", & Surname" /
+  // ", and Surname"). Greedy so "Harley, Carlsen, & Loftus" / "Fritz, Morris, &
+  // Richler" capture the FULL list (first author Harley / Fritz) rather than the
+  // trailing name only — a wrong-first-author bug that mis-keyed the citation.
+  const INPAREN_AUTHOR_LIST =
+    `${COMPOUND_SURNAME}(?:\\s*,\\s*${COMPOUND_SURNAME})*(?:\\s*,?\\s*(?:&|and)\\s*${COMPOUND_SURNAME})?`;
+  const INPAREN_AUTHOR_YEAR = new RegExp(
+    `(?<![A-Za-zÀ-ÿ])(${INPAREN_AUTHOR_LIST})` +
+    `(?:\\s*,?\\s*(et\\s*\\.?\\s*al\\.?))?` +
+    `\\s*,\\s*(\\d{4}[a-z]?)(?![\\d])`,
+    'g',
+  );
+  const overlapsExisting = (s: number, e: number): boolean =>
+    citations.some(c => s < c.position.end && c.position.start < e);
+  let pMatch: RegExpExecArray | null;
+  PROSE_PAREN.lastIndex = 0;
+  while ((pMatch = PROSE_PAREN.exec(text)) !== null) {
+    const interior = pMatch[1];
+    // ';'-delimited bundles are owned by the multipleCitations splitter above.
+    if (interior.includes(';')) continue;
+    const interiorStart = pMatch.index + 1;
+    INPAREN_AUTHOR_YEAR.lastIndex = 0;
+    let am: RegExpExecArray | null;
+    while ((am = INPAREN_AUTHOR_YEAR.exec(interior)) !== null) {
+      const authorList = am[1];
+      const firstAuthorRaw =
+        authorList.split(/\s*(?:,|&|and)\s*/i)[0]?.trim() || '';
+      if (
+        isSentenceConnector(firstAuthorRaw) ||
+        isMonthName(firstAuthorRaw) ||
+        COMMON_NON_AUTHOR_WORDS.has(firstAuthorRaw.toLowerCase())
+      ) {
+        continue;
+      }
+      const start = interiorStart + am.index;
+      const end = start + am[0].length;
+      // Drop anything an earlier pattern already detected at this location.
+      if (overlapsExisting(start, end)) continue;
+      const isEtAl = !!am[2];
+      const names = authorList
+        .split(/\s*(?:,|&|(?<![A-Za-z])and(?![A-Za-z]))\s*/i)
+        .map(s => s.trim())
+        .filter(Boolean);
+      const authors = names.map(n => createParsedAuthor(n));
+      if (isEtAl) authors.push(createParsedAuthor('et al.', true));
+      if (authors.length === 0) continue;
+      const { year, suffix } = parseYear(am[3]);
+      addCitation({
+        raw: `(${am[0]})`,
+        normalized: normalizeCitation(`(${am[0]})`),
+        type: classifyCitation(authors, false, false),
+        citationStyle: 'parenthetical',
+        authors,
+        year,
+        yearSuffix: suffix,
+        position: { start, end },
+        context: extractContext(text, start, am[0].length),
+      });
+    }
+  }
+
   // Sort by position
   citations.sort((a, b) => a.position.start - b.position.start);
 

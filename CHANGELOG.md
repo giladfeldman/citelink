@@ -1,6 +1,40 @@
 # Changelog
 
-## 0.7.24 (unreleased)
+## 0.7.25
+
+Citationguard-iterate **focused sub-cycle 2026-06-08d (cycle 1)** — in-text DETECTION
+miss class "D3/D6": a single parenthetical that bundles 2+ citations separated by
+**prose** rather than a semicolon, or carries a trailing prose note.
+
+- **Prose-bundled parenthetical detection.** `(Hong & Reed, 2021, reanalysis with RoBMA
+  in Bartoš, Maier, Wagenmakers, et al., 2022)` detected NEITHER citation: the
+  semicolon-bundle splitter never fires (no `;`), and the `(...)`-anchored
+  single/two-author/et-al/mixed-list patterns all fail because non-citation prose sits
+  between the year and the closing `)`. A new pass scans the interior of each
+  `;`-free parenthetical for `<Surname-list>[ et al.], YYYY` groups and emits each at its
+  true position. It is **overlap-aware** — a candidate overlapping a citation an earlier
+  pattern already detected is dropped, so cleanly-handled parens (`(Smith, 2020)`,
+  `(Thaler, 1985, 1999)`) are never re-emitted (no occurrence-count inflation). No `i`
+  flag — the `[A-ZÀ-Ÿ]` surname anchor must hold so lowercase prose
+  ("reanalysis with robma in") can't masquerade as an author; the sentence-connector /
+  month / common-word guards drop the residual false positives.
+- **Oxford-comma + ampersand author lists key on the FIRST author.** The interior author
+  list handles the `, & Surname` / `, and Surname` form, so `(…, see Fritz, Morris, &
+  Richler, 2012)` and `(e.g., Harley, Carlsen, & Loftus, 2004)` key on Fritz / Harley —
+  not the trailing Richler / Loftus (a wrong-first-author mis-keying).
+
+Impact (full canary sweep): collabra_90203 matching 0.979→**0.993**, in-text F1
+0.976→**0.983** (Hong 2021 + Bartoš 2022 recovered); chen_2021_jesp matching
+0.961→**0.980** (Fritz 2012, Harley 2004, Ofir 1997, Fay 2018, Cohen 1988 recovered);
+chan_feldman_2025_cogemo matching 0.957→**0.978** (Batson 1982, McCullough 1998
+recovered). 9 real gold citations recovered across 3 papers; 4 newly-surfaced detections
+(Fischhoff 1975, Slovic & Fischhoff 1977, Dietvorst & Simonsohn 2019, Wade 1989) are real
+in-text citations the AI gold undercounts (filed). Zero regressions on plos_med_1 /
+ieee_access_2 / nat_comms_2; zero hallucinations. Tests in
+`proseBundledParenthetical.test.ts` (9: the L94 case, no-inflation, 5 FP guards, 2
+Oxford-comma first-author cases).
+
+## 0.7.24
 
 Citationguard-iterate **focused cycle 2026-06-08c (cycle 2)** — complex-parenthetical
 in-text DETECTION misses (the "O2" class) on collabra_90203. Two bundle-fragment
