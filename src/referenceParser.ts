@@ -1140,11 +1140,63 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // (citationguard-iterate 2026-06-07e — O4.)
   const orgAuthor =
     `[A-ZÀ-Ÿ][\\wÀ-ÿ&''.\\- ]*?\\b(?:Team|Group|Collaboration|Consortium|Network|Initiative|Project|Foundation|Association|Society)\\b\\.?`;
-  const boundary = new RegExp(
-    `(?<=[).\\d])\\s+(?=(?:${personalList}|${orgAuthor})\\s*\\((?:19|20)\\d{2}[a-z]?\\)[.,])`,
+  // A new reference opens with a personal / organizational author list immediately
+  // followed by "(year).". Find every such opener that begins after whitespace, then
+  // decide per-candidate whether the whitespace is a true reference boundary.
+  const opener = new RegExp(
+    `(\\s+)(?=(?:${personalList}|${orgAuthor})\\s*\\((?:19|20)\\d{2}[a-z]?\\)[.,])`,
     'g'
   );
-  const parts = block.split(boundary).map(s => s.trim()).filter(s => s.length > 20);
+  const splitPoints: number[] = [0];
+  let m: RegExpExecArray | null;
+  while ((m = opener.exec(block)) !== null) {
+    const pos = m.index + m[1].length;           // start of the candidate author list
+    const before = block.slice(0, m.index);      // text up to (not including) the whitespace
+    const prevChar = before.slice(-1);
+    // (a) Original boundary: the previous reference ends in ')' '.' or a digit — a
+    //     "(year)." closer, a page number, or a DOI/URL ending in a digit. Behavior
+    //     here is identical to the prior lookbehind, so clean refs are unaffected.
+    const endsClean = /[).\d]/.test(prevChar);
+    // (b) URL-terminated reference. docpluck extracts a trailing URL / DOI WITHOUT a
+    //     closing period and frequently with injected spaces ("package=RoBMA",
+    //     "osf.io/75bqn", "osf.io/tkm pc", "OSF.IO/A2TGB"), so the char before the
+    //     next reference is a LETTER and (a) misses the boundary — the next entry is
+    //     swallowed whole (collabra: 3 "Bartoš, F., Maier, M., … (2022)" refs +
+    //     McKenzie 2018 lost into the preceding URL-ending ref). Allow the split when
+    //     the reference being closed carries a URL — but NOT when the whitespace sits
+    //     INSIDE an author list (preceded by ',' '&' or an 'and'/initial connector),
+    //     which would orphan the real first author onto the previous reference.
+    //     The strong opener lookahead (full author list + "(year).") is the primary
+    //     false-positive guard. (citationguard-iterate 2026-06-08c — O1 root.)
+    const prevToken = (before.match(/(\S+)\s*$/) || [])[1] || '';
+    // The reference being closed must END at this boundary with a URL/DOI — not
+    // merely contain one earlier. A URL far back with author tokens between it and
+    // the boundary means we are INSIDE the next reference's own author list (e.g. a
+    // long multi-author entry whose start could not be split off, or a particle
+    // surname like "van't Veer"), where a split would FRAGMENT a multi-author entry
+    // (collabra: a 13-author Isager 2021 ref split at "van't| Veer"). Anchor the URL
+    // to the end of the text-so-far, allowing a few space-broken URL tokens (docpluck
+    // splits long URLs across spaces: "osf.io/tkm pc", "doi.org/1 0.17605/…").
+    const endsWithUrl = /(?:https?:\/\/|\bdoi\.org|\bwww\.)\S*(?:[ \t]\S*){0,4}$/i.test(before);
+    // Even with a trailing URL, do NOT split where the whitespace sits inside an
+    // author list (preceded by ',' '&' or an 'and'/initial connector) — that would
+    // orphan the real first author onto the previous reference.
+    const isListConnector =
+      prevChar === ',' || prevChar === '&' ||
+      /,$/.test(prevToken) || /^(?:and|et|al\.?|&)$/i.test(prevToken) ||
+      /^[A-Z]\.?$/.test(prevToken);
+    if (endsClean || (endsWithUrl && !isListConnector)) {
+      if (pos > splitPoints[splitPoints.length - 1]) splitPoints.push(pos);
+    }
+  }
+  if (splitPoints.length <= 1) return [block];
+  const parts: string[] = [];
+  for (let i = 0; i < splitPoints.length; i++) {
+    const start = splitPoints[i];
+    const end = i + 1 < splitPoints.length ? splitPoints[i + 1] : block.length;
+    const part = block.slice(start, end).trim();
+    if (part.length > 20) parts.push(part);
+  }
   return parts.length > 1 ? parts : [block];
 }
 

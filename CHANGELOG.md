@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.7.23 (unreleased)
+
+Citationguard-iterate **focused cycle 2026-06-08c** — URL-terminated reference
+swallowed the next reference (REFERENCE-SEGMENTATION). Surfaced on collabra_90203 as
+the root of "O1" (3 "Bartoš, F., Maier, M., … (2022)" refs + McKenzie 2018 missing).
+
+- **A reference whose trailing field is a URL / DOI no longer swallows the following
+  reference when they are concatenated without a clean separator.**
+  `splitConcatenatedApaReferences` previously only split a concatenation when the
+  PREVIOUS reference ended in `)` `.` or a digit (`(?<=[).\d])`). Modern APA entries
+  end in a URL/DOI that docpluck extracts verbatim WITHOUT a trailing period (often
+  with injected spaces: "package=RoBMA", ".../osf.io/75bqn", ".../osf.io/tkm pc",
+  ".../OSF.IO/A2TGB"), so the character before the next reference is a LETTER and the
+  boundary was missed — the next entry merged into the URL-ending one and only its
+  first author/year/title survived. Now a split is also accepted when the reference
+  being closed ENDS with a URL/DOI (anchored at the boundary, allowing docpluck's
+  space-broken URL tokens), provided the whitespace is not inside an author list
+  (`,` `&` / `and` / initial connector — which would orphan the real first author).
+  The `endsClean` path is byte-for-byte the prior behavior, so clean references are
+  unaffected. collabra_90203 references.key_only.f1 0.972→1.000 (every gold reference
+  now detected), matching.accuracy 0.904→0.959; no other corpus paper changed
+  (splitter isolated under a fixed gate). Test `urlTerminatedReferenceSplit.test.ts`
+  (5 cases; fails-before/passes-after verified, incl. a guard that a long multi-author
+  entry whose start can't be split off is not FRAGMENTED at an interior particle
+  surname when an earlier reference carried a URL).
+
 ## 0.7.22 (unreleased)
 
 Citationguard-iterate **session 2026-06-08** — APA reference title with a leading
