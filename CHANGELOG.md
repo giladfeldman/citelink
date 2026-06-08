@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.18 (unreleased)
+
+Citationguard-iterate **session 2026-06-07e** — organizational-author reference
+run-on split (REFERENCE-PARSING). Surfaced on collabra_90203 (O4).
+
+- **An org author ending in an org-suffix word ("JASP Team. (2023).") concatenated
+  onto the previous reference (after its DOI, no line break) is now split out.**
+  `splitConcatenatedApaReferences` only recognised a "Surname, Initials. (year)"
+  opener, so the JASP Team entry was swallowed into the Isager reference and the
+  work had no entry. Added an org-author boundary alternative (a capitalized name
+  ending in Team|Group|Collaboration|Consortium|Network|Initiative|Project|
+  Foundation|Association|Society immediately before "(year)"), guarded by the
+  existing `(?<=[).\d])` reference-end lookbehind. `isOrganizationName` also now
+  recognises these suffixes (long ones by substring; "team"/"group" word-bounded
+  so a surname containing them isn't misclassified). collabra refs.f1
+  0.922→0.930; no other corpus paper changed. Test `orgSuffixAuthorRunOnSplit.test.ts`
+  (fails-before/passes-after proven).
+
 ## 0.7.17 (unreleased)
 
 Citationguard-iterate **session 2026-06-07e** — numeric-citation precision

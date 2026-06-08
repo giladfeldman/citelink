@@ -263,9 +263,16 @@ function isOrganizationName(text: string): boolean {
     'board', 'commission', 'center', 'centre', 'administration', 'service',
     'office', 'ministry', 'university', 'college', 'society', 'academy',
     'corporation', 'company', 'consortium', 'authority', 'tribunal',
+    'collaboration', 'network', 'initiative',
   ];
 
-  return orgKeywords.some(keyword => lower.includes(keyword));
+  if (orgKeywords.some(keyword => lower.includes(keyword))) return true;
+
+  // Short, common org-suffix words ("JASP Team", "R Core Team", a working "Group")
+  // need a WORD boundary so a personal surname that merely CONTAINS them
+  // ("Steamer", "Grouping") is not misclassified as an organization.
+  // (citationguard-iterate 2026-06-07e — O4 JASP Team org-author reference.)
+  return /\b(?:team|group)\b/.test(lower);
 }
 
 /**
@@ -1124,8 +1131,16 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   const author =
     `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*` +
     `[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+,\\s+[A-Z]\\.(?:[-\\s]?[A-Z]\\.)*`;
+  const personalList = `${author}(?:,\\s+(?:&\\s+|and\\s+)?(?:${author}|et\\s+al\\.?))*`;
+  // Organizational author ending in an org-suffix word ("JASP Team", "R Core
+  // Team", "... Collaboration") — these have no "Surname, Initials" shape, so the
+  // personal-author boundary misses a concatenated org entry ("…doi… JASP Team.
+  // (2023).") and it gets swallowed into the previous reference.
+  // (citationguard-iterate 2026-06-07e — O4.)
+  const orgAuthor =
+    `[A-ZÀ-Ÿ][\\wÀ-ÿ&''.\\- ]*?\\b(?:Team|Group|Collaboration|Consortium|Network|Initiative|Project|Foundation|Association|Society)\\b\\.?`;
   const boundary = new RegExp(
-    `(?<=[).\\d])\\s+(?=${author}(?:,\\s+(?:&\\s+|and\\s+)?(?:${author}|et\\s+al\\.?))*\\s*\\((?:19|20)\\d{2}[a-z]?\\)[.,])`,
+    `(?<=[).\\d])\\s+(?=(?:${personalList}|${orgAuthor})\\s*\\((?:19|20)\\d{2}[a-z]?\\)[.,])`,
     'g'
   );
   const parts = block.split(boundary).map(s => s.trim()).filter(s => s.length > 20);
