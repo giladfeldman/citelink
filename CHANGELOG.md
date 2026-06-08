@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.7.24 (unreleased)
+
+Citationguard-iterate **focused cycle 2026-06-08c (cycle 2)** — complex-parenthetical
+in-text DETECTION misses (the "O2" class) on collabra_90203. Two bundle-fragment
+robustness fixes:
+
+- **Review / recency lead-in phrases inside parentheticals are now stripped.**
+  `(most recently, in Mayiwar et al., 2023)` detected nothing and
+  `(for reviews see Carter et al., 2019; …)` dropped its first item — the lead-ins
+  "most recently, in" and "for reviews see" were not in the signal-prefix set (used by
+  both the single-parenthetical patterns and the multi-citation bundle splitter). Added
+  both (multi-word, anchored immediately before an "Author, year" inside parens → small
+  FP surface). collabra in-text F1 0.966→0.973, matching 0.959→0.973.
+
+- **A bundle fragment carrying a trailing page locator is no longer dropped.**
+  The middle item of `(e.g., Jeffreys, 1939; M. D. Lee & Wagenmakers, 2013, p. 105;
+  Wasserman, 2000)` was missed: the multi-citation fragment matchers are `$`-anchored
+  right after the year, so a trailing ", p. 105" / ", pp. 12-15" failed them (the
+  standalone single-paren patterns already tolerated a page suffix). Strip a trailing
+  page locator from each bundle fragment before matching. collabra matching 0.973→0.979.
+  Side effect (citelink becoming MORE correct): chen_2021_jesp now also detects a 2nd,
+  real "(Fischhoff, 2007, p. 11; …)" citation that the AI gold counts only once — a gold
+  undercount (filed), surfacing as a −0.002 in-text F1 against the undercounting gold.
+
+Tests in `multiCitationSignalPrefix.test.ts` (5 new: Mayiwar lead-in, Carter "for
+reviews see", Lee page-locator, pp.-range, + an FP guard that the lead-ins don't invent
+citations from ordinary prose). No corpus paper's spurious-detection count rose except
+the chen gold-undercount above; no metric regressed > ε.
+
 ## 0.7.23 (unreleased)
 
 Citationguard-iterate **focused cycle 2026-06-08c** — URL-terminated reference
