@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.7.26
+
+Citationguard-iterate **2026-06-10 (cycle 1)** — REFERENCE-PARSING over-split class on
+numbered (IEEE/Vancouver) reference lists. Two distinct triggers false-split a single
+numbered reference into two, spawning a phantom author-less reference and shifting every
+later numeric index (so numeric citations resolved to the wrong reference). Surfaced on
+`ieee_access_2`: refs.f1 0.907→0.986, matching 0.906→0.981, matching.wrong_target 4→0;
+zero regression on the other five canary papers.
+
+- **Month+date inside a venue must not trigger an inline split.** Step 1c's inline
+  splitter read the conference name "…Int. Conf. Netw., Sens. Control, Apr. 2015…"
+  (ref [5]) as a new "Surname=Control, Firstname=Apr … year=2015" reference start,
+  splitting Wang's reference in two and losing its year. Pass-2 validation now rejects a
+  candidate whose word after the comma is a month (full or abbreviated) followed by a
+  digit — a publication date, never a real "Surname, Firstname" start. "Maybury, June A."
+  (a first name that is a month, followed by an initial not a digit) still splits.
+- **Bare volume number in a bracket-numbered list must not split an entry.** Step 1's
+  numberedSplitPattern split book ref [17] "…The Petri Net Approach, vol.\n16. Cham,
+  Switzerland: Springer, 2010." at the line-wrapped volume "16. Cham", spawning a phantom
+  "Cham…Springer" reference with a DUPLICATE listNumber=16. When bracket markers clearly
+  dominate the section (≥3 and ≥ bare markers), the list now splits ONLY on "[N]" markers.
+  Bare-numbered lists (plos_med_1: 4 brackets vs 33 bare markers) keep the full splitter.
+
+Tests: `numberedRefMonthDateSplit.test.ts`, `numberedRefBracketVolumeSplit.test.ts`.
+citelink 375 tests pass.
+
 ## 0.7.25
 
 Citationguard-iterate **focused sub-cycle 2026-06-08d (cycle 1)** — in-text DETECTION

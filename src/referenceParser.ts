@@ -1210,7 +1210,22 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
 
   // 1. Initial rough split by double newlines or clear numbering
   // Also handles "1Burnett" and " 1 Author" formats
-  const numberedSplitPattern = /\n\s*(?=\d{1,3}\.(?:\s+|(?=[A-Za-zÀ-Ÿ]))|\[\d+\]\.?\s*|\d{1,3}(?=[A-ZÀ-Ÿ][a-zà-ÿā-ž])|\d{1,3}\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž])/g;
+  //
+  // Bracket-numbered lists ([1], [2], …) must split ONLY on the bracket markers.
+  // A bare "N." at line start in such a list is a volume/edition number wrapped
+  // inside an entry — e.g. IEEE ref [17] "…The Petri Net Approach, vol.\n16. Cham,
+  // Switzerland: Springer, 2010." — and the bare-"N." / digit-glued alternatives
+  // would FALSE-split it at "16. Cham", spawning a phantom author-less reference
+  // and a duplicate listNumber (ieee_access_2; citationguard-iterate 2026-06-10).
+  // Only treat the list as bracket-numbered when brackets clearly dominate, so
+  // bare-numbered lists with a stray "[12]" inside an entry (plos_med_1: 4
+  // brackets vs 33 bare markers) keep their full splitter.
+  const bracketMarkers = (section.match(/\n\s*\[\d+\]/g) || []).length;
+  const bareMarkers = (section.match(/\n\s*\d{1,3}\.\s/g) || []).length;
+  const isBracketNumbered = bracketMarkers >= 3 && bracketMarkers >= bareMarkers;
+  const numberedSplitPattern = isBracketNumbered
+    ? /\n\s*(?=\[\d+\]\.?\s*)/g
+    : /\n\s*(?=\d{1,3}\.(?:\s+|(?=[A-Za-zÀ-Ÿ]))|\[\d+\]\.?\s*|\d{1,3}(?=[A-ZÀ-Ÿ][a-zà-ÿā-ž])|\d{1,3}\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž])/g;
   let blocks = section.split(/\n\s*\n/).flatMap(b => b.split(numberedSplitPattern)).map(b => b.trim()).filter(b => b.length > 20);
 
   // 1b. Handle pdftotext output: if the split produced only one giant block
@@ -1352,10 +1367,28 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     // after the initials keeps every real "Smith JA," / "Smith JA. Title" start.
     // (citationguard-iterate 2026-06-07e — O1-residual.)
     const refStartPattern = /^[A-ZÀ-Ÿ][\wà-ÿā-ž'-]+(?:,\s+[A-Z](?:\.|[a-zà-ÿā-ž]{1,20}|,)|\s+[A-Z]{1,3}[,.])/;
+    // A numbered (IEEE/Vancouver) reference's conference/journal info embeds a
+    // capitalized word followed by a publication month + year — e.g. the venue
+    // "…Int. Conf. Netw., Sens. Control, Apr. 2015, pp. 492-497" reads, to the
+    // comma-form of refStartPattern, as "Surname=Control, Firstname=Apr … 2015",
+    // so step 1c FALSE-split reference [5] at "Control", spawning a phantom
+    // author-less "Control 2015" reference and losing Wang's year (the split
+    // also shifted every later numeric index, mis-matching [16]/[17]). A real
+    // "Surname, Firstname … year" reference start never names a MONTH as the
+    // first name. Reject any candidate whose word after the comma is a month
+    // (full or abbreviated). (citationguard-iterate 2026-06-10 — ieee_access_2.)
+    // "Surname, Month <digits>" is a publication DATE ("Control, Apr. 2015"),
+    // not a "Surname, Firstname" reference start. The trailing \d (a day or year
+    // right after the month) is what tells a date from a real first name that
+    // merely happens to be a month — "Maybury, June A." has a capital initial,
+    // not a digit, after "June", so it is NOT rejected.
+    const MONTH_DATE_AFTER_COMMA =
+      /^[A-ZÀ-Ÿ][\wà-ÿā-ž'-]+,\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\.?,?\s+\d/;
     const validSplits: number[] = [0]; // always include start of block
     for (const pos of candidates) {
       const chunk = block.substring(pos, pos + 300);
       if (refStartPattern.test(chunk) && /\b(19|20)\d{2}\b/.test(chunk)) {
+        if (MONTH_DATE_AFTER_COMMA.test(chunk)) continue;
         validSplits.push(pos);
       }
     }
