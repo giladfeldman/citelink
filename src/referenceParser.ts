@@ -360,6 +360,17 @@ function parseAuthor(authorStr: string): ParsedReferenceAuthor | null {
 function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[] {
   const authors: ParsedReferenceAuthor[] = [];
 
+  // Strip a trailing "et al." so the leading author parses. Harvard reference
+  // lists write the truncated author form WITHOUT a comma ("Algan Y et al.",
+  // "Autor DH et al."); without this, the whole string collapses into one bogus
+  // surname ("Algan Y et al.") that never matches the reference's real first
+  // author. Also covers Vancouver "Smith JA, et al." and APA "Smith, J., et al.".
+  // "et al." is always the tail of an author list, so a trailing-only strip is
+  // safe (a title is never inside the author section). The dropped co-authors
+  // don't affect first-author + year matching. (citationguard-iterate 2026-06-12
+  // — bjps_1: 25 Harvard "et al." refs mis-keyed on the first author.)
+  authorSection = authorSection.replace(/[,;]?\s*\bet\s+al\.?\s*$/i, '').trim();
+
   // Check for organization author first
   const orgMatch = authorSection.match(REFERENCE_PATTERNS.organizationAuthor);
   if (orgMatch) {
@@ -1201,6 +1212,81 @@ export function splitConcatenatedApaReferences(block: string): string[] {
 }
 
 /**
+ * Split a run-on Harvard reference block into individual references.
+ *
+ * The Harvard sibling of `splitConcatenatedApaReferences`. docpluck's academic
+ * normalization flows the reference SECTION into one paragraph for Harvard-style
+ * papers (it preserves the per-entry newlines for APA, but Harvard's tighter
+ * line spacing gets joined) — so citelink receives all entries on one line and
+ * the newline-based splitters above produce a handful of mega-references
+ * (bjps_1: 9 globs of 109 refs, refs.f1 0.051). The APA splitter cannot help:
+ * its opener requires `Surname, A.` (comma after surname + period initials),
+ * which Harvard's `Adler D and Ansell B (2020)` / `Algan Y et al. (2017)` /
+ * `Betz H-G (1993)` never have. (citationguard-iterate 2026-06-12 — bjps_1.)
+ *
+ * A new Harvard entry opens with an author list (`Surname Initials`, no comma,
+ * no period after the initials, possibly hyphenated initials "H-G", joined by
+ * "and"/"&" or terminated by "et al.") immediately followed by `(year)`. The
+ * boundary guards mirror the APA splitter exactly: only split where the previous
+ * reference ends clean (`.`/`)`/digit) or in a trailing URL/DOI, and never where
+ * the whitespace sits INSIDE an author list (preceded by a connector), which
+ * would orphan the real first author onto the previous reference (e.g. the
+ * second author of "Amengay A and Stockemer D (2019)").
+ */
+export function splitConcatenatedHarvardReferences(block: string): string[] {
+  if (block.length < 120) return [block];
+  const particle =
+    `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*`;
+  const surname = `[A-ZÀ-Ÿ][\\wà-ÿā-ž'’-]+`;
+  // Initials with NO trailing period, 1-4 letters, hyphen allowed ("D", "DH", "H-G").
+  const initials = `[A-Z](?:[-.]?[A-Z]){0,3}`;
+  const oneAuthor = `${particle}${surname}\\s+${initials}`;
+  const authorList = `${oneAuthor}(?:\\s+(?:and|&)\\s+${oneAuthor}|\\s+et\\s+al\\.?)*`;
+  // A new reference opens with a Harvard author list immediately followed by
+  // "(year)" — and, crucially, the year-paren is followed by a SPACE + the
+  // title's first capital, NOT a "." (that "(year)." shape is APA — defer to the
+  // APA splitter so the two never double-fire on the same boundary).
+  const opener = new RegExp(
+    `(\\s+)(?=${authorList}\\s+\\((?:19|20)\\d{2}[a-z]?\\)\\s+[A-ZÀ-Ÿ“"])`,
+    'g'
+  );
+  const splitPoints: number[] = [0];
+  let m: RegExpExecArray | null;
+  while ((m = opener.exec(block)) !== null) {
+    const pos = m.index + m[1].length;
+    const before = block.slice(0, m.index);
+    const prevChar = before.slice(-1);
+    const prevToken = (before.match(/(\S+)\s*$/) || [])[1] || '';
+    // (a) Previous reference ends clean: a page number, "(year)" closer, or a
+    //     terminal period — Harvard entries end "…344-65." / "…104000." / "…e2111611118.".
+    const endsClean = /[).\d]/.test(prevChar);
+    // (b) URL/DOI-terminated working-paper entry with no trailing period
+    //     ("…Available from SSRN https://ssrn.com/abstract=3766022 …").
+    const endsWithUrl = /(?:https?:\/\/|\bdoi\.org|\bwww\.|\bssrn\b)\S*(?:[ \t]\S*){0,4}$/i.test(before);
+    // Never split INSIDE an author list (a connector or a bare initial just
+    // before the boundary) — that orphans the real first author. This is what
+    // keeps "Amengay A and Stockemer D (2019)" / "Amsalem E and Zoizner A (2022)"
+    // as single two-author references rather than splitting at the second author.
+    const isListConnector =
+      prevChar === ',' || prevChar === '&' ||
+      /,$/.test(prevToken) || /^(?:and|et|al\.?|&)$/i.test(prevToken) ||
+      /^[A-Z](?:[-.]?[A-Z]){0,3}$/.test(prevToken);
+    if ((endsClean || endsWithUrl) && !isListConnector) {
+      if (pos > splitPoints[splitPoints.length - 1]) splitPoints.push(pos);
+    }
+  }
+  if (splitPoints.length <= 1) return [block];
+  const parts: string[] = [];
+  for (let i = 0; i < splitPoints.length; i++) {
+    const start = splitPoints[i];
+    const end = i + 1 < splitPoints.length ? splitPoints[i + 1] : block.length;
+    const part = block.slice(start, end).trim();
+    if (part.length > 20) parts.push(part);
+  }
+  return parts.length > 1 ? parts : [block];
+}
+
+/**
  * Split reference section into individual references
  * Uses an aggressive recursive splitting strategy to handle lost line breaks.
  */
@@ -1478,6 +1564,16 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
   // already-clean refs; the continuation-merge below repairs any over-split.
   if (!isNumericStyle) {
     refinedRefs = refinedRefs.flatMap(splitConcatenatedApaReferences);
+  }
+  // Harvard run-on reference lists (no comma after surname, no period after
+  // initials) are invisible to the APA splitter and to the comma-anchored
+  // step-1c opener, so docpluck's academic paragraph-join leaves them as a few
+  // mega-references. Apply the Harvard splitter for Harvard-family author-year
+  // styles only — its no-comma/no-period opener would not match a clean APA
+  // "Surname, A. (year)." entry, but gating keeps the blast radius minimal.
+  // (citationguard-iterate 2026-06-12 — bjps_1: 9→~105 refs, refs.f1 0.05→~0.8.)
+  if (style && ['harvard', 'asa', 'chicago-ad', 'aom'].includes(style)) {
+    refinedRefs = refinedRefs.flatMap(splitConcatenatedHarvardReferences);
   }
 
   // Post-split fragment merging: merge fragments that are clearly continuations

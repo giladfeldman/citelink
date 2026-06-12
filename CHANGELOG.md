@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.7.27
+
+Citationguard-iterate **2026-06-12** — Harvard run-on reference-list support (REFERENCE-PARSING).
+Onboarding the Harvard canary `bjps_1` (DOI 10.1017/S0007123424000024, "The Populist Backlash
+Against Globalization") surfaced a complete failure to parse Harvard reference lists from the
+production substrate: refs.f1 **0.051 → 0.912**, references parsed **9 → 108 of 109**, matching
+0.023 → 0.578; **zero regression** on all six APA/numeric canary papers (the changes are gated to
+Harvard-family author-year styles).
+
+- **Concatenated-Harvard reference splitter (`splitConcatenatedHarvardReferences`).** docpluck's
+  academic normalization flows the reference section of Harvard papers into ONE paragraph (it
+  keeps per-entry newlines for APA but joins Harvard's tighter line spacing), so citelink received
+  all 109 entries on one line. The APA splitter and the comma-anchored step-1c opener both require
+  `Surname, A.` (comma + period initials), which Harvard's `Adler D and Ansell B (2020)` /
+  `Algan Y et al. (2017)` never have — so the list collapsed into ~9 mega-references. The new
+  splitter opens on a Harvard author list (`Surname Initials`, no comma/period, "and"/"&"-joined or
+  "et al."-terminated) immediately followed by `(year)`, with the APA splitter's exact boundary
+  guards (split only at a clean reference end or a trailing URL; never inside an author list, so a
+  two-author `Amengay A and Stockemer D (2019)` is not split at its second author). Applied for
+  `harvard`/`asa`/`chicago-ad`/`aom` styles only.
+- **`et al.` author strip in `parseAuthorsFromSection`.** A truncated Harvard author form is written
+  without a comma (`Algan Y et al.`), so the whole string collapsed into one bogus surname
+  ("Algan Y et al.") that never matched the reference's real first author (25 of bjps_1's refs).
+  A trailing `et al.` is now stripped before parsing, recovering the leading author. Also covers
+  Vancouver `Smith JA, et al.` and APA `Smith, J., et al.`.
+
+Test: `tests/harvardConcatenatedReferences.test.ts` (5 cases on the real bjps_1 run-on extraction).
+citelink 380 tests pass.
+
 ## 0.7.26
 
 Citationguard-iterate **2026-06-10 (cycle 1)** — REFERENCE-PARSING over-split class on
