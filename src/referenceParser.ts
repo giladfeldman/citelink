@@ -327,19 +327,23 @@ function parseAuthor(authorStr: string): ParsedReferenceAuthor | null {
     };
   }
 
-  // No comma — check for Vancouver-style "LastName Initials" (e.g., "Smith JA", "Penk W")
-  // Pattern: one or more name words followed by 1-4 uppercase letters (initials without periods)
-  const vcStyleMatch = trimmed.match(/^(.+?)\s+([A-Z]{1,4})$/);
+  // No comma — check for Vancouver/Harvard "LastName Initials" (e.g., "Smith JA",
+  // "Penk W", and hyphenated initials "Betz H-G", "Jin Z-C"). The initials group
+  // admits an internal hyphen so a hyphenated given name ("Hans-Georg" → "H-G")
+  // is parsed as initials, not folded into the surname. Without this, "Betz H-G"
+  // collapses to lastName "Betz H-G" and never matches its reference.
+  const vcStyleMatch = trimmed.match(/^(.+?)\s+([A-Z](?:[-.]?[A-Z]){0,3})$/);
   if (vcStyleMatch && vcStyleMatch[1].length >= 2) {
     const ln = vcStyleMatch[1].trim();
     const ini = vcStyleMatch[2];
-    // Only treat as Vancouver if the "initials" part is truly initials (not an acronym name)
-    // and the last-name part starts with a capital followed by lowercase
-    if (/^[A-ZÀ-Ÿ][a-zà-ÿā-ž]/.test(ln) && ini.length <= 4) {
+    // Only treat as Vancouver/Harvard if the "initials" part is truly initials
+    // (not an acronym name) and the last-name part starts with a capital + lowercase.
+    const initialLetters = ini.replace(/[^A-Z]/g, '');
+    if (/^[A-ZÀ-Ÿ][a-zà-ÿā-ž]/.test(ln) && initialLetters.length <= 4) {
       return {
         lastName: ln,
         lastNameNormalized: normalizeName(ln),
-        initials: ini.split('').join('. ') + '.',
+        initials: initialLetters.split('').join('. ') + '.',
         isOrganization: false,
       };
     }
@@ -1237,7 +1241,13 @@ export function splitConcatenatedHarvardReferences(block: string): string[] {
   if (block.length < 120) return [block];
   const particle =
     `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*`;
-  const surname = `[A-ZÀ-Ÿ][\\wà-ÿā-ž'’-]+`;
+  // Surname: a capitalized word, optionally followed by up to two more
+  // capitalized words to admit multi-word surnames ("Santos Silva", "Ross
+  // Russell") — without this, the second author of "Barros L and Santos Silva M
+  // (2019)" fails to match, the author-list match aborts, and the whole boundary
+  // is missed (Barros globbed into the previous reference). Hyphenated and
+  // particle surnames are already covered by the char class + `particle`.
+  const surname = `[A-ZÀ-Ÿ][\\wà-ÿā-ž'’-]+(?:\\s+[A-ZÀ-Ÿ][\\wà-ÿā-ž'’-]+){0,2}`;
   // Initials with NO trailing period, 1-4 letters, hyphen allowed ("D", "DH", "H-G").
   const initials = `[A-Z](?:[-.]?[A-Z]){0,3}`;
   const oneAuthor = `${particle}${surname}\\s+${initials}`;
@@ -1246,8 +1256,12 @@ export function splitConcatenatedHarvardReferences(block: string): string[] {
   // "(year)" — and, crucially, the year-paren is followed by a SPACE + the
   // title's first capital, NOT a "." (that "(year)." shape is APA — defer to the
   // APA splitter so the two never double-fire on the same boundary).
+  // After "(year)" a Harvard title begins: usually a capital letter, but also a
+  // digit, a quote, or a hashtag ("#EleNão: Economic Crisis…"). Accept that set
+  // so a title starting with a non-letter is not missed (Barros 2019). A space
+  // (no title char) still requires a following title token, never a bare year.
   const opener = new RegExp(
-    `(\\s+)(?=${authorList}\\s+\\((?:19|20)\\d{2}[a-z]?\\)\\s+[A-ZÀ-Ÿ“"])`,
+    `(\\s+)(?=${authorList}\\s+\\((?:19|20)\\d{2}[a-z]?\\)\\s+[A-ZÀ-Ÿ0-9“”"'‘’#])`,
     'g'
   );
   const splitPoints: number[] = [0];
@@ -1293,6 +1307,30 @@ export function splitConcatenatedHarvardReferences(block: string): string[] {
 function splitIntoReferences(refSection: string, style?: CitationStyleType): string[] {
   // Normalize line breaks
   const section = refSection.replace(/\r\n/g, '\n');
+
+  // Run-on Harvard reference list short-circuit. docpluck's academic
+  // normalization flows the WHOLE Harvard reference section into one paragraph
+  // (it keeps per-entry newlines for APA but joins Harvard's tighter spacing).
+  // The generic author-year / inline splitters below are built for
+  // newline-separated entries and FRAGMENT a run-on Harvard list at the "(year)"
+  // between author and title ("Caprettini B et al. (2021)" | "Redistribution,
+  // …Caselli M et al. (2020)…"), which then defeats the per-block Harvard
+  // splitter. When the section is Harvard-family AND clearly run-on (few
+  // newlines per "(year)" marker), split the whole section with the purpose-built
+  // Harvard splitter up front and use that result directly. (citationguard-iterate
+  // 2026-06-12 — bjps_1: 9→~107 refs, refs.f1 0.05→~0.97.)
+  if (style && ['harvard', 'asa', 'chicago-ad', 'aom'].includes(style)) {
+    const yearMarkers = (section.match(/\((?:19|20)\d{2}[a-z]?\)/g) || []).length;
+    const newlines = (section.match(/\n/g) || []).length;
+    if (yearMarkers >= 5 && newlines < yearMarkers * 0.5) {
+      const harvardParts = splitConcatenatedHarvardReferences(section.replace(/\n/g, ' '))
+        .map(p => p.trim())
+        .filter(p => p.length > 20);
+      if (harvardParts.length >= yearMarkers * 0.7) {
+        return harvardParts;
+      }
+    }
+  }
 
   // 1. Initial rough split by double newlines or clear numbering
   // Also handles "1Burnett" and " 1 Author" formats

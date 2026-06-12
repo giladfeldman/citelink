@@ -5,8 +5,8 @@
 Citationguard-iterate **2026-06-12** — Harvard run-on reference-list support (REFERENCE-PARSING).
 Onboarding the Harvard canary `bjps_1` (DOI 10.1017/S0007123424000024, "The Populist Backlash
 Against Globalization") surfaced a complete failure to parse Harvard reference lists from the
-production substrate: refs.f1 **0.051 → 0.912**, references parsed **9 → 108 of 109**, matching
-0.023 → 0.578; **zero regression** on all six APA/numeric canary papers (the changes are gated to
+production substrate: refs.f1 **0.051 → 0.972**, references parsed **9 → 109 of 109**, matching
+0.023 → 0.594; **zero regression** on all six APA/numeric canary papers (the changes are gated to
 Harvard-family author-year styles).
 
 - **Concatenated-Harvard reference splitter (`splitConcatenatedHarvardReferences`).** docpluck's
@@ -25,9 +25,28 @@ Harvard-family author-year styles).
   ("Algan Y et al.") that never matched the reference's real first author (25 of bjps_1's refs).
   A trailing `et al.` is now stripped before parsing, recovering the leading author. Also covers
   Vancouver `Smith JA, et al.` and APA `Smith, J., et al.`.
+- **Run-on Harvard short-circuit (`splitIntoReferences`).** The generic author-year / inline
+  splitters built for newline-separated lists FRAGMENT a run-on Harvard list at the `(year)`
+  between author and title ("Caprettini B et al. (2021)" | "Redistribution, …Caselli M et al.
+  (2020)…"), which then defeats the per-block splitter. When the section is Harvard-family AND
+  clearly run-on (few newlines per `(year)` marker), the whole section is now split with the
+  purpose-built Harvard splitter up front, bypassing the fragmenting pipeline. This recovered the
+  last globbed pairs (refs.f1 0.912 → 0.972, 109/109 parsed).
+- **Hyphenated initials (`parseAuthor`).** `Betz H-G`, `Jin Z-C` collapsed into the surname
+  ("Betz H-G"); the no-comma initials matcher now admits an internal hyphen so the surname and
+  initials separate correctly.
+- **Multi-word second surname + non-letter title start (opener).** The splitter opener now admits
+  a multi-word surname in a co-author (`Barros L and Santos Silva M (2019)`) and a title that
+  begins with a digit/quote/hashtag (`#EleNão: …`), both of which previously aborted the boundary
+  match and globbed the entry.
 
-Test: `tests/harvardConcatenatedReferences.test.ts` (5 cases on the real bjps_1 run-on extraction).
-citelink 380 tests pass.
+Residual (filed to the citationguard-iterate TRIAGE, refs.f1 0.972 floor): a single idiosyncratic
+glob (Whelan/Maître), a dataset self-citation year-format ("Replication Data for: …"), and two
+grey-literature title-bleeds past `;` ("…Populism; Unpublished Manuscript"). In-text Harvard
+detection/matching (intext.f1 0.774, match 0.594) is a separate subsystem for a future cycle.
+
+Test: `tests/harvardRunOnReferences.test.ts` (9 cases on the real bjps_1 run-on extraction).
+citelink 389 tests pass.
 
 ## 0.7.26
 
