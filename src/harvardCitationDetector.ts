@@ -68,28 +68,83 @@ const COMMON_WORDS = new Set([
   'according',
 ]);
 
+// ── shared surname fragments (composed into every matcher below; DRY) ─────
+// A surname mis-captured at its LEFT boundary keys the citation to the wrong
+// author, so it matches neither the gold nor its reference (bjps_1 H2, cycle 2).
+// The previous sub-pattern only spanned a multi-token surname joined by a
+// LOWERCASE particle ("Smith van Berg"), so three real surname shapes fell
+// through to the LAST token: a CAPITALIZED particle ("El Soufi",
+// "Van Staalduinen"), a bare double surname ("Santos Silva"), and a hyphen-cap
+// compound ("Rhodes-Purdy"). The fragments below capture all three. Define once,
+// compose with `new RegExp` — the fragment repeats ~11× across the matchers.
+
+/** A single surname token, including hyphen-cap compounds ("Rhodes-Purdy"). The
+ *  char class no longer carries the hyphen (it stopped at the uppercase after
+ *  it); an explicit compound group crosses into the capitalized continuation. */
+const CORE = String.raw`[A-ZÀ-Ÿ][a-zà-ÿā-ž']+(?:-[A-Za-zÀ-ÿ][a-zà-ÿā-ž']*)*`;
+
+/** Inter-token separator WITHIN a multi-token surname: horizontal whitespace
+ *  plus at most a SINGLE line break (a line-wrapped name, e.g. "Colantone and\n
+ *  Stanig"). It deliberately does NOT cross a blank line (`\n\n`). A flattened
+ *  table stacks a column heading above the citation, separated by a blank line
+ *  ("Import exposure\n\nColantone and Stanig (2018b)"); a plain `\s+` lets the
+ *  multi-token surname swallow the heading and key the citation on it
+ *  ("importex" instead of "colanton"). Anchoring the surname span at the
+ *  blank-line boundary keeps the heading out (bjps_1 H2-C). */
+const SEP = String.raw`(?:[^\S\r\n]+(?:\r?\n[^\S\r\n]*)?|\r?\n[^\S\r\n]*)`;
+
+/** Capitalized nobiliary / compound-surname prefixes ("El Soufi",
+ *  "Van Staalduinen", "Santos Silva", "De Vries"). A WHITELIST is required: a
+ *  bare cap+cap extension would absorb a preceding capitalized sentence word
+ *  ("As Smith and Jones" → first author "As Smith"), regressing every narrative
+ *  citation that opens a sentence. Lowercase particles ("Smith van Berg") are
+ *  handled separately by the infix branch in SURNAME, so this list is only the
+ *  Title-cased prefixes that directly precede a capitalized surname. */
+const CAP_PARTICLE = String.raw`(?:El|Van|Von|De|Del|Della|Den|Der|Des|Di|Da|Das|Dos|Du|La|Le|Lo|Las|Los|San|Santa|Santos|Saint|St|Mac|Mc|Ten|Ter)`;
+
+/** One author's full surname: an optional capitalized particle, the core token,
+ *  and an optional lowercase-particle infix ("Smith van Berg"). Covers
+ *  particle-led ("El Soufi"), double ("Santos Silva"), hyphen-cap
+ *  ("Rhodes-Purdy", via CORE) and lowercase-infix surnames. Every extension is
+ *  optional and backtracks, so a bare "De" / "Della" still parses as a plain
+ *  single surname when not followed by a capitalized token. */
+const SURNAME = String.raw`(?:${CAP_PARTICLE}${SEP})?${CORE}(?:${SEP}[a-z]+${SEP}${CORE})?`;
+
+/** A name RUN: a surname optionally joined to 1–2 more surnames by `and`/`&`
+ *  ONLY. Used by the single-author matchers so their span COINCIDES with the
+ *  earlier-added two-/three-author span and is position-deduped — otherwise a
+ *  contained second surname ("Silva" inside "Barros and Santos Silva") survives
+ *  as a spurious single. Joining on `and`/`&` (never a bare space) is what keeps
+ *  a leading sentence word ("As Smith and Jones") from being swallowed. */
+const NAME_RUN = String.raw`${SURNAME}(?:${SEP}(?:&|and)${SEP}${SURNAME}){0,2}`;
+
+/** Year with optional letter suffix or n.d. — a CAPTURE group. */
+const YEAR = String.raw`(\d{4}[a-z]?|n\.d\.)`;
+
+/** Optional trailing page locator after the year, e.g. ", 513" / ", S5" /
+ *  ", 43-5" / ", p. 15" / ", pp. 15-20". Harvard frequently omits the p./pp.
+ *  prefix, which every year-anchored pattern previously rejected — so any
+ *  in-text citation carrying a bare page was missed entirely (bjps_1 H2 cycle 1).
+ *  Non-capturing. */
+const PAGE = String.raw`(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?`;
+
 // ── Harvard parenthetical patterns (no comma before year) ────────────────
-
-// Optional trailing page locator after the year, e.g. ", 513" / ", S5" / ", 43-5" /
-// ", p. 15" / ", pp. 15-20". Harvard frequently omits the p./pp. prefix, which every
-// year-anchored pattern below previously rejected — so any in-text citation carrying a
-// bare page was missed entirely (bjps_1 H2, 2026-06-15). Non-capturing; identical
-// fragment inlined into the parenthetical, narrative, and ;-bundle matchers.
 const HARVARD_PATTERNS = {
-  // (Smith 2020) or (Smith 2020a) or (Smith n.d.)
-  single: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\s*\)/gi,
+  // (Smith 2020) / (Santos Silva 2020a) / (Smith n.d.) — NAME_RUN so a paren
+  // two-/three-author span is captured as one span and deduped against it.
+  single: new RegExp(String.raw`\(\s*(${NAME_RUN})\s+${YEAR}${PAGE}\s*\)`, 'gi'),
 
-  // (Smith & Jones 2020) or (Smith and Jones 2020)
-  twoAuthor: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(?:&|and)\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\s*\)/gi,
+  // (Smith & Jones 2020) / (Barros and Santos Silva 2020) / (Kurer and Van Staalduinen 2022)
+  twoAuthor: new RegExp(String.raw`\(\s*(${SURNAME})\s+(?:&|and)\s+(${SURNAME})\s+${YEAR}${PAGE}\s*\)`, 'gi'),
 
   // (Author, Author, and Author Year) — ASA 3+ author style
-  threeAuthor: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?(?:,\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)*),?\s+and\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\s*\)/gi,
+  threeAuthor: new RegExp(String.raw`\(\s*(${SURNAME}(?:,\s+${SURNAME})*),?\s+and\s+(${SURNAME})\s+${YEAR}${PAGE}\s*\)`, 'gi'),
 
-  // (Smith et al. 2020)
-  etAl: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\s*\)/gi,
+  // (Smith et al. 2020) / (Rhodes-Purdy et al. 2020)
+  etAl: new RegExp(String.raw`\(\s*(${CORE})\s+et\s*\.?\s*al\.?\s+${YEAR}${PAGE}\s*\)`, 'gi'),
 
   // (Smith 2020, p. 15) or (Smith 2020, pp. 15-20)
-  singleWithPage: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?)\s*,\s*(pp?\.\s*[\d–\-]+)\s*\)/gi,
+  singleWithPage: new RegExp(String.raw`\(\s*(${SURNAME})\s+(\d{4}[a-z]?)\s*,\s*(pp?\.\s*[\d–\-]+)\s*\)`, 'gi'),
 
   // Multiple in one: (Smith 2020; Jones 2019)
   multiple: /\(\s*([^)]+;\s*[^)]+)\s*\)/g,
@@ -211,13 +266,13 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
     let pos = m.index + 1;
     for (const part of parts) {
       // Try et al.: "Author et al. Year"
-      const etAlMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?$/i);
+      const etAlMatch = part.match(new RegExp(String.raw`^(${CORE})\s+et\s*\.?\s*al\.?\s+${YEAR}${PAGE}$`, 'i'));
       // Try two-author: "Author & Author Year" or "Author and Author Year"
-      const twoMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(?:&|and)\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?$/i);
+      const twoMatch = part.match(new RegExp(String.raw`^(${SURNAME})\s+(?:&|and)\s+(${SURNAME})\s+${YEAR}${PAGE}$`, 'i'));
       // Try multi-author: "Author, Author, and Author Year"
-      const multiMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:,\s*[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)*,?\s+and\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?$/i);
+      const multiMatch = part.match(new RegExp(String.raw`^(${SURNAME}(?:,\s*${SURNAME})*,?\s+and\s+${SURNAME})\s+${YEAR}${PAGE}$`, 'i'));
       // Try single: "Author Year"
-      const singleMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?$/i);
+      const singleMatch = part.match(new RegExp(String.raw`^(${NAME_RUN})\s+${YEAR}${PAGE}$`, 'i'));
 
       let authors: ParsedCitationAuthor[] = [];
       let yearStr = '';
@@ -262,7 +317,7 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
   // Order matters: more specific patterns first (et al., two-author) before single.
 
   // Et al. narrative
-  const narrativeEtAl = /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+\((\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\)/g;
+  const narrativeEtAl = new RegExp(String.raw`\b(${CORE})\s+et\s*\.?\s*al\.?\s+\(${YEAR}${PAGE}\)`, 'g');
   while ((m = narrativeEtAl.exec(text)) !== null) {
     if (COMMON_WORDS.has(m[1].toLowerCase())) continue;
     const { year, suffix } = parseYear(m[2]);
@@ -280,7 +335,7 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
   }
 
   // Two author narrative
-  const narrativeTwo = /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+and\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+\((\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\)/g;
+  const narrativeTwo = new RegExp(String.raw`\b(${SURNAME})\s+and\s+(${SURNAME})\s+\(${YEAR}${PAGE}\)`, 'g');
   while ((m = narrativeTwo.exec(text)) !== null) {
     if (COMMON_WORDS.has(m[1].toLowerCase())) continue;
     const { year, suffix } = parseYear(m[3]);
@@ -298,7 +353,7 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
   }
 
   // Single narrative (last — least specific)
-  const narrativeSingle = /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+\((\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\)/g;
+  const narrativeSingle = new RegExp(String.raw`\b(${NAME_RUN})\s+\(${YEAR}${PAGE}\)`, 'g');
   while ((m = narrativeSingle.exec(text)) !== null) {
     // Check both the full captured name and its first word (for "Also like Kalmijn" → "also")
     const firstWord = m[1].split(/\s+/)[0].toLowerCase();

@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.7.30
+
+Harvard in-text surname left-boundary under-capture (citationguard-iterate H2 cycle 2,
+bjps_1, 2026-06-15) — the shared surname sub-pattern only spanned a multi-token surname
+joined by a *lowercase* particle (`Smith van Berg`), so three real surname shapes fell
+through to the LAST token and keyed the citation on the wrong author (matching neither the
+gold nor its reference): a capitalized particle (`El Soufi`, `Van Staalduinen`), a bare
+double surname (`Santos Silva`), and a hyphen-cap compound (`Rhodes-Purdy`).
+
+- Factored the matchers onto shared, composed regex fragments (`CORE` / `CAP_PARTICLE` /
+  `SURNAME` / `NAME_RUN` / `SEP` / `YEAR` / `PAGE`) built with `new RegExp` (DRY — the
+  surname fragment previously repeated ~11×). `CORE` adds a hyphen-cap compound group
+  (`Rhodes-Purdy`); `SURNAME` admits an optional *whitelisted* capitalized particle
+  (`El`/`Van`/`Santos`/`De`…) so a leading capitalized sentence word is NOT absorbed
+  (`As Smith and Jones` keeps first author `Smith`, not `As Smith`).
+- `SEP` restricts inter-token whitespace to a single line break, so a multi-token surname
+  no longer crosses a blank line. This anchors the span at the flattened-table boundary and
+  resolves the H2-C **table-heading over-capture** as a coupled side-effect: column
+  headings (`Import exposure` / `Regression discontinuity` / `Survey experiment`) stacked a
+  blank line above a citation no longer glue onto it.
+- `NAME_RUN` joins author runs on `and`/`&` only, so the single-author matcher swallows a
+  two-/three-author span and position-dedupes the contained second surname (no spurious
+  `Silva` single beside `Barros and Santos Silva`).
+- bjps_1 intext.f1 0.838 → 0.870, matching.accuracy 0.672 → 0.703; 4 recovered
+  (`El Soufi`/`Barros`/`Rhodes-Purdy`/`Kurer`), unmatched_gold 5 → 1 (only the H2-D
+  possessive `Barr's` remains), all table-heading glues gone, extra_pred 38 → 36. Zero
+  regression on the 6 APA/numeric canary papers (full clean-rebuild detection-set baseline
+  diff byte-identical). 6 new real-text tests in `tests/harvardSurnameLeftBoundary.test.ts`;
+  full suite 407 passed / 0 failed. The npm republish + monorepo repin are a separate
+  user-gated Tier-3 step.
+
 ## 0.7.29
 
 Harvard in-text page-locator detection (citationguard-iterate H2 cycle 1, bjps_1,
