@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.29
+
+Harvard in-text page-locator detection (citationguard-iterate H2 cycle 1, bjps_1,
+2026-06-15) — every Harvard parenthetical + narrative pattern anchored the year as
+`(\d{4})\)` (closing paren immediately after the year), and the one page-aware pattern
+(`singleWithPage`) required a `p.`/`pp.` prefix AND was single-author only. So any Harvard
+citation carrying a *bare* page locator was missed entirely (DETECTION): `(Hacker et al.
+2014, S5)`, `(Western et al. 2012, 342)`, `(Stanley and Doucouliagos 2012, 43-5)`,
+`Mughan and Lacy (2002, 513)`, `Berman (2021, 75-6)`.
+
+- Added an optional, non-capturing trailing-page-locator fragment
+  (`, [p.|pp.] [S]NNN[-NN]`) to the parenthetical, narrative, and `;`-bundle matchers in
+  `harvardCitationDetector.ts` (one structural signature, applied consistently).
+- Added `according` to `COMMON_WORDS` to guard the narrative prefix-leak the page
+  tolerance exposes (`According to Barr's (2009, 44)` mis-keying to `according`).
+- bjps_1 intext.f1 0.774 → 0.838, matching.accuracy 0.594 → 0.672 (16 of 22 detection
+  misses recovered; wrong_target 0). Zero regression on the 6 APA/numeric canary papers
+  (full clean-rebuild detection-set baseline diff identical). 7 new real-text tests in
+  `tests/harvardPageLocatorCitations.test.ts`; full suite 401 passed / 0 failed. The npm
+  republish + monorepo repin are a separate user-gated Tier-3 step.
+
 ## 0.7.28
 
 Cross-project lesson transfer **R-0001** (docpluck => citelink, 2026-06-15) — fold the full
