@@ -63,22 +63,30 @@ const COMMON_WORDS = new Set([
   'although', 'whereas', 'because', 'since', 'unless', 'until',
   'also', 'like', 'unlike', 'see', 'following', 'including', 'notably',
   'specifically', 'particularly', 'especially', 'given', 'except',
+  // narrative lead-in: guards the prefix-leak the page-locator tolerance exposes,
+  // e.g. "According to Barr's (2009, 44)" mis-keying the citation to "according"
+  'according',
 ]);
 
 // ── Harvard parenthetical patterns (no comma before year) ────────────────
 
+// Optional trailing page locator after the year, e.g. ", 513" / ", S5" / ", 43-5" /
+// ", p. 15" / ", pp. 15-20". Harvard frequently omits the p./pp. prefix, which every
+// year-anchored pattern below previously rejected — so any in-text citation carrying a
+// bare page was missed entirely (bjps_1 H2, 2026-06-15). Non-capturing; identical
+// fragment inlined into the parenthetical, narrative, and ;-bundle matchers.
 const HARVARD_PATTERNS = {
   // (Smith 2020) or (Smith 2020a) or (Smith n.d.)
-  single: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?|n\.d\.)\s*\)/gi,
+  single: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\s*\)/gi,
 
   // (Smith & Jones 2020) or (Smith and Jones 2020)
-  twoAuthor: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(?:&|and)\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?|n\.d\.)\s*\)/gi,
+  twoAuthor: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(?:&|and)\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\s*\)/gi,
 
   // (Author, Author, and Author Year) — ASA 3+ author style
-  threeAuthor: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?(?:,\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)*),?\s+and\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?|n\.d\.)\s*\)/gi,
+  threeAuthor: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?(?:,\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)*),?\s+and\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\s*\)/gi,
 
   // (Smith et al. 2020)
-  etAl: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+(\d{4}[a-z]?|n\.d\.)\s*\)/gi,
+  etAl: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\s*\)/gi,
 
   // (Smith 2020, p. 15) or (Smith 2020, pp. 15-20)
   singleWithPage: /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?)\s*,\s*(pp?\.\s*[\d–\-]+)\s*\)/gi,
@@ -203,13 +211,13 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
     let pos = m.index + 1;
     for (const part of parts) {
       // Try et al.: "Author et al. Year"
-      const etAlMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+(\d{4}[a-z]?|n\.d\.)$/i);
+      const etAlMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?$/i);
       // Try two-author: "Author & Author Year" or "Author and Author Year"
-      const twoMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(?:&|and)\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?|n\.d\.)$/i);
+      const twoMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(?:&|and)\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?$/i);
       // Try multi-author: "Author, Author, and Author Year"
-      const multiMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:,\s*[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)*,?\s+and\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?|n\.d\.)$/i);
+      const multiMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:,\s*[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)*,?\s+and\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?$/i);
       // Try single: "Author Year"
-      const singleMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?|n\.d\.)$/i);
+      const singleMatch = part.match(/^([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+(\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?$/i);
 
       let authors: ParsedCitationAuthor[] = [];
       let yearStr = '';
@@ -254,7 +262,7 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
   // Order matters: more specific patterns first (et al., two-author) before single.
 
   // Et al. narrative
-  const narrativeEtAl = /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+\((\d{4}[a-z]?|n\.d\.)\)/g;
+  const narrativeEtAl = /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+et\s*\.?\s*al\.?\s+\((\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\)/g;
   while ((m = narrativeEtAl.exec(text)) !== null) {
     if (COMMON_WORDS.has(m[1].toLowerCase())) continue;
     const { year, suffix } = parseYear(m[2]);
@@ -272,7 +280,7 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
   }
 
   // Two author narrative
-  const narrativeTwo = /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+and\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+\((\d{4}[a-z]?|n\.d\.)\)/g;
+  const narrativeTwo = /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+and\s+([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)\s+\((\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\)/g;
   while ((m = narrativeTwo.exec(text)) !== null) {
     if (COMMON_WORDS.has(m[1].toLowerCase())) continue;
     const { year, suffix } = parseYear(m[3]);
@@ -290,7 +298,7 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
   }
 
   // Single narrative (last — least specific)
-  const narrativeSingle = /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+\((\d{4}[a-z]?|n\.d\.)\)/g;
+  const narrativeSingle = /\b([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)\s+\((\d{4}[a-z]?|n\.d\.)(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?\)/g;
   while ((m = narrativeSingle.exec(text)) !== null) {
     // Check both the full captured name and its first word (for "Also like Kalmijn" → "also")
     const firstWord = m[1].split(/\s+/)[0].toLowerCase();
