@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.28
 
 Cross-project lesson transfer **R-0001** (docpluck => citelink, 2026-06-15) — fold the full
 Latin typographic ligature block U+FB00–U+FB06 (ﬀﬁﬂﬃﬄﬅﬆ) in the citation-matching gates
