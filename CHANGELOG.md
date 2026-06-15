@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Cross-project lesson transfer **R-0001** (docpluck => citelink, 2026-06-15) — fold the full
+Latin typographic ligature block U+FB00–U+FB06 (ﬀﬁﬂﬃﬄﬅﬆ) in the citation-matching gates
+(NORMALIZATION). pdftotext preserves these presentation-form glyphs verbatim, so a reference
+printed "conﬁdent" / "inﬂuence" failed to match its citation. `normalizeText`
+(citationDetector.ts) and `normalizeName` (referenceParser.ts) used NFD, which does NOT
+decompose these compatibility ligatures; an NFKC pass would yield "ſt" (non-ASCII LONG S) for
+U+FB05, so an explicit ASCII map is used instead.
+
+- New shared `decomposeLigatures()` helper (exported from `citationDetector.ts`) with an
+  explicit ASCII map ported from docpluck's `normalize.py::decompose_ligatures`; used by BOTH
+  matching gates (single-shared-helper design). Full suite 394 passed / 0 failed; 5 new tests
+  in `tests/ligatureNormalization.test.ts`. Version bump + npm republish are a separate
+  release step (not done in this change).
+
 ## 0.7.27
 
 Citationguard-iterate **2026-06-12** — Harvard run-on reference-list support (REFERENCE-PARSING).

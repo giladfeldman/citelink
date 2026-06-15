@@ -11,7 +11,7 @@
  * - Various reference types (journal, book, chapter, website, report)
  */
 
-import { normalizeText } from './citationDetector.js';
+import { normalizeText, decomposeLigatures } from './citationDetector.js';
 import type { CitationStyleType } from './types.js';
 
 // Common organization abbreviations for detection
@@ -176,8 +176,7 @@ const REFERENCE_PREFIX_PATTERNS = [
  * Handles accents, hyphens, apostrophes, special characters, and case
  */
 export function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
+  return decomposeLigatures(name.toLowerCase())
     // Remove standalone accent marks (PDF extraction artifacts: Al´os → Alos)
     .replace(/[\u00B4\u02C6\u00A8\u0060\u02DC\u02CA\u02CB]/g, '')
     // Handle special Scandinavian characters that NFD doesn't decompose

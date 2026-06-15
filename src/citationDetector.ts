@@ -351,13 +351,39 @@ const CITATION_PATTERNS = {
   ),
 };
 
+// Latin typographic ligatures U+FB00–U+FB06 (ﬀ ﬁ ﬂ ﬃ ﬄ ﬅ ﬆ). pdftotext
+// preserves these presentation-form glyphs verbatim, so a reference printed
+// "conﬁdent" / "inﬂuence" fails to match its citation. NFD does NOT decompose
+// these compatibility ligatures, and an NFKC pass would yield "ſt" (non-ASCII
+// LONG S) for U+FB05 — so we use an explicit ASCII map, ported from docpluck's
+// normalize.py::decompose_ligatures (cross-project lesson transfer R-0001).
+// Shared by BOTH matching gates: normalizeText (here) and normalizeName
+// (referenceParser.ts), mirroring docpluck's single-shared-helper design.
+const LIGATURE_MAP: Record<string, string> = {
+  'ﬀ': 'ff', // ﬀ
+  'ﬁ': 'fi', // ﬁ
+  'ﬂ': 'fl', // ﬂ
+  'ﬃ': 'ffi', // ﬃ
+  'ﬄ': 'ffl', // ﬄ
+  'ﬅ': 'st', // ﬅ (long-s + t)
+  'ﬆ': 'st', // ﬆ
+};
+const LIGATURE_RE = /[ﬀ-ﬆ]/g;
+
+/**
+ * Decompose Latin typographic ligatures (U+FB00–U+FB06) to ASCII. The single
+ * shared helper for citelink's text-comparison gates (see LIGATURE_MAP note).
+ */
+export function decomposeLigatures(text: string): string {
+  return text.replace(LIGATURE_RE, (m) => LIGATURE_MAP[m] ?? m);
+}
+
 /**
  * Normalize text for comparison
  * Removes accents, normalizes spaces and punctuation
  */
 export function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
+  return decomposeLigatures(text.toLowerCase())
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')  // Remove accents
     .replace(/[''`]/g, "'")            // Normalize apostrophes
