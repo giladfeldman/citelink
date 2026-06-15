@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.31
+
+Harvard in-text possessive narrative + capitalized lead-in (citationguard-iterate H2-D
+cycle 3, bjps_1, 2026-06-15) — `According to Barr's (2009, 44)` was detected as NOTHING:
+the surname infix matched ANY lowercase word, so `According to Barr's` was captured as one
+span starting at the capitalized lead-in `According`, which `COMMON_WORDS` then dropped —
+losing the real citation. (The same absorption mis-keyed `According to Smith and Jones
+(2020)` onto `According to Smith` in `narrativeTwo`, which has no such guard.) And even in
+isolation `Barr's (2009)` keyed on `barr's` (possessive kept), matching neither the gold
+key `barr` nor the reference.
+
+- Restricted the lowercase surname infix from `[a-z]+` to a nobiliary-particle WHITELIST
+  (`LC_PARTICLE` = van/von/de/del/…), so a lead-in connector (`to`/`of`) is no longer a
+  valid infix and the matcher re-anchors on the real surname.
+- `createAuthor` strips a trailing possessive (`Barr's` / `Jones'`, straight or curly
+  apostrophe) so the in-text surname keys on the bare name.
+- bjps_1 intext.f1 0.870 → 0.874, matching.accuracy 0.703 → 0.711; `barr|2009` recovered,
+  **unmatched_gold 1 → 0** (every in-text citation the gold contains is now detected and
+  matched). Zero new extra_pred. Zero regression on the 6 APA/numeric canary papers
+  (clean-rebuild detection-set baseline diff byte-identical). 4 new real-text tests in
+  `tests/harvardPossessiveNarrative.test.ts`; full suite 411 passed. npm republish +
+  monorepo repin are a separate user-gated Tier-3 step.
+
 ## 0.7.30
 
 Harvard in-text surname left-boundary under-capture (citationguard-iterate H2 cycle 2,

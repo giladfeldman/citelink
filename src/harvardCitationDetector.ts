@@ -19,7 +19,10 @@ import {
 // ── helpers ──────────────────────────────────────────────────────────────
 
 function createAuthor(raw: string, isEtAl = false): ParsedCitationAuthor {
-  const trimmed = raw.trim();
+  // Strip a trailing possessive (`Barr's` / `Jones'` — straight or curly apostrophe)
+  // so the in-text surname keys on the bare name ("barr"), matching the gold + the
+  // reference. No real surname ends in apostrophe-s, so this is unconditional.
+  const trimmed = raw.trim().replace(/['‘’]s?$/, '');
   const isOrg = /^[A-Z]{2,}$/.test(trimmed);
   return {
     raw: trimmed,
@@ -102,13 +105,21 @@ const SEP = String.raw`(?:[^\S\r\n]+(?:\r?\n[^\S\r\n]*)?|\r?\n[^\S\r\n]*)`;
  *  Title-cased prefixes that directly precede a capitalized surname. */
 const CAP_PARTICLE = String.raw`(?:El|Van|Von|De|Del|Della|Den|Der|Des|Di|Da|Das|Dos|Du|La|Le|Lo|Las|Los|San|Santa|Santos|Saint|St|Mac|Mc|Ten|Ter)`;
 
+/** Lowercase nobiliary particles joining a surname ("Smith van Berg"). The infix
+ *  MUST be a known particle, never any lowercase word: `[a-z]+` would absorb a
+ *  capitalized lead-in's connector ("According to Barr's" captured as one surname
+ *  starting at "According", then dropped by COMMON_WORDS — or worse, keyed on the
+ *  lead-in in `narrativeTwo`, which has no such guard). Mirrors the worker's
+ *  pre-detection particle list. */
+const LC_PARTICLE = String.raw`(?:van|von|de|del|della|den|der|des|di|da|das|do|dos|du|la|le|lo|las|los|el|al|y|e|ten|ter)`;
+
 /** One author's full surname: an optional capitalized particle, the core token,
- *  and an optional lowercase-particle infix ("Smith van Berg"). Covers
+ *  and an optional lowercase-PARTICLE infix ("Smith van Berg"). Covers
  *  particle-led ("El Soufi"), double ("Santos Silva"), hyphen-cap
  *  ("Rhodes-Purdy", via CORE) and lowercase-infix surnames. Every extension is
  *  optional and backtracks, so a bare "De" / "Della" still parses as a plain
  *  single surname when not followed by a capitalized token. */
-const SURNAME = String.raw`(?:${CAP_PARTICLE}${SEP})?${CORE}(?:${SEP}[a-z]+${SEP}${CORE})?`;
+const SURNAME = String.raw`(?:${CAP_PARTICLE}${SEP})?${CORE}(?:${SEP}${LC_PARTICLE}${SEP}${CORE})?`;
 
 /** A name RUN: a surname optionally joined to 1–2 more surnames by `and`/`&`
  *  ONLY. Used by the single-author matchers so their span COINCIDES with the
