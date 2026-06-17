@@ -143,6 +143,27 @@ const SIGNAL_PREFIX =
 // Non-capturing — the surname stays the captured key. Cycle 16.
 const INITIAL_PREFIX = '(?:[A-Z]\\.\\s*){0,3}';
 
+// Organizational / multi-word author: a run of 2+ capitalized tokens that are
+// NOT joined by a surname particle — "Open Science Collaboration", "R Core
+// Team", "Pew Research Center". COMPOUND_SURNAME captures only the LAST token of
+// such a run (it expects a single surname optionally extended by a whitelisted
+// particle), so the citation was mis-keyed to that last token standalone
+// ("(R Core Team, 2019)" -> "team") and dropped entirely inside a ';'-bundle
+// ("(...; Open Science Collaboration, 2015)"). This is the APA analog of the
+// Harvard multi-token in-text surname work (H2-B, cycle 2). Cycle 4
+// (2026-06-17, APA-ORG-AUTHOR).
+//
+// Whitespace-joined capitalized tokens ONLY — NO lowercase connective ("and",
+// "of", "for") is admitted between tokens. This is deliberate: a two-author
+// parenthetical written with a lowercase "and" ("Smith and Jones, 2020") must
+// NEVER be swallowed as a single org author, and a run stops at the first
+// lowercase word so "(See Smith, 2020)" / "(In Tykocinski et al., 2023)" can't
+// be glued. The leading-token prose guard (orgLeadAllowed) drops the residual
+// "Capitalized prose word + Surname" false positives the [A-Z]-anchor lets
+// through.
+const ORG_CAP_TOKEN = "[A-Z][\\w.'’\\-]*";
+const ORG_AUTHOR = `${ORG_CAP_TOKEN}(?:\\s+${ORG_CAP_TOKEN}){1,5}`;
+
 // Comprehensive APA 7 citation patterns
 const CITATION_PATTERNS = {
   // ============ PARENTHETICAL PATTERNS ============
@@ -154,7 +175,19 @@ const CITATION_PATTERNS = {
     `\\(\\s*(?:${SIGNAL_PREFIX})?${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.|in\\s+press)\\s*\\)`,
     'gi',
   ),
-  
+
+  // Organizational / multi-word author parenthetical: (R Core Team, 2019),
+  // (Open Science Collaboration, 2015). 2-6 whitespace-joined capitalized tokens
+  // followed by ", year". NO `i` flag — the [A-Z] anchor in ORG_CAP_TOKEN must
+  // hold so lowercase prose can't lead the run. The leading-token prose guard
+  // (orgLeadAllowed) in the consumer drops "Capitalized-prose-word + Surname"
+  // residue. Runs AFTER singleParenthetical so a single/compound surname is
+  // always preferred. Cycle 4 (APA-ORG-AUTHOR).
+  orgMultiWordParenthetical: new RegExp(
+    `\\(\\s*(?:${SIGNAL_PREFIX})?(${ORG_AUTHOR})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    'g',
+  ),
+
   // Single with page: (Smith, 2020, p. 15) or (Smith, 2020, pp. 15-20)
   singleWithPage: new RegExp(
     `\\(\\s*${INITIAL_PREFIX}(${SURNAME_LASTNAME})\\s*,\\s*(\\d{4}[a-z]?)\\s*,\\s*(pp?\\.\\s*[\\d–\\-]+)\\s*\\)`,
@@ -312,8 +345,12 @@ const CITATION_PATTERNS = {
   
   // ============ GROUP/ORGANIZATION PATTERNS ============
   
-  // Full name with abbreviation: (World Health Organization [WHO], 2020)
-  groupWithAbbrev: /\(\s*([A-Z][A-Za-z\s&]+)\s*\[([A-Z]{2,})\]\s*,\s*(\d{4}[a-z]?|n\.d\.)\s*\)/g,
+  // Full name with abbreviation: (World Health Organization [WHO], 2020).
+  // The name char class includes hyphen / apostrophe / period so a hyphenated or
+  // compound organization name parses ("Collaborative Open-science REsearch
+  // [CORE], 2020"). Without the hyphen the name run broke at "Open-science" and
+  // the whole group citation was missed (xiao_2021 / APA-ORG-AUTHOR cycle 4).
+  groupWithAbbrev: /\(\s*([A-Z][A-Za-z\s&.'’-]+)\s*\[([A-Z]{2,})\]\s*,\s*(\d{4}[a-z]?|n\.d\.)\s*\)/g,
   
   // Abbreviation only: (WHO, 2020) or (CDC, 2020)
   groupAbbrevOnly: /\(\s*([A-Z]{2,})\s*,\s*(\d{4}[a-z]?|n\.d\.)\s*\)/g,
@@ -494,6 +531,34 @@ const SENTENCE_CONNECTORS = new Set([
 /** True if the captured "first author" is actually a sentence-initial connector. */
 function isSentenceConnector(str: string): boolean {
   return SENTENCE_CONNECTORS.has(str.trim().toLowerCase().replace(/\.$/, ''));
+}
+
+// Capitalized prose words that legitimately precede a real author inside a
+// parenthetical ("(See Smith, 2020)", "(In Tykocinski et al., 2023)") and must
+// never lead a multi-word ORG_AUTHOR run — otherwise the run glues the prose
+// word onto the surname ("see smith") and the real single-author detection is
+// lost in de-overlap. Beyond the signal/connector/common-word sets, these are
+// the capitalized lead-ins + document-structure nouns observed before a
+// citation. Cycle 4 (APA-ORG-AUTHOR).
+const ORG_LEAD_BLOCK = new Set([
+  'see', 'as', 'per', 'via', 'cf', 'eg', 'ie', 'ed', 'eds', 'vol', 'no', 'nos',
+  'pp', 'fig', 'figs', 'in', 'of', 'for', 'and', 'but', 'compare', 'reviewed',
+  'supplementary', 'supporting', 'appendix', 'note', 'notes', 'data', 'panel',
+]);
+
+/**
+ * True if `firstWord` is a credible LEADING token for an organizational /
+ * multi-word author run (i.e. NOT prose, NOT a sentence connector, NOT a
+ * document-structure noun, NOT a month). Gates every ORG_AUTHOR detection.
+ */
+function orgLeadAllowed(firstWord: string): boolean {
+  const w = firstWord.trim().toLowerCase().replace(/[.,]+$/, '');
+  if (!w) return false;
+  if (ORG_LEAD_BLOCK.has(w)) return false;
+  if (SENTENCE_CONNECTORS.has(w)) return false;
+  if (COMMON_NON_AUTHOR_WORDS.has(w)) return false;
+  if (isMonthName(firstWord)) return false;
+  return true;
 }
 
 /**
@@ -978,7 +1043,36 @@ export function detectCitations(text: string): DetectedCitation[] {
       context: extractContext(text, match.index, match[0].length)
     });
   }
-  
+
+  // ============ ORGANIZATIONAL / MULTI-WORD AUTHOR PARENTHETICAL ============
+  // "(R Core Team, 2019)", "(Open Science Collaboration, 2015)". Runs AFTER
+  // singleParenthetical (single/compound surnames win) and BEFORE the prose-
+  // bundled pass — so the prose pass's would-be last-token candidate
+  // ("Team, 2019" / "Collaboration, 2015") overlaps this full-span detection and
+  // is dropped, leaving exactly one citation keyed on the full org. Cycle 4
+  // (APA-ORG-AUTHOR).
+  CITATION_PATTERNS.orgMultiWordParenthetical.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.orgMultiWordParenthetical.exec(text)) !== null) {
+    const orgRaw = match[1].trim();
+    const firstWord = orgRaw.split(/\s+/)[0] ?? '';
+    if (!orgLeadAllowed(firstWord)) continue;
+    if (isMonthName(orgRaw)) continue;
+    const { year, suffix } = parseYear(match[2]);
+    const author = createParsedAuthor(orgRaw);
+    author.isOrganization = true;
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: 'group_full',
+      citationStyle: 'parenthetical',
+      authors: [author],
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length),
+    });
+  }
+
   // ============ HARVARD NO-COMMA: ET AL. PARENTHETICAL (B34) ============
   // Run before two-author and single Harvard so "(Smith et al. 2020)" doesn't
   // get partially captured by the single-author Harvard pattern.
@@ -1334,6 +1428,36 @@ export function detectCitations(text: string): DetectedCitation[] {
         continue;
       }
 
+      // Group-with-bracket-abbreviation author as a bundle item: "Collaborative
+      // Open-science REsearch [CORE], 2020", "World Health Organization [WHO],
+      // 2020". The standalone groupWithAbbrev pattern only fires when the WHOLE
+      // parenthetical is the org, so inside a ';'-bundle the member fell through
+      // every matcher and was dropped. Keyed on the NAME (not the acronym), so
+      // authors[0] matches the gold's full-name key. Name run is non-greedy up
+      // to the "[ABBR]". cycle 4 (APA-ORG-AUTHOR / xiao_2021).
+      const bracketAbbrevFrag = citeText.match(
+        /^([A-Z][A-Za-z&.'’\-\s]+?)\s*\[([A-Z]{2,})\]\s*,\s*(\d{4}[a-z]?|n\.d\.)$/,
+      );
+      if (bracketAbbrevFrag) {
+        const { year, suffix } = parseYear(bracketAbbrevFrag[3]);
+        const author = createParsedAuthor(bracketAbbrevFrag[1].trim());
+        author.isOrganization = true;
+        author.abbreviation = bracketAbbrevFrag[2].toUpperCase();
+        addCitation({
+          raw: `(${citeText})`,
+          normalized: normalizeCitation(`(${citeText})`),
+          type: 'group_full',
+          citationStyle: 'parenthetical',
+          authors: [author],
+          year,
+          yearSuffix: suffix,
+          position: { start: currentPos, end: currentPos + citeText.length },
+          context: extractContext(text, currentPos, citeText.length),
+        });
+        currentPos += citeText.length + 2;
+        continue;
+      }
+
       // Multi-year fragment FIRST: "Dickert et al., 2012, 2015",
       // "Thaler, 1985, 1999", "Bishop, 2019, 2020a, 2020b" appearing as a
       // semicolon-bundle item (e.g. "(...; Dickert et al., 2012, 2015;
@@ -1501,8 +1625,35 @@ export function detectCitations(text: string): DetectedCitation[] {
           position: { start: currentPos, end: currentPos + citeText.length },
           context: extractContext(text, currentPos, citeText.length)
         });
+      } else {
+        // Organizational / multi-word author fragment: "Open Science
+        // Collaboration, 2015", "R Core Team, 2019" as a ';'-bundle member. The
+        // structured matchers above all require a single COMPOUND_SURNAME (or a
+        // &/comma list), so a run of 2+ plain capitalized tokens fell through
+        // and the whole fragment was silently dropped. Fallback only — fires
+        // when singleMatch (and every earlier matcher) missed. Cycle 4
+        // (APA-ORG-AUTHOR).
+        const orgFrag = citeText.match(new RegExp(
+          `^(${ORG_AUTHOR})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        ));
+        if (orgFrag && orgLeadAllowed(orgFrag[1].split(/\s+/)[0] ?? '') && !isMonthName(orgFrag[1])) {
+          const { year, suffix } = parseYear(orgFrag[2]);
+          const author = createParsedAuthor(orgFrag[1]);
+          author.isOrganization = true;
+          addCitation({
+            raw: `(${citeText})`,
+            normalized: normalizeCitation(`(${citeText})`),
+            type: 'group_full',
+            citationStyle: 'parenthetical',
+            authors: [author],
+            year,
+            yearSuffix: suffix,
+            position: { start: currentPos, end: currentPos + citeText.length },
+            context: extractContext(text, currentPos, citeText.length),
+          });
+        }
       }
-      
+
       currentPos += citeText.length + 2; // +2 for "; "
     }
   }
