@@ -49,3 +49,28 @@ describe("APA ';'-bundle member with a trailing prose note", () => {
     expect(findByKey(text, 'thaler', '2020')).toBeDefined();
   });
 });
+
+describe("APA bundle with a multi-word \"for <prose> see\" lead-in", () => {
+  // xiao_2021: the first bundle member is prefixed by arbitrary review/criticism
+  // prose ("for criticisms of the challenge, see …", "for recent reviews, see …")
+  // that the signal-prefix strip only handled for the narrow "for [a] review(s)
+  // see" form — so the first cited work was dropped.
+  it('strips "for criticisms of the challenge, see" and keeps the real first author', () => {
+    const text =
+      '(for criticisms of the challenge, see Huber et al., 2014; Lichters et al., 2015; Simonson, 2014)';
+    expect(findByKey(text, 'huber', '2014')).toBeDefined();
+    expect(findByKey(text, 'lichters', '2015')).toBeDefined();
+  });
+
+  it('strips "for recent reviews, see" (two-author first member)', () => {
+    const text = '(for recent reviews, see Gaudeul & Crosetto, 2019; Lichters et al., 2015)';
+    expect(findByKey(text, 'gaudeul', '2019')).toBeDefined();
+  });
+
+  it('does NOT strip a trailing "for <prose>" that is not a lead-in', () => {
+    // "(Smith, 2020) tested for differences" — "for differences" is prose AFTER a
+    // detected citation, not a bundle lead-in; the citation must survive.
+    const text = 'as shown (Smith, 2020) tested for group differences';
+    expect(findByKey(text, 'smith', '2020')).toBeDefined();
+  });
+});

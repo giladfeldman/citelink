@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.34
+
+APA bundle member with a multi-word `for <prose> see` lead-in (citationguard-iterate
+APA-ORG-AUTHOR cycle 6, xiao_2021, 2026-06-17). The signal-prefix strip handled only
+the narrow `for [a] review(s) see` form, so a bundle whose first member was prefixed
+by arbitrary review/criticism prose — `(for criticisms of the challenge, see Huber et
+al., 2014; …)`, `(for recent reviews, see Gaudeul & Crosetto, 2019; …)` — dropped the
+first cited work (Huber / Gaudeul).
+
+- Generalized the `for <prose> see` lead-in in both `SIGNAL_PREFIX` (standalone
+  patterns) and the `;`-bundle fragment strip to `for [^,;()]{0,40}? ,? see` — bounded
+  to 40 non-comma/semicolon/paren chars so the false-positive surface stays small. A
+  trailing `for <prose>` after an already-detected citation is untouched.
+- Verified against a freshly-regenerated xiao_2021 gold (article-finder, intext 110→163,
+  reference-list and year errors corrected): xiao intext.f1 0.958→0.964, Huber/Gaudeul
+  lead-in cites recovered. Zero regression on the 8 other canary papers; tay_2020 stays
+  at a perfect 1.000. New real-text tests in `apaBundleTrailingProse.test.ts`.
+
 ## 0.7.33
 
 APA `;`-bundle member with a trailing prose note (citationguard-iterate

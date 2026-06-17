@@ -134,9 +134,11 @@ const SIGNAL_PREFIX =
   '(?:e\\.g\\.,?|i\\.e\\.,?|cf\\.,?|see(?:[\\s,]+(?:also|for\\s+example|e\\.g\\.?))?\\.?,?|as\\s+in|c\\.f\\.,?' +
   // Multi-word review / recency lead-ins observed inside parentheticals (collabra
   // 2026-06-08c, O2): "(most recently, in Mayiwar et al., 2023)" and "(for reviews
-  // see Carter et al., 2019; …)". These are specific multi-word phrases anchored
-  // immediately before an "Author, year" inside parens, so the FP surface is small.
-  '|most\\s+recently,?\\s+in|for\\s+(?:a\\s+)?reviews?,?\\s+see)\\s+';
+  // see Carter et al., 2019; …)". The `for <prose> see` form is generalized to
+  // arbitrary short prose so "(for recent reviews, see …)" and "(for criticisms of
+  // the challenge, see Huber et al., 2014; …)" strip too (xiao_2021, cycle 6).
+  // Bounded to 40 non-comma/semicolon/paren chars so the FP surface stays small.
+  '|most\\s+recently,?\\s+in|for\\s+[^,;()]{0,40}?,?\\s*see)\\s+';
 // Optional initial(s) prefix on a surname: "S. Lee" / "M. D. Lee" — used to
 // disambiguate co-authors who share a surname. Period is REQUIRED after each
 // initial (so the pronoun "I" can't accidentally match). 0-3 initials.
@@ -1393,7 +1395,7 @@ export function detectCitations(text: string): DetectedCitation[] {
       // (2026-05-26). "and"/"in" are only stripped when followed by an
       // uppercase letter (a surname), so prose like "and 2019" is untouched.
       const citeText = rawCiteText
-        .replace(/^(?:e\.g\.?|i\.e\.?|cf\.?|see(?:[\s,]+(?:also|for\s+example|e\.g\.?))?|as in|c\.f\.?|most recently,? in|for (?:a )?reviews?,? see)\s*,?\s+/i, '')
+        .replace(/^(?:e\.g\.?|i\.e\.?|cf\.?|see(?:[\s,]+(?:also|for\s+example|e\.g\.?))?|as in|c\.f\.?|most recently,? in|for [^,;()]{0,40}?,?\s*see)\s*,?\s+/i, '')
         .replace(/^(?:and|in)\s+(?=[A-ZÀ-Ÿ])/i, '')
         // Strip a TRAILING page locator (", p. 105" / ", pp. 12-15") from a bundle
         // fragment. The fragment matchers below are $-anchored right after the year,
