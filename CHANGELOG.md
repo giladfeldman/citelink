@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.7.32
+
+APA organizational / multi-word in-text author detection (citationguard-iterate
+APA-ORG-AUTHOR cycle 4, tay_2020 + xiao_2021, 2026-06-17). The APA citation detector
+captured authors via `COMPOUND_SURNAME` (a single surname optionally extended by a
+WHITELISTED particle), so a run of 2+ plain capitalized tokens fell through: standalone
+`(R Core Team, 2019)` mis-keyed to `team`, `(Open Science Collaboration, 2015)` to
+`collaboration`, and inside a `;`-bundle the org member was dropped entirely. A hyphenated
+group-with-abbrev `(Collaborative Open-science REsearch [CORE], 2020)` was missed because
+`groupWithAbbrev`'s name class excluded the hyphen.
+
+- Added an `ORG_AUTHOR` fragment (2-6 whitespace-joined capitalized tokens, NO lowercase
+  connective) consumed by a new standalone `orgMultiWordParenthetical` pattern and a
+  bundle-fragment fallback, keyed on the FULL organization name. An `orgLeadAllowed`
+  leading-token prose guard keeps `(See Smith, 2020)` and a lowercase-`and` two-author
+  form from being swallowed.
+- Widened `groupWithAbbrev`'s name class to admit hyphen / apostrophe / period, and added
+  a `bracketAbbrevFrag` handler so a `Name [ABBR], year` org parses as a `;`-bundle member.
+- tay_2020 intext.f1 0.957 → 0.989, matching 0.957 → 1.000 (`team` mis-key removed,
+  `r core team` + `open science collaboration` recovered). The fix generalized: chan +1,
+  xiao +4 real org detections, both f1 gains. Zero over-capture, zero regression on the 6
+  other canary papers (clean-rebuild detection-set baseline diff byte-identical). New
+  real-text tests in `apaOrgMultiWordAuthor.test.ts`.
+
 ## 0.7.31
 
 Harvard in-text possessive narrative + capitalized lead-in (citationguard-iterate H2-D
