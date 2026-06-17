@@ -1401,7 +1401,17 @@ export function detectCitations(text: string): DetectedCitation[] {
         // Jeffreys, 1939; M. D. Lee & Wagenmakers, 2013, p. 105; Wasserman, 2000)"
         // was missed (collabra 2026-06-08c). The standalone single-paren patterns
         // already tolerate a page suffix; this brings the bundle path to parity.
-        .replace(/,\s*pp?\.\s*\d+(?:\s*[-–—]\s*\d+)?\s*$/i, '');
+        .replace(/,\s*pp?\.\s*\d+(?:\s*[-–—]\s*\d+)?\s*$/i, '')
+        // Strip a TRAILING prose note that follows the year on the LAST bundle
+        // member: "Król & Król, 2019 for attempts to explain the replication
+        // failures" -> "Król & Król, 2019". The fragment matchers below are
+        // $-anchored right after the year, so trailing prose dropped the citation
+        // (xiao_2021 / APA-ORG-AUTHOR cycle 5). Only stripped when the year is
+        // followed by whitespace + a LOWERCASE word — a real following citation
+        // starts with an uppercase surname (same heuristic as the leading
+        // "and"/"in" strip above), and a year suffix ("2020a") has no space so
+        // it is untouched.
+        .replace(/(,\s*\d{4}[a-z]?)\s+[a-z][\s\S]*$/, '$1');
       // Try to match individual citation patterns
 
       // Institutional acronym-colon author FIRST: "KNAW: Royal Dutch Academy of

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.33
+
+APA `;`-bundle member with a trailing prose note (citationguard-iterate
+APA-ORG-AUTHOR cycle 5, xiao_2021, 2026-06-17). The semicolon-bundle splitter owns
+`;`-delimited parentheticals and its per-fragment matchers are `$`-anchored right after
+the year, so a bundle whose LAST member trails into prose —
+`(...; Król & Król, 2019 for attempts to explain the replication failures)` — failed
+every fragment matcher and the citation was dropped (the prose-bundled fallback pass
+skips `;`-bundles, so it could not recover it either).
+
+- Strip a trailing prose note that follows the year on a bundle fragment, but ONLY when
+  the year is followed by whitespace + a LOWERCASE word — a real following citation starts
+  with an uppercase surname (same heuristic as the existing leading `and`/`in` strip), and
+  a year suffix (`2020a`) has no space so it is untouched.
+- xiao_2021 `krol|2019` recovered (intext.f1 0.9496 → 0.9527). Zero regression on all 8
+  other canary papers (clean-rebuild detection-set baseline diff byte-identical). New
+  real-text tests in `apaBundleTrailingProse.test.ts`.
+
 ## 0.7.32
 
 APA organizational / multi-word in-text author detection (citationguard-iterate
