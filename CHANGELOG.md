@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.35
+
+Numeric parenthetical-`(N)` enumeration false-positives (citationguard-iterate cycle 5,
+sci_rep_3 `10.1038/s41598-023-50401-z`, 2026-06-20). The parenthetical-numeric branch
+(active when a paper has <3 bracket citations) treated body **list enumerations** as
+in-text citations — a Nature/superscript paper's inclusion/exclusion-criteria items
+`"…as follows: (1) survival … ; (2) unknown race … ; (4) unknown site …"` were emitted
+as 7 spurious citations (in-text F1 0.885).
+
+- `detectNumericCitations`: skip a parenthetical `(N)` whose immediately-preceding
+  non-space char is a list-introducer (`:` or `;`) AND which is followed by a lowercase
+  clause. A real numeric citation is never introduced by `:`/`;` + a lowercase word.
+  Keyed on the structural enumeration signature, not on any paper.
+- Effect: sci_rep_3 in-text F1 0.885 → 0.948 (7 spurious → 0); no change on the other
+  numeric corpus papers (nat_comms_2, plos_med_1, ieee_access_2 byte-identical).
+- Regression test `tests/numericEnumerationFpGuard.test.ts` (real sci_rep_3 enumeration
+  text; positive controls assert no over-skip of genuine parenthetical citations).
+
 ## 0.7.34
 
 APA bundle member with a multi-word `for <prose> see` lead-in (citationguard-iterate

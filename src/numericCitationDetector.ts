@@ -385,6 +385,18 @@ export function detectNumericCitations(
       const closeParens = (linePrefix.match(/\)/g) || []).length;
       if (openParens > closeParens) continue;
 
+      // Skip enumerated-list items like "…as follows: (1) soft tissue …; (2)
+      // unknown race …; (3) the …". An enumeration marker is introduced by a
+      // list-introducer (':' or ';') AND followed by a lowercase clause; a real
+      // numeric citation is never preceded by ':'/';' and immediately followed by
+      // a lowercase word. Keyed on the structural enumeration signature, not on any
+      // paper. (sci_rep_3 inclusion-criteria enumerations mis-detected as numeric
+      // citations — citationguard-iterate 2026-06-20 cycle 5.)
+      const prevNonSpace = before40.replace(/\s+$/, '').slice(-1);
+      if ((prevNonSpace === ':' || prevNonSpace === ';') && /^\s*[a-zà-ÿ]/.test(after10)) {
+        continue;
+      }
+
       const posKey = `${m.index}-${m.index + m[0].length}`;
       if (processedPositions.has(posKey)) continue;
       processedPositions.add(posKey);
