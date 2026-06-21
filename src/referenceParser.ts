@@ -561,6 +561,44 @@ function extractListNumber(raw: string): number | undefined {
 }
 
 /**
+ * Does a parsed reference's raw text actually read as an author BIOGRAPHY, not a
+ * reference? Journals (esp. AOM: Academy of Management Annals / Perspectives /
+ * Journal) print an "About the authors" block immediately after the reference
+ * list. When a bio line carries a parenthetical year — "Herman Aguinis
+ * (haguinis@gwu.edu) is the Avram Tucker Distinguished Scholar (2018)…",
+ * "Jose R. Beltran (https://…) is an assistant professor…" — the reference
+ * parser harvests the name as an author and the stray year as the year, emitting
+ * a fabricated reference (an academic-integrity defect: a citation that does not
+ * exist). citelink already strips bios in `extractReferenceSection` end-patterns,
+ * but only in the INITIALS form ("Herman A. (email) is…"); the FULL-surname form
+ * slipped through. This is the catch-all: reject any fully-parsed "reference"
+ * whose raw matches an author-bio opening, keyed on the structural signature
+ * (a contact paren + a biographical verb, or a "<Name> is a/an/the <role>"
+ * grammar) — never on paper identity. Both signatures are bio-unique: a real
+ * reference never carries an author-position email/URL followed by is/was/holds,
+ * and a real reference's author block is "Surname, Initials" (comma after the
+ * surname), which neither pattern matches.
+ */
+function looksLikeAuthorBio(raw: string): boolean {
+  const s = (raw ?? '').trim();
+  if (s.length < 16) return false;
+  // 1) Name + (email / URL / www) in parens, then a biographical verb.
+  //    "Herman Aguinis (haguinis@gwu.edu; www.hermanaguinis.com) is the …"
+  //    "Jose R. Beltran (https://www.jrbeltran.org) is an assistant professor …"
+  if (/^[A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.-]+(?:\s+[A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.-]*){1,5}\s*\([^)]*(?:@|https?:\/\/|www\.)[^)]*\)\s+(?:is|was|holds?|serves?|received|earned|has\s+been|currently)\b/i.test(s)) {
+    return true;
+  }
+  // 2) "<First [Middle] Last> is a/an/the [<modifiers>] <academic role>" with no
+  //    comma after the surname (real references put a comma there). Catches a bio
+  //    that has no contact paren ("Anita Williams Woolley is an Associate
+  //    Professor of Organizational Behavior …").
+  if (/^[A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.-]+(?:\s+[A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.-]*){1,5}\s+(?:is|was)\s+(?:a|an|the)\s+(?:[A-Za-zÀ-ÿ]+\s+){0,4}(?:Professor|Scholar|Lecturer|Fellow|Researcher|Director|Chair|Dean|Provost|Candidate|Postdoc(?:toral)?|Scientist|Economist|Psychologist)\b/i.test(s)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Parse all references from text
  */
 export function parseReferences(text: string, style?: CitationStyleType): ParsedReference[] {
@@ -598,7 +636,7 @@ export function parseReferences(text: string, style?: CitationStyleType): Parsed
         rawLower.startsWith('to guide') ||
         rawLower.match(/^\[-?\d+\.\d+/); // Confidence intervals
 
-      return hasValidStructure && !isMainText;
+      return hasValidStructure && !isMainText && !looksLikeAuthorBio(ref.raw);
     });
 
   // Deduplicate by raw text (case-insensitive, trimmed)
@@ -664,7 +702,7 @@ export function parseReferences(text: string, style?: CitationStyleType): Parsed
             (ref.authors.length > 0 && ref.year) ||
             (ref.doi || ref.url) ||
             (ref.listNumber !== undefined && ref.year);
-          return hasValidStructure;
+          return hasValidStructure && !looksLikeAuthorBio(ref.raw);
         });
       const fallbackGoodRefs = fallbackParsed.filter(r => r.year && r.authors.length > 0).length;
       if (fallbackGoodRefs > bestFallbackGood) {
