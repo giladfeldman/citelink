@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.36
+
+Author-bio lines parsed as fabricated references (citationguard-iterate cycle 6, AOM
+journals, 2026-06-21). Journals print an "About the authors" block after the reference
+list; when a bio line carries a year, `parseReferences` harvested the author name + the
+stray year and emitted a reference that does not exist — an academic-integrity defect.
+citelink already stripped bios in `extractReferenceSection` end-patterns, but only in the
+INITIALS form (`"Herman A. (email) is…"`); the FULL-surname form slipped through:
+
+- annals_2 → `"Herman Aguinis (haguinis@gwu.edu) is the Avram Tucker Distinguished
+  Scholar…"` (parsed as ref #102); amp_1 → `"Jose R. Beltran (https://…) is an assistant
+  professor…"` (ref #79).
+- `referenceParser.ts`: new `looksLikeAuthorBio()` rejects any parsed reference whose raw
+  reads as a bio — keyed on the structural signature (a contact paren `(@/URL)` + a
+  biographical verb, or `"<Name> is a/an/the <role>"` with no comma after the surname),
+  never on paper identity. Wired into the primary AND fallback validation filters.
+- Effect: annals_2 102→101 refs, amp_1 79→78 (exactly the 2 bios removed); a whole-corpus
+  before/after diff over 14 fixtures shows all 12 other papers byte-identical (zero
+  false-positive surface).
+- Regression test `tests/authorBioReferenceRejection.test.ts` (real annals_2/amp_1 bio
+  text, email + URL forms; fail-before/pass-after; a "role word in a title" negative
+  control asserts no over-rejection).
+
 ## 0.7.35
 
 Numeric parenthetical-`(N)` enumeration false-positives (citationguard-iterate cycle 5,
