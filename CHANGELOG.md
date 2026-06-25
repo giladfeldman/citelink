@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.40
+
+APA-7 ellipsis author list defeated the concatenated-reference splitter
+(citationguard-iterate 2026-06-25, chen — TC-6). APA 7 truncates a 21+ author
+reference as "first 19, …, final author": "Munafò, M. R., Nosek, B. A., …,
+Ioannidis, J. P. (2017).". The concatenation splitter's `personalList` was a
+comma-joined run of "Surname, Initials" with no ellipsis connector, so it stopped
+at the "…", the opener never reached "(2017)", and the entry was swallowed into
+the previous reference (chen: Munafò 2017 lost into Müller 2007, so a
+"(Munafò et al., 2017)" citation had no reference to match).
+
+Fix: allow the "…" glyph (optionally comma-flanked) as an author-list connector
+before the final author. Matched as the U+2026 glyph only — docpluck emits the
+real glyph for APA-7 truncation (verified across the corpus); a literal "..."
+three-dot form is ambiguous with sentence punctuation and would over-split.
+
+- **chen: references F1 0.961 → 0.966.** Zero regression on all 11 other corpus
+  papers (every APA-heavy paper that relies on the splitter is byte-identical).
+  +3 regression tests (`tests/apaEllipsisAuthorListSplit.test.ts`).
+
 ## 0.7.39
 
 et-al in-text citations failed to match an et-al REFERENCE (citationguard-iterate

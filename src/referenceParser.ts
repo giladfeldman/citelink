@@ -1184,7 +1184,18 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   const author =
     `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*` +
     `[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+,\\s+[A-Z]\\.(?:[-\\s]?[A-Z]\\.)*`;
-  const personalList = `${author}(?:,\\s+(?:&\\s+|and\\s+)?(?:${author}|et\\s+al\\.?))*`;
+  // An author-list connector: ",", "&", "and", "et al.", OR an APA-7 ellipsis
+  // ("…" / "...") that precedes the FINAL author when a reference has 21+ authors
+  // ("Munafò, M. R., Nosek, B. A., …, Ioannidis, J. P. (2017)."). Without the
+  // ellipsis alternative, `personalList` stops at the "…", the opener never reaches
+  // "(2017)", and the whole entry is swallowed into the previous reference
+  // (chen_2021_jesp: Munafò 2017 lost into Müller 2007; citationguard-iterate
+  // 2026-06-25 — TC-6).
+  // The ellipsis is matched as the "…" glyph ONLY — docpluck emits the real U+2026
+  // glyph for APA-7 truncation (verified across the corpus), and a literal "..."
+  // three-dot form is ambiguous with sentence punctuation and would over-split.
+  const listConn = `(?:,?\\s*…\\s*,?\\s*|,\\s+(?:&\\s+|and\\s+)?)`;
+  const personalList = `${author}(?:${listConn}(?:${author}|et\\s+al\\.?))*`;
   // Organizational author ending in an org-suffix word ("JASP Team", "R Core
   // Team", "... Collaboration") — these have no "Surname, Initials" shape, so the
   // personal-author boundary misses a concatenated org entry ("…doi… JASP Team.
