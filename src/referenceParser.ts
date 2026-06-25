@@ -1210,11 +1210,21 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // (citationguard-iterate 2026-06-07e — O4.)
   const orgAuthor =
     `[A-ZÀ-Ÿ][\\wÀ-ÿ&''.\\- ]*?\\b(?:Team|Group|Collaboration|Consortium|Network|Initiative|Project|Foundation|Association|Society)\\b\\.?`;
+  // Acronym-colon organizational author: "KNAW: Royal Dutch Academy of Arts and
+  // Sciences." — an uppercase acronym, colon, then a capitalized spelled-out org name
+  // ending in a period. This is how parseAPAReference's acronymOrg branch keys such an
+  // author (on the acronym), but its org name does NOT end in a "Team/Society/…"
+  // suffix word, so `orgAuthor` above misses it and a concatenated acronym-org entry
+  // gets swallowed into the previous reference (chen_2021_jesp: "…443-490. KNAW: Royal
+  // Dutch Academy of Arts and Sciences. (2018). Replication studies:…" lost the KNAW
+  // 2018 entry into the Sowden 2018 reference). The name run is non-greedy up to the
+  // terminal period before "(year)". (citationguard-iterate 2026-06-25, chen — R-0177.)
+  const acronymOrgAuthor = `[A-ZÀ-Ÿ]{2,}:\\s+[A-ZÀ-Ÿ][\\wÀ-ÿ&''.\\- ]*?\\.`;
   // A new reference opens with a personal / organizational author list immediately
   // followed by "(year).". Find every such opener that begins after whitespace, then
   // decide per-candidate whether the whitespace is a true reference boundary.
   const opener = new RegExp(
-    `(\\s+)(?=(?:${personalList}|${orgAuthor})\\s*\\((?:19|20)\\d{2}[a-z]?\\)[.,])`,
+    `(\\s+)(?=(?:${personalList}|${orgAuthor}|${acronymOrgAuthor})\\s*\\((?:19|20)\\d{2}[a-z]?\\)[.,])`,
     'g'
   );
   const splitPoints: number[] = [0];

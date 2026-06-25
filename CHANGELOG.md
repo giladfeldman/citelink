@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.43
+
+Concatenated acronym-colon ORG reference not split, surfaced by the R-0177 Sonnet
+RE-audit of chen (citationguard-iterate 2026-06-25) after the v0.7.41/42 fixes.
+chen: "Sowden, W. (2018). … 1(4), 443-490. KNAW: Royal Dutch Academy of Arts and
+Sciences. (2018). Replication studies: …" parsed as ONE reference (Sowden) —
+the KNAW 2018 entry was swallowed. `splitConcatenatedApaReferences` recognized
+personal-author openers and "…Team/Society/Collaboration" org openers, but not an
+acronym-colon org author ("KNAW: <Org Name>."), whose spelled-out name does not
+end in an org-suffix word.
+
+Fix: add an `acronymOrgAuthor` opener alternative ("[A-Z]{2,}: <CapName>.") to the
+splitter, mirroring how `parseAPAReference`'s acronymOrg branch already keys such
+an author on the acronym. The boundary's existing endsClean / URL guards decide
+whether to split, so clean references are unaffected.
+
+- **chen: references F1 → 1.000** (KNAW 2018 recovered as its own entry). Zero
+  regression across the full 13-paper corpus (every other paper byte-identical).
+  +2 regression tests (`tests/apaAcronymOrgConcatSplit.test.ts`).
+
 ## 0.7.42
 
 In-text detection miss surfaced by the R-0177 Sonnet canary audit of chen
