@@ -606,6 +606,21 @@ function looksLikeAuthorBio(raw: string): boolean {
 }
 
 /**
+ * PMC-hosted PDFs stamp a running page-header on EVERY page:
+ *   "<Journal>. Author manuscript; available in PMC <Month> <Day>, <Year>."
+ *   ("IEEE Access. Author manuscript; available in PMC 2026 February 25.")
+ * docpluck's academic extraction preserves this header, and the reference parser
+ * harvests "<Journal>" as an org author and the trailing PMC year as the year,
+ * emitting a fabricated reference (an academic-integrity defect — a reference that
+ * does not exist). The "available in PMC … <year>" phrasing is unique to the PMC
+ * boilerplate; a real reference never carries it. Keyed on that signature, never on
+ * paper identity. (citationguard-iterate 2026-06-25, ieee_access_2 — R-0177 audit.)
+ */
+function looksLikePmcManuscriptHeader(raw: string): boolean {
+  return /\bauthor manuscript\b[^.]*\bavailable in pmc\b/i.test((raw ?? '').trim());
+}
+
+/**
  * Parse all references from text
  */
 export function parseReferences(text: string, style?: CitationStyleType): ParsedReference[] {
@@ -643,7 +658,7 @@ export function parseReferences(text: string, style?: CitationStyleType): Parsed
         rawLower.startsWith('to guide') ||
         rawLower.match(/^\[-?\d+\.\d+/); // Confidence intervals
 
-      return hasValidStructure && !isMainText && !looksLikeAuthorBio(ref.raw);
+      return hasValidStructure && !isMainText && !looksLikeAuthorBio(ref.raw) && !looksLikePmcManuscriptHeader(ref.raw);
     });
 
   // Deduplicate by raw text (case-insensitive, trimmed)
@@ -1223,8 +1238,20 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // A new reference opens with a personal / organizational author list immediately
   // followed by "(year).". Find every such opener that begins after whitespace, then
   // decide per-candidate whether the whitespace is a true reference boundary.
+  // The year-paren after a personal author list MUST be followed by '.' or ',' — the
+  // strict closer that keeps the high-frequency personal opener from splitting mid-title.
+  // The ORG / acronym-org openers are narrow, distinctive shapes whose author already
+  // ends in a strong reference-start signal (an org-suffix word + period, or
+  // "ACRONYM: Name."), so they may ALSO open when the year-paren is followed merely by a
+  // space + capital — covering a docpluck-dropped period after the year
+  // ("…statistical analysis. Open Science Collaboration. (2015) Estimating the
+  // reproducibility…": the OSC entry, concatenated onto an Olkin book chapter with no
+  // period after "(2015)", was mis-split so the editor "In J. C. Stanley (Ed.)" became
+  // the next author). (citationguard-iterate 2026-06-25, chan_feldman — R-0177 audit.)
+  const yearClose = `\\((?:19|20)\\d{2}[a-z]?\\)`;
   const opener = new RegExp(
-    `(\\s+)(?=(?:${personalList}|${orgAuthor}|${acronymOrgAuthor})\\s*\\((?:19|20)\\d{2}[a-z]?\\)[.,])`,
+    `(\\s+)(?=(?:${personalList}\\s*${yearClose}[.,]` +
+    `|(?:${orgAuthor}|${acronymOrgAuthor})\\s*${yearClose}(?:[.,]|\\s+[A-ZÀ-Ÿ])))`,
     'g'
   );
   const splitPoints: number[] = [0];

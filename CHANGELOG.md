@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.7.44
+
+Two more reference-parsing defects surfaced by the R-0177 Sonnet canary audits of
+ieee_access_2 and chan_feldman (citationguard-iterate 2026-06-25) — both hidden
+behind high F1 (0.986 / 0.983) the gate read as clean.
+
+**PMC running-header parsed as a fabricated reference (ieee_access_2).** PMC-hosted
+PDFs stamp "<Journal>. Author manuscript; available in PMC <date>." on every page;
+docpluck preserves it. The parser took "<Journal>" as an org author and the PMC
+year as the year, emitting a reference that does not exist — ieee_access_2 parsed
+37 references vs the gold's 36 (the extra: "IEEE Access. Author manuscript;
+available in PMC 2026 February 25."). Fix: reject any candidate matching the PMC
+boilerplate signature ("author manuscript … available in PMC"), alongside the
+existing author-bio rejection.
+
+**Concatenated ORG reference with no period after the year was mis-split
+(chan_feldman).** "…Improving experimental design and statistical analysis. Open
+Science Collaboration. (2015) Estimating the reproducibility…" — the OSC entry,
+glued onto an Olkin book chapter with no period after "(2015)" (docpluck dropped
+it), did not fire the concat opener (which required the year-paren to be followed
+by "." / ","), so the splitter split at the Olkin chapter's editor and keyed the
+second entry's author as "In J. C. Stanley (Ed.)" — Open Science Collaboration was
+lost. Fix: the narrow ORG / acronym-org concat openers may also open when the
+year-paren is followed by a space + capital; the high-frequency personal opener
+keeps the strict "." / "," closer.
+
+- **ieee_access_2: references F1 0.986 → 1.000** (PMC phantom removed).
+  **chan_feldman: references F1 0.983 → 0.995, matching 0.973 → 0.980** (OSC
+  recovered and its citation now matches). Zero regression across the full 13-paper
+  corpus. +5 regression tests (`tests/pmcManuscriptHeaderRejection.test.ts`,
+  `tests/apaOrgConcatNoPeriodAfterYear.test.ts`).
+
 ## 0.7.43
 
 Concatenated acronym-colon ORG reference not split, surfaced by the R-0177 Sonnet
