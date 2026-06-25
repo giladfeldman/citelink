@@ -291,9 +291,20 @@ function matchEtAl(
   citation: DetectedCitation,
   reference: ParsedReference
 ): number {
-  // Reference must have 3+ authors for et al.
-  if (reference.authorCount < 3) return 0.2;
-  
+  // Reference must have 3+ authors for et al. — UNLESS the reference list entry
+  // is ITSELF written with "et al." (a truncated author list). Harvard / Vancouver
+  // / AOM reference lists frequently abbreviate 3+ authors as "Sides J et al.
+  // (2019)" / "Grasso MT et al. (2019)", so `parseReferences` reports authorCount=1
+  // for them. Applying the <3 penalty (0.2) there rejects a CORRECT match — an
+  // in-text "Sides et al. 2019" vs reference "Sides J et al. (2019)" scored 0.396
+  // (below the 0.4 suggested threshold) and was dropped, even though first author
+  // + year agree exactly. A reference is never abbreviated "et al." for 1-2
+  // authors, so "et al." in the reference raw is strong evidence the true count is
+  // >=3. (citationguard-iterate 2026-06-25 — TC-5: bjps_1 matching 0.622, 49
+  // correct et-al matches rejected as no_match.)
+  const referenceIsEtAl = /\bet\s+al\b\.?/i.test(reference.raw || '');
+  if (reference.authorCount < 3 && !referenceIsEtAl) return 0.2;
+
   // Get the first (non-et-al) author from citation
   const citationFirstAuthor = citation.authors.find(a => !a.isEtAl);
   if (!citationFirstAuthor) return 0;

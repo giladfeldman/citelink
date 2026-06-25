@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.39
+
+et-al in-text citations failed to match an et-al REFERENCE (citationguard-iterate
+2026-06-25, bjps_1 — TC-5). Harvard / Vancouver / AOM reference lists frequently
+abbreviate a 3+ author entry as "Sides J et al. (2019)", so `parseReferences`
+reports authorCount=1 for it. The et-al matcher required
+`reference.authorCount >= 3` and otherwise returned a 0.2 author score; combined
+with an exact year that landed at confidence 0.396 — BELOW the 0.4 suggested-match
+threshold — so a CORRECT match ("Sides et al. 2019" → "Sides J et al. (2019)")
+was dropped as no_match. On bjps_1, 49 of 102 citations were rejected this way.
+
+Fix: a reference whose raw text contains "et al." is itself a truncated 3+ author
+list (never abbreviated for 1-2 authors), so the <3 penalty must not apply to it.
+Keyed on "et al." in the reference raw — a genuine solo-author reference (no "et
+al.") still correctly rejects an et-al citation, so no false matches are added.
+
+- **bjps_1: matching 0.622 → 0.945.** Zero regression on all 11 other corpus
+  papers (no false matches introduced anywhere). +2 regression tests
+  (`tests/etAlReferenceMatching.test.ts`), incl. a solo-author no-over-match guard.
+
 ## 0.7.38
 
 AOM / Chicago **colon page-locator** dropped the first citation of a
