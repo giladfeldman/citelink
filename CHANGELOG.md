@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.7.37
+
+AOM (Academy of Management) bare-year run-on references swallowed concatenated
+entries (citationguard-iterate 2026-06-25, amp_1 — TC-1 / TC-2). AOM writes the
+author list with a comma + period-initials exactly like APA ("Egghe, L. 2006.")
+but the year is a **bare** "2006." — never the parenthesized "(2006)." that BOTH
+the APA and Harvard concatenation splitters require. So when docpluck flows two
+AOM entries onto one line ("Egghe, L. 2006. … 131-152. Elsevier. 2016. CiteScore
+… Elsevier. 2021. …"), neither splitter fired and the 2nd+ entries were swallowed
+into the first:
+
+- amp_1 → the two `Elsevier. 2016/2021.` org-authored references (TC-1) and the
+  `van Raan, A. F. 2006.` particle-surname reference (TC-2) were lost.
+
+Fix: `splitConcatenatedAomReferences`, an **AOM-only** bare-year sibling of the
+APA/Harvard splitters, with the identical boundary guards (only split where the
+previous reference ends clean `.`/`)`/digit or in a trailing URL, never inside an
+author list) plus a particle-orphan guard so a split after a URL-terminated entry
+keeps `van Raan` intact (it was being mis-keyed to `Raan`). Blast radius is zero
+on every other style — the multi-entry-per-line pattern occurs only in AOM
+fixtures (measured across the full citationguard corpus).
+
+- **amp_1: references F1 0.906 → 0.926, matching 0.873 → 0.900.** Zero regression
+  on all 12 other corpus papers (non-AOM byte-identical). +5 regression tests on
+  real amp_1 text (`tests/aomConcatenatedReferences.test.ts`).
+
 ## 0.7.36
 
 Author-bio lines parsed as fabricated references (citationguard-iterate cycle 6, AOM

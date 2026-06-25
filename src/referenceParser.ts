@@ -1338,6 +1338,99 @@ export function splitConcatenatedHarvardReferences(block: string): string[] {
 }
 
 /**
+ * Split a run-on AOM (Academy of Management) reference block into individual
+ * references.
+ *
+ * The bare-year sibling of `splitConcatenatedApaReferences`. AOM style writes
+ * the author list with a comma + period-initials exactly like APA
+ * ("Egghe, L. 2006.", "Certo, S. T., Sirmon, D. G., & Brymer, R. A. 2010.") but
+ * the year is a BARE "2006." — NOT the parenthesized "(2006)." that both the APA
+ * and Harvard openers require. So when docpluck flows two AOM entries onto one
+ * line ("Egghe, L. 2006. …131-152. Elsevier. 2016. CiteScore…"), neither
+ * existing splitter fires and the second+ entries are swallowed into the first
+ * (amp_1: Elsevier 2016/2021 lost into Egghe; van Raan 2006 lost into the
+ * preceding entry). (citationguard-iterate 2026-06-25 — TC-1/TC-2.)
+ *
+ * A new AOM entry opens with one of:
+ *   • a personal author list (`Surname, I. I.`, particles allowed, joined by
+ *     `,`/`&`/`and`), OR
+ *   • a single-/multi-word ORG author with no comma-initials ("Elsevier.",
+ *     "Academy of Management.")
+ * immediately followed by a BARE `Year[a-z]?.` and then the title's first
+ * capital. The boundary guards mirror the APA/Harvard splitters EXACTLY (only
+ * split where the previous reference ends clean `.`/`)`/digit or in a trailing
+ * URL/DOI, and never inside an author list), so a clean one-per-line AOM section
+ * is untouched. Blast radius is AOM-only: the multi-entry-per-line pattern does
+ * not occur in any APA/Vancouver/IEEE/Nature/Harvard fixture (measured
+ * 2026-06-25 across the full citationguard corpus).
+ */
+export function splitConcatenatedAomReferences(block: string): string[] {
+  if (block.length < 120) return [block];
+  const particle =
+    `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*`;
+  const surname = `[A-ZÀ-Ÿ][\\wà-ÿā-ž'’-]+`;
+  // Personal author: "Surname, I." / "van Raan, A. F." — comma then 1+ initials.
+  const personalAuthor = `${particle}${surname},\\s+[A-Z]\\.(?:[-\\s]?[A-Z]\\.)*`;
+  const personalList = `${personalAuthor}(?:,\\s+(?:&\\s+|and\\s+)?(?:${personalAuthor}|et\\s+al\\.?))*`;
+  // Organizational author: 1-4 capitalized words ending in a period, no
+  // comma-initials ("Elsevier.", "Academy of Management.", "World Bank.").
+  // Bounded word count so a title fragment ending in "Word." + a year is not
+  // mistaken for an org opener.
+  const orgAuthor = `[A-ZÀ-Ÿ][\\wÀ-ÿ&’'-]+(?:\\s+(?:of|and|the|&)?\\s*[A-ZÀ-Ÿ][\\wÀ-ÿ&’'-]+){0,3}\\.`;
+  // Opener: an author list / org immediately followed by a BARE year+period and
+  // then a title capital (a space, then a capital/digit/quote — never another
+  // year). The bare-year shape `\b(19|20)\d{2}[a-z]?\.\s` is the AOM marker the
+  // APA/Harvard openers (which demand "(year)") cannot see.
+  const opener = new RegExp(
+    `(\\s+)(?=(?:${personalList}|${orgAuthor})\\s+(?:19|20)\\d{2}[a-z]?\\.\\s+[A-ZÀ-Ÿ0-9“”"'‘’#])`,
+    'g'
+  );
+  const splitPoints: number[] = [0];
+  let m: RegExpExecArray | null;
+  while ((m = opener.exec(block)) !== null) {
+    const pos = m.index + m[1].length;
+    const before = block.slice(0, m.index);
+    const prevChar = before.slice(-1);
+    const prevToken = (before.match(/(\S+)\s*$/) || [])[1] || '';
+    // (a) Previous reference ends clean: a page number, a year closer, or a
+    //     terminal period — AOM entries end "…131-152." / "…491-502.".
+    const endsClean = /[).\d]/.test(prevChar);
+    // (b) URL/DOI-terminated entry with no trailing period (AOM "Retrieved from
+    //     https://…" working references).
+    const endsWithUrl = /(?:https?:\/\/|\bdoi\.org|\bwww\.)\S*(?:[ \t]\S*){0,4}$/i.test(before);
+    // Never split INSIDE an author list (a connector or a bare initial just
+    // before the boundary) — that would orphan the real first author onto the
+    // previous reference.
+    const isListConnector =
+      prevChar === ',' || prevChar === '&' ||
+      /,$/.test(prevToken) || /^(?:and|et|al\.?|&)$/i.test(prevToken) ||
+      /^[A-Z]\.?$/.test(prevToken);
+    // Never split immediately AFTER a lowercase surname particle ("van", "von",
+    // "de", "del", "der", "di", "da", "dos", "la", "le", "el", "ten", "bin", …).
+    // Because the opener's particle prefix is optional, the regex ALSO matches the
+    // whitespace between a particle and its surname ("van| Raan, A. F. 2006."),
+    // which would orphan the particle onto the previous reference and key the
+    // author as "Raan" instead of "van Raan". The correct boundary (before "van")
+    // is matched separately and kept. (citationguard-iterate 2026-06-25 — TC-2:
+    // "van Raan" was being split to "Raan" when it followed a URL-terminated ref.)
+    const orphansParticle =
+      /^(?:van|von|de[lnr]?|di|du|da|dos|das|la|le|el|al|ten|bin|abd|abu|della|van't)$/i.test(prevToken);
+    if ((endsClean || endsWithUrl) && !isListConnector && !orphansParticle) {
+      if (pos > splitPoints[splitPoints.length - 1]) splitPoints.push(pos);
+    }
+  }
+  if (splitPoints.length <= 1) return [block];
+  const parts: string[] = [];
+  for (let i = 0; i < splitPoints.length; i++) {
+    const start = splitPoints[i];
+    const end = i + 1 < splitPoints.length ? splitPoints[i + 1] : block.length;
+    const part = block.slice(start, end).trim();
+    if (part.length > 20) parts.push(part);
+  }
+  return parts.length > 1 ? parts : [block];
+}
+
+/**
  * Split reference section into individual references
  * Uses an aggressive recursive splitting strategy to handle lost line breaks.
  */
@@ -1649,6 +1742,16 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
   // (citationguard-iterate 2026-06-12 — bjps_1: 9→~105 refs, refs.f1 0.05→~0.8.)
   if (style && ['harvard', 'asa', 'chicago-ad', 'aom'].includes(style)) {
     refinedRefs = refinedRefs.flatMap(splitConcatenatedHarvardReferences);
+  }
+  // AOM (Academy of Management) bare-year run-on entries ("Egghe, L. 2006. … .
+  // Elsevier. 2016. …") are invisible to BOTH the APA and Harvard splitters,
+  // which require a parenthesized "(year)". docpluck leaves 2-3 AOM entries on
+  // one line; this bare-year splitter recovers them. AOM-only gating keeps the
+  // blast radius at zero for every other style (measured: the multi-entry-line
+  // pattern occurs only in AOM fixtures). (citationguard-iterate 2026-06-25 —
+  // TC-1/TC-2: amp_1 Elsevier 2016/2021 + van Raan 2006.)
+  if (style === 'aom') {
+    refinedRefs = refinedRefs.flatMap(splitConcatenatedAomReferences);
   }
 
   // Post-split fragment merging: merge fragments that are clearly continuations
