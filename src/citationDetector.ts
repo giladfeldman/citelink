@@ -138,7 +138,15 @@ const SIGNAL_PREFIX =
   // arbitrary short prose so "(for recent reviews, see …)" and "(for criticisms of
   // the challenge, see Huber et al., 2014; …)" strip too (xiao_2021, cycle 6).
   // Bounded to 40 non-comma/semicolon/paren chars so the FP surface stays small.
-  '|most\\s+recently,?\\s+in|for\\s+[^,;()]{0,40}?,?\\s*see)\\s+';
+  '|most\\s+recently,?\\s+in|for\\s+[^,;()]{0,40}?,?\\s*see' +
+  // "see <short prose> in <Citation>" / "also see interview in …" — a see-lead-in
+  // that points INTO a work, ending in " in" before the author. chen
+  // "(Fischhoff, 2007, p. 11; also see interview in Klein, Hegarty, & Fischhoff,
+  // 2017)" lost the 2nd citation: the ";"-split segment began with this prose and
+  // the existing "see(also)?" branch did not consume the "interview in" tail, so
+  // the author position never reached "Klein". Bounded to 30 non-comma/semicolon/
+  // paren chars. (citationguard-iterate 2026-06-25, chen — R-0177 Sonnet audit.)
+  '|(?:also\\s+)?see\\s+[^,;()]{0,30}?\\s+in)\\s+';
 // Optional initial(s) prefix on a surname: "S. Lee" / "M. D. Lee" — used to
 // disambiguate co-authors who share a surname. Period is REQUIRED after each
 // initial (so the pronoun "I" can't accidentally match). 0-3 initials.
@@ -1395,7 +1403,16 @@ export function detectCitations(text: string): DetectedCitation[] {
       // (2026-05-26). "and"/"in" are only stripped when followed by an
       // uppercase letter (a surname), so prose like "and 2019" is untouched.
       const citeText = rawCiteText
-        .replace(/^(?:e\.g\.?|i\.e\.?|cf\.?|see(?:[\s,]+(?:also|for\s+example|e\.g\.?))?|as in|c\.f\.?|most recently,? in|for [^,;()]{0,40}?,?\s*see)\s*,?\s+/i, '')
+        // NOTE: this is the bundle-fragment copy of the SIGNAL_PREFIX strip (the
+        // module-level SIGNAL_PREFIX const is consumed by the single-paren matchers).
+        // Keep the two in sync — the "(also) see <prose> in" alternative below was
+        // added to both for chen "(Fischhoff, 2007, p. 11; also see interview in
+        // Klein, Hegarty, & Fischhoff, 2017)": this 2nd ";"-fragment begins
+        // "also see interview in Klein…", which the old strip left intact so the
+        // $-anchored fragment matchers never reached "Klein" (R-0177 Sonnet audit,
+        // citationguard-iterate 2026-06-25). Bounded to 30 non-comma/semicolon/paren
+        // chars after "see" so the FP surface stays small.
+        .replace(/^(?:e\.g\.?|i\.e\.?|cf\.?|see(?:[\s,]+(?:also|for\s+example|e\.g\.?))?|as in|c\.f\.?|most recently,? in|for [^,;()]{0,40}?,?\s*see|(?:also\s+)?see\s+[^,;()]{0,30}?\s+in)\s*,?\s+/i, '')
         .replace(/^(?:and|in)\s+(?=[A-ZÀ-Ÿ])/i, '')
         // Strip a TRAILING page locator (", p. 105" / ", pp. 12-15") from a bundle
         // fragment. The fragment matchers below are $-anchored right after the year,

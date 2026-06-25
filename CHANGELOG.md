@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.42
+
+In-text detection miss surfaced by the R-0177 Sonnet canary audit of chen
+(citationguard-iterate 2026-06-25). A "(also) see <prose> in <Citation>" lead-in
+on a member of a ";"-bundle defeated detection: chen
+"(Fischhoff, 2007, p. 11; also see interview in Klein, Hegarty, & Fischhoff,
+2017)" detected only Fischhoff 2007. The bundle splitter splits on ";" and the
+2nd fragment began "also see interview in Klein…"; the existing signal-prefix
+strip handled "see (also)" but not the "interview in" tail, so the $-anchored
+fragment matchers never reached "Klein" and the 3-author citation was an
+INTEXT-DETECTION-MISS (and a downstream matching miss).
+
+Fix: add a "(also )?see <short prose ≤30ch> in" alternative to BOTH the
+module-level `SIGNAL_PREFIX` and the independent bundle-fragment strip inside the
+`multipleCitations` loop (the two copies must stay in sync). Bounded to keep the
+false-positive surface small.
+
+- **chen: in-text F1 0.981 → 0.983** (Klein, Hegarty, & Fischhoff 2017 recovered).
+  Zero regression across the full 13-paper corpus (every other paper
+  byte-identical). +3 regression tests (`tests/bundleSeeProseInLeadIn.test.ts`).
+
 ## 0.7.41
 
 Two APA reference-parsing defects surfaced by the R-0177 Sonnet canary audit of
