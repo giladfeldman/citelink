@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.7.38
+
+AOM / Chicago **colon page-locator** dropped the first citation of a
+multi-citation parenthetical (citationguard-iterate 2026-06-25, amp_1 — TC-4).
+AOM and Chicago note-style write a page locator after the year as ": page"
+("Bedeian, Van Fleet & Hyman, 2009a: 211"), not the APA ", p. page". The
+multi-citation bundle handler splits on ";" then runs $-anchored fragment
+matchers that expect the year at the END of the fragment; the existing strip
+removed only the APA ", p. 211" form, so the colon-form "2009a: 211" suffix
+survived and the FIRST citation was dropped:
+
+- "(Bedeian, Van Fleet & Hyman, 2009a: 211; Honig et al. 2014)" detected only
+  Honig 2014, losing Bedeian 2009a.
+
+Fix: strip a trailing colon page locator ("year: page" / "year: 88-90") from a
+bundle fragment, guarded to fire only when a 4-digit year (optional letter
+suffix) immediately precedes the colon — so "ACRONYM: Name" / "Author: Title"
+openers are untouched.
+
+- **amp_1: matching 0.900 → 0.909, in-text F1 0.921 → 0.926.** Zero regression on
+  all 11 other corpus papers. +5 regression tests
+  (`tests/aomColonPageLocatorBundle.test.ts`), incl. an institutional
+  "KNAW: …, 2018" no-false-collapse guard.
+
 ## 0.7.37
 
 AOM (Academy of Management) bare-year run-on references swallowed concatenated

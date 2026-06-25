@@ -1404,6 +1404,18 @@ export function detectCitations(text: string): DetectedCitation[] {
         // was missed (collabra 2026-06-08c). The standalone single-paren patterns
         // already tolerate a page suffix; this brings the bundle path to parity.
         .replace(/,\s*pp?\.\s*\d+(?:\s*[-–—]\s*\d+)?\s*$/i, '')
+        // Strip a TRAILING AOM/Chicago COLON page locator ("2009a: 211" /
+        // "2014: 88-90") from a bundle fragment. AOM (Academy of Management) and
+        // Chicago note-style write the page after the year as ": page", not the
+        // APA ", p. page" handled above — so the colon-form suffix slipped past
+        // and, because the fragment matchers below are $-anchored right after the
+        // year, dropped the FIRST citation of a multi-citation parenthetical:
+        // "(Bedeian, Van Fleet & Hyman, 2009a: 211; Honig et al. 2014)" detected
+        // only Honig 2014, losing Bedeian 2009a (amp_1; citationguard-iterate
+        // 2026-06-25 — TC-4). Only strip when a 4-digit year (optional letter
+        // suffix) immediately precedes the colon, so a real "Author: Title" or an
+        // institutional "ACRONYM: Name" opener is untouched.
+        .replace(/((?:19|20)\d{2}[a-z]?)\s*:\s*\d+(?:\s*[-–—]\s*\d+)?\s*$/i, '$1')
         // Strip a TRAILING prose note that follows the year on the LAST bundle
         // member: "Król & Król, 2019 for attempts to explain the replication
         // failures" -> "Król & Król, 2019". The fragment matchers below are
