@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.7.41
+
+Two APA reference-parsing defects surfaced by the R-0177 Sonnet canary audit of
+chen (citationguard-iterate 2026-06-25) — the F1 gate scored chen PASS (refs.f1
+0.966) while these sat in the `field_mismatches` / `wrong_target` diagnostic
+arrays unread. Both are general, structural fixes; neither is keyed on a paper.
+
+**Title truncated to a lone first word.** The title terminator anchors on the
+first "period + space", so a title that legitimately begins with a one-word
+fragment ending in a period — a product/site name with an internal period
+("TurkPrime. Com: …", "Prolific. Ac--…"), an editorial prefix ("Retraction.
+Effects of…"), or an odd leading clause ("Psychology. Estimating the
+reproducibility…") — was cut to just "TurkPrime." / "Psychology." / "Retraction.".
+Fix: when the first sentence is a single word ending in a period, re-anchor to the
+NEXT sentence period, but ONLY when the continuation is genuine title prose (≥3
+lowercase words) — so a real one-word title followed by a journal or a
+Place: Publisher ("Leadership. New York: Harper & Row.", "Forgiveness. Annual
+Review…") is left intact and the source/publisher is never absorbed into the
+title. Mirrors the existing roman-numeral / "Pt./Vol." prefix guard.
+
+**Dutch contracted particle "van't" dropped from the surname.** "van't Veer, A. E.,
+& Giner-Sorolla, R. (2016)." keyed first_author = "Veer" — the surname-extraction
+particle alternation matched only "[Vv]an" then required whitespace, which the
+apostrophe broke. Both in-text "(van't Veer & Giner-Sorolla, 2016)" citations then
+matched the WRONG reference. Fix: admit `[Vv]an(?:'[ts])?` and a bare "'t"/"'s" in
+the particle alternation + NAME_PARTICLES, so "van't" / "van's" / "'t Hart" are
+kept with the surname. Plain particles ("van Raan", "von …") are unaffected.
+
+- **chen: references F1 0.966 → 0.995, matching 0.942 → 0.950** (both van't Veer
+  citations now resolve correctly). Zero regression across the full 13-paper
+  corpus (every other paper byte-identical). +7 regression tests
+  (`tests/apaSingleWordTitleSentenceExtend.test.ts`,
+  `tests/dutchContractedParticleVant.test.ts`).
+
 ## 0.7.40
 
 APA-7 ellipsis author list defeated the concatenated-reference splitter

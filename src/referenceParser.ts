@@ -117,9 +117,9 @@ export interface Author {
 
 // Name particles that should be kept with the last name
 const NAME_PARTICLES = [
-  'van', 'von', 'de', 'del', 'della', 'der', 'den', 'la', 'le', 'les',
-  'du', 'des', 'di', 'da', 'dos', 'das', 'ten', 'ter', 'bin', 'ibn',
-  'al', 'el', 'lo', 'los', 'san', 'santa', 'st', 'mac', 'mc', "o'"
+  'van', "van't", "van's", "'t", "'s", 'von', 'de', 'del', 'della', 'der', 'den',
+  'la', 'le', 'les', 'du', 'des', 'di', 'da', 'dos', 'das', 'ten', 'ter', 'bin',
+  'ibn', 'al', 'el', 'lo', 'los', 'san', 'santa', 'st', 'mac', 'mc', "o'"
 ];
 
 // Name suffixes to extract
@@ -416,8 +416,15 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   //   - CamelCase: DeScioli, LeBel, McCarthy, McKenzie, McNulty, DeWall
   //   - Particles with spaces: De Martino, van Dalen, von der Berg, El-Erian
   //   - Hyphenated: Zuniga-Fajuri, Kordes-de Vaal, Díaz-Loving
-  // Particle prefixes that can appear before surnames (lowercase or capitalized)
-  const particleAlt = '(?:[Vv]an|[Vv]on|[Dd]e|[Dd]el|[Dd]er|[Dd]en|[Dd]i|[Dd]u|[Dd]a|[Dd]o|[Dd]os|[Dd]as|[Ll]a|[Ll]e|[Ee]l|[Aa]l|[Bb]in|[Aa]bd|[Aa]bu)';
+  // Particle prefixes that can appear before surnames (lowercase or capitalized).
+  // `[Vv]an(?:['’][ts])?` admits the Dutch contracted tussenvoegsel "van 't" / "van 's"
+  // written closed-up as "van't" / "van's" (e.g. "van't Veer, A. E.") — without the
+  // apostrophe-letter the particle regex stops at "van", the `\s+` after it fails on the
+  // apostrophe, and the surname parser drops the whole particle, keying the author as
+  // "Veer" (chen: van't Veer 2016 matched the wrong reference). The bare "'t"/"'s"
+  // alternative covers the particle written on its own ("'t Hart").
+  // (citationguard-iterate 2026-06-25, chen — R-0177 Sonnet canary audit.)
+  const particleAlt = "(?:[Vv]an(?:['’][ts])?|['’][ts]|[Vv]on|[Dd]e|[Dd]el|[Dd]er|[Dd]en|[Dd]i|[Dd]u|[Dd]a|[Dd]o|[Dd]os|[Dd]as|[Ll]a|[Ll]e|[Ee]l|[Aa]l|[Bb]in|[Aa]bd|[Aa]bu)";
   const authorPattern = new RegExp(
     `(?:${particleAlt}\\s+)?` +                     // Optional particle prefix
     `(?:[A-ZÀ-Ÿ][A-Za-zÀ-ÿā-ž'-]+` +              // LastName (allows camelCase + Latin Extended-A, e.g. "Bartoš")
@@ -2089,6 +2096,26 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
         let nextEnd = rest.search(/\.(?:\s|$)/);
         if (nextEnd < 0) nextEnd = rest.search(/[?!](?:\s|$)/);
         if (nextEnd > 0) sentenceEnd = sentenceEnd + 1 + nextEnd;
+      } else if (/^[^\s.]+\.$/.test(head)) {
+        // A single-WORD first sentence ("TurkPrime.", "Psychology.", "Retraction.",
+        // "Prolific.") is almost never a complete APA title — the real title
+        // continues past an abbreviation / product-name / editorial-prefix period
+        // ("TurkPrime. Com: A versatile…", "Psychology. Estimating the
+        // reproducibility…", "Retraction. Effects of…"). The first-period anchor
+        // truncates it to the lone word. Re-anchor to the NEXT sentence period —
+        // but ONLY when the continuation up to that period is genuine title PROSE
+        // (≥3 lowercase words), so a real one-word title followed by a journal or
+        // a Place: Publisher ("Leadership. New York: Harper & Row.",
+        // "Forgiveness. Annual Review of Psychology, 56, 1-10.") is NOT extended
+        // into the source/publisher. (citationguard-iterate 2026-06-25, chen audit.)
+        const rest = titleSection.slice(sentenceEnd + 1);
+        let nextEnd = rest.search(/\.(?:\s|$)/);
+        if (nextEnd < 0) nextEnd = rest.search(/[?!](?:\s|$)/);
+        if (nextEnd > 0) {
+          const continuation = rest.slice(0, nextEnd);
+          const lowercaseWords = (continuation.match(/\b[a-z][a-zà-ÿ]+\b/g) || []).length;
+          if (lowercaseWords >= 3) sentenceEnd = sentenceEnd + 1 + nextEnd;
+        }
       }
     }
     if (sentenceEnd > 0) {
