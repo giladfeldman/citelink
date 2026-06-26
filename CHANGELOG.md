@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.46
+
+URL-as-title on an organizational website reference, surfaced by the R-0177 Sonnet
+canary audit of nat_comms_2 (citationguard-iterate 2026-06-26).
+
+**A website reference's URL was parsed into the `title` field (nat_comms_2 #47).**
+"ISARIC4C Comprehensive Clinical Characterisation Collaboration Website.
+https://isaric4c.net." has no separate work title, so the title extractor latched
+the URL ("https://isaric4c") into `title` — title-drift against the gold (whose
+title is the org-name "…Website." text before the URL). Fix: a `repairUrlOnlyTitle`
+post-parse pass detects a URL/DOI-only title and reconstructs it from the raw
+reference text up to the URL (dropping a leading list number), leaving the URL in
+`ref.url`. No-op unless the title is URL-only.
+
+Net (nat_comms_2): refs F1 0.966 → 0.983 (1 title-drift cleared). +5 regression
+tests (real docpluck-v2.4.98 text). Zero corpus regression (474 tests green).
+
 ## 0.7.45
 
 Organizational-author reference defects surfaced by the R-0177 Sonnet canary audit

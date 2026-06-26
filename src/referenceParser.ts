@@ -635,6 +635,36 @@ function looksLikePmcManuscriptHeader(raw: string): boolean {
 }
 
 /**
+ * Repair a reference whose `title` is nothing but a URL / DOI.
+ *
+ * A website reference with an organizational author and no separate work title
+ * ("ISARIC4C Comprehensive Clinical Characterisation Collaboration Website.
+ * https://isaric4c.net.") has its only post-author text be the URL, so the title
+ * extractor latches the URL into the `title` field — a URL is never a title, and
+ * it scored as title-drift against the gold (whose title is the org-name "Website."
+ * text before the URL). Reconstruct the title from the raw reference text up to the
+ * URL/DOI (dropping a leading list number), leaving the URL in `ref.url`. No-op
+ * unless the title is URL-only. (citationguard-iterate R-0177 audit 2026-06-26 —
+ * nat_comms_2 ISARIC4C ref #47.)
+ */
+function repairUrlOnlyTitle(ref: ParsedReference): ParsedReference {
+  const t = (ref.title ?? '').trim();
+  if (!t) return ref;
+  const isUrlOnly = /^(?:https?:\/\/|www\.|doi:|10\.\d)/i.test(t) || /^(?:dx\.)?doi\.org\//i.test(t);
+  if (!isUrlOnly) return ref;
+  const raw = (ref.raw ?? '').replace(/^\s*\[?\d{1,3}\]?\.?\s+/, '').trim();
+  const urlStart = raw.search(/(?:https?:\/\/|\bwww\.|\bdoi:\s*\S|\b(?:dx\.)?doi\.org\/)/i);
+  const before = urlStart > 0 ? raw.slice(0, urlStart).trim() : '';
+  // Only use the pre-URL text when it carries real words (not itself a bare URL).
+  if (before && /[A-Za-zÀ-ÿ]{3,}/.test(before)) {
+    ref.title = before;
+  } else {
+    ref.title = '';
+  }
+  return ref;
+}
+
+/**
  * Parse all references from text
  */
 export function parseReferences(text: string, style?: CitationStyleType): ParsedReference[] {
@@ -651,6 +681,7 @@ export function parseReferences(text: string, style?: CitationStyleType): Parsed
   // Parse and deduplicate references
   const parsed = rawRefs
     .map(raw => parseReference(raw, style))
+    .map(repairUrlOnlyTitle)
     .filter(ref => {
       // Strict validation: must have authors AND year to be considered valid
       // Or must have DOI/URL (web references)
@@ -733,6 +764,7 @@ export function parseReferences(text: string, style?: CitationStyleType): Parsed
       const fallbackRawRefs = splitIntoReferences(refSection, fbStyle);
       const fallbackParsed = fallbackRawRefs
         .map(raw => parseReference(raw, fbStyle))
+        .map(repairUrlOnlyTitle)
         .filter(ref => {
           const hasValidStructure =
             (ref.authors.length > 0 && ref.year) ||
