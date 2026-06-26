@@ -141,8 +141,22 @@ const REFERENCE_PATTERNS = {
   // Journal volume/issue/pages: 45(2), 123-145
   journalInfo: /(\d+)\((\d+)\),?\s*([\d–\-]+)/,
 
-  // Organization author pattern (starts with capital word that's an org keyword)
-  organizationAuthor: /^((?:World|American|National|United|International|European|Centers|Federal|British|Canadian|Australian|Royal|Institute|University|Department|Ministry|Office|Bureau|Agency|Council|Committee|Commission|Board|Foundation|Association|Organization|Society|Academy|ProFAN)[A-Za-z\s&,]+?)(?:\.\s*\(|\s+\()/i,
+  // Organization author pattern. Two shapes:
+  //   (a) Leading-keyword orgs ("World Health Organization", "Royal Society"): the
+  //       name STARTS with a known institutional word. Kept verbatim — this is the
+  //       high-frequency, low-risk shape and a bare capitalized-word run would
+  //       over-match a personal-author sentence opener.
+  //   (b) Suffix-keyword orgs ("Open Science Collaboration", "JASP Team",
+  //       "Collaborative Open-science REsearch (CORE)"): the name ENDS in an
+  //       org-suffix word or a parenthetical acronym, with an arbitrary capitalized
+  //       (and hyphen-compound) leading run. The head word ("Open", "Collaborative")
+  //       is not in the (a) whitelist, so without this branch the extractor keyed the
+  //       author on the tail ("Science Collaboration", dropping "Open") or — when the
+  //       name ends in "(CORE)." — failed entirely and the entry was lost. The
+  //       distinctive tail (suffix word, or "(ACRONYM)", immediately before the
+  //       "(year)") is what keeps a personal author from matching. (citationguard-
+  //       iterate R-0177 audit 2026-06-26 — xiao_2021 Open Science Collaboration / CORE.)
+  organizationAuthor: /^((?:World|American|National|United|International|European|Centers|Federal|British|Canadian|Australian|Royal|Institute|University|Department|Ministry|Office|Bureau|Agency|Council|Committee|Commission|Board|Foundation|Association|Organization|Society|Academy|ProFAN)[A-Za-z\s&,]+?|[A-ZÀ-Ÿ][A-Za-zÀ-ÿ&,'-]*(?:\s+[A-ZÀ-Ÿ][A-Za-zÀ-ÿ&,'-]*)*?(?:\s+(?:Collaboration|Collaborative|Research|REsearch|Consortium|Network|Initiative|Project|Team|Group)|\s+\([A-ZÀ-Ÿ]{2,}\)))(?:\.\s*\(|\s+\()/,
 
   // Ellipsis pattern for 21+ authors
   ellipsis: /\.{3}|…|,\s*\.\.\.\s*,|\.\s+\.\s+\./,
@@ -1224,7 +1238,22 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // (2023).") and it gets swallowed into the previous reference.
   // (citationguard-iterate 2026-06-07e — O4.)
   const orgAuthor =
-    `[A-ZÀ-Ÿ][\\wÀ-ÿ&''.\\- ]*?\\b(?:Team|Group|Collaboration|Consortium|Network|Initiative|Project|Foundation|Association|Society)\\b\\.?`;
+    `[A-ZÀ-Ÿ][\\wÀ-ÿ&''.\\- ]*?\\b(?:Team|Group|Collaboration|Consortium|Network|Initiative|Project|Foundation|Association|Society|Research|REsearch)\\b\\.?`;
+  // Parenthetical-acronym organizational author: "Collaborative Open-science
+  // REsearch (CORE)." — the org NAME ends in a bracketed acronym rather than a
+  // suffix word, so `orgAuthor` (which anchors on a trailing suffix word) misses it
+  // and the entry is swallowed into the previous reference (xiao_2021: the CORE
+  // (2020) entry lost into Cohen 1988, 73 refs vs 74 gold). A capitalized leading
+  // run (incl. hyphen compounds "Open-science") followed by "(ACRONYM)." right
+  // before the "(year)" is a distinctive org-author opener. (citationguard-iterate
+  // R-0177 audit 2026-06-26 — xiao_2021 CORE.)
+  // The leading run is word/&/hyphen characters joined by SINGLE spaces only — it
+  // must NOT cross a ". " sentence boundary, or it greedily spans the previous
+  // reference's publisher ("L. Erlbaum Associates. Collaborative … (CORE)") and the
+  // split lands at the publisher instead of the org name. A bare period is therefore
+  // excluded from the run, so the match starts at the org-name head word.
+  const parenAcronymOrgAuthor =
+    `[A-ZÀ-Ÿ][\\wÀ-ÿ&'-]*(?:\\s+[A-ZÀ-Ÿ][\\wÀ-ÿ&'-]*)*?\\s*\\([A-ZÀ-Ÿ]{2,}\\)\\.?`;
   // Acronym-colon organizational author: "KNAW: Royal Dutch Academy of Arts and
   // Sciences." — an uppercase acronym, colon, then a capitalized spelled-out org name
   // ending in a period. This is how parseAPAReference's acronymOrg branch keys such an
@@ -1251,10 +1280,11 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   const yearClose = `\\((?:19|20)\\d{2}[a-z]?\\)`;
   const opener = new RegExp(
     `(\\s+)(?=(?:${personalList}\\s*${yearClose}[.,]` +
-    `|(?:${orgAuthor}|${acronymOrgAuthor})\\s*${yearClose}(?:[.,]|\\s+[A-ZÀ-Ÿ])))`,
+    `|(?:${orgAuthor}|${acronymOrgAuthor}|${parenAcronymOrgAuthor})\\s*${yearClose}(?:[.,]|\\s+[A-ZÀ-Ÿ])))`,
     'g'
   );
   const splitPoints: number[] = [0];
+  let lastOpenedYearPos = -1;                    // year-paren index opened by the last accepted boundary
   let m: RegExpExecArray | null;
   while ((m = opener.exec(block)) !== null) {
     const pos = m.index + m[1].length;           // start of the candidate author list
@@ -1293,7 +1323,23 @@ export function splitConcatenatedApaReferences(block: string): string[] {
       /,$/.test(prevToken) || /^(?:and|et|al\.?|&)$/i.test(prevToken) ||
       /^[A-Z]\.?$/.test(prevToken);
     if (endsClean || (endsWithUrl && !isListConnector)) {
-      if (pos > splitPoints[splitPoints.length - 1]) splitPoints.push(pos);
+      // A multi-word ORG author ("Open Science Collaboration. (2015).") yields a
+      // SECOND, nested opener match at every internal capitalized word that is itself
+      // a valid org-suffix tail ("Science Collaboration. (2015)."). Both point at the
+      // SAME "(year)", so the nested match would split the org name and drop its head
+      // word ("Open"), surviving as a spurious "Science Collaboration" entry while the
+      // 5-char "Open " head is filtered as too short. Reject any candidate that opens
+      // the SAME year-paren as the previously accepted boundary — keep the leftmost
+      // (full-name) opener only. (citationguard-iterate R-0177 audit 2026-06-26 —
+      // xiao_2021 Open Science Collaboration.)
+      const yearAfter = block.slice(pos).search(/\((?:19|20)\d{2}[a-z]?\)/);
+      const yearPos = yearAfter >= 0 ? pos + yearAfter : -1;
+      const sameYearAsPrev =
+        yearPos >= 0 && yearPos === lastOpenedYearPos && splitPoints.length > 1;
+      if (pos > splitPoints[splitPoints.length - 1] && !sameYearAsPrev) {
+        splitPoints.push(pos);
+        lastOpenedYearPos = yearPos;
+      }
     }
   }
   if (splitPoints.length <= 1) return [block];

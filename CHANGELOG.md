@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.7.45
+
+Organizational-author reference defects surfaced by the R-0177 Sonnet canary audit
+of xiao_2021_crsp (citationguard-iterate 2026-06-26) — hidden behind a 0.980 refs
+F1 the gate read as clean. Two org entries were concatenated mid-line onto the
+PREVIOUS reference (docpluck academic flows them after the prior entry's
+publisher/DOI with only a space):
+
+**Org name with a non-whitelisted head word dropped its head ("Open Science
+Collaboration" → "Science Collaboration").** The `organizationAuthor` extractor only
+recognized orgs STARTING with a fixed institutional word (World/American/Royal/…),
+so "Open Science Collaboration. (2015)." keyed the author on the tail and dropped
+"Open" (and the concat splitter produced a spurious "Science Collaboration" entry
+because the multi-word org yields a nested opener at every internal suffix word —
+both pointing at the same "(year)"). Fix: (a) a suffix-keyword branch in
+`organizationAuthor` captures an arbitrary capitalized leading run ending in an
+org-suffix word (Collaboration/Research/Consortium/…); (b) the concat splitter
+rejects a nested opener that opens the SAME "(year)" as the previous boundary, so
+only the leftmost full-name opener splits.
+
+**Org name ending in a parenthetical acronym was swallowed whole ("Collaborative
+Open-science REsearch (CORE). (2020)").** The name ends in "(CORE)." rather than a
+suffix word, so the splitter's suffix-anchored opener missed it and the entry was
+lost into the previous Cohen (1988) reference — 73 refs vs 74 gold. Fix: a
+parenthetical-acronym org opener ("<Capitalized run> (ACRONYM). (year)"), whose
+leading run does not cross a ". " sentence boundary so it starts at the org head
+word, not the previous reference's publisher.
+
+Net (xiao_2021_crsp): refs F1 0.980 → 1.000 (CORE recovered, "Open" kept), matching
+accuracy 0.969 → 0.988 (openscie|2015 wrong-target cleared). +5 regression tests
+(real docpluck-v2.4.98 extraction text). Zero corpus regression (469 tests green).
+
 ## 0.7.44
 
 Two more reference-parsing defects surfaced by the R-0177 Sonnet canary audits of
