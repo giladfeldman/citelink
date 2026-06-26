@@ -1771,11 +1771,26 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     // not a digit, after "June", so it is NOT rejected.
     const MONTH_DATE_AFTER_COMMA =
       /^[A-ZÀ-Ÿ][\wà-ÿā-ž'-]+,\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\.?,?\s+\d/;
+    // For HARVARD-family styles the reference year is a PARENTHETICAL "(year)"
+    // immediately after the author list ("Baccini L and Sattler T (2021) …"). A
+    // title phrase that merely reads as "Surname, Firstname" — "Austerity, Economic
+    // Vulnerability, and Populism; …" inside the Baccini/Sattler title, or
+    // "Compensation, Austerity, and Populism; …" inside Foster/Frieden — satisfies
+    // refStartPattern AND has a bare year somewhere within 300 chars (here the 2021
+    // sits in the trailing SSRN URL), so step 1c FALSE-split the single reference at
+    // its title, orphaning "Baccini (2021)" with an empty title and a phantom
+    // "Austerity ()" entry. Requiring a parenthetical "(year)" close to the candidate
+    // start (the Harvard author→year shape) rejects the title-phrase false positive
+    // while every real Harvard opener still qualifies. (citationguard-iterate R-0177
+    // audit 2026-06-26 — bjps_1 Baccini/Sattler + Foster/Frieden.)
+    const isHarvardFamily =
+      style !== undefined && ['harvard', 'asa', 'chicago-ad', 'aom'].includes(style);
     const validSplits: number[] = [0]; // always include start of block
     for (const pos of candidates) {
       const chunk = block.substring(pos, pos + 300);
       if (refStartPattern.test(chunk) && /\b(19|20)\d{2}\b/.test(chunk)) {
         if (MONTH_DATE_AFTER_COMMA.test(chunk)) continue;
+        if (isHarvardFamily && !/^.{0,60}?\((?:19|20)\d{2}[a-z]?\)/.test(chunk)) continue;
         validSplits.push(pos);
       }
     }

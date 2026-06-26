@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.47
+
+Harvard reference orphan-split at a title phrase, surfaced by the R-0177 Sonnet
+canary audit of bjps_1 (citationguard-iterate 2026-06-26).
+
+**A Harvard title whose leading words read as "Surname, Firstname" was mistaken
+for a new reference start (bjps_1 Baccini/Sattler + Foster/Frieden).** The
+APA-oriented step-1c inline splitter validated "Austerity, Economic Vulnerability,
+and Populism;" / "Compensation, Austerity, and Populism;" (the entries' TITLES) as
+"Surname, Firstname" openers — a year sat later in the entry (the SSRN URL) and
+satisfied the "year within 300 chars" guard — so it FALSE-split each single
+reference at its title, orphaning "Baccini (2021)" / "Foster (2019)" with an empty
+title plus a phantom author-less "Austerity ()" / "Compensation (2019)". Fix: for
+Harvard-family styles, require a parenthetical "(year)" near the candidate start
+(the Harvard author→year shape) — a title phrase lacks it, every real Harvard
+opener has it.
+
+Net (bjps_1): refs F1 0.927 → 0.945 (2 phantom orphan refs removed, N 111→109).
++5 regression tests (real docpluck-v2.4.98 text). Zero corpus regression (479
+tests green). Remaining bjps title-drift is two gold transcription errors (SSRN
+abstract number, GLO publisher word order — filed to article-finder, not citelink).
+
 ## 0.7.46
 
 URL-as-title on an organizational website reference, surfaced by the R-0177 Sonnet
