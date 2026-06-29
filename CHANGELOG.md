@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.7.48
+
+Two IEEE reference-parsing defects on ieee_access_2, surfaced by the R-0177 Sonnet
+canary audit run against the CURRENT docpluck v2.4.98 fixture (citationguard-iterate
+cycle 6, 2026-06-29). Both were hidden until the fixture was regenerated to the
+installed docpluck — the older fixture carried a pymupdf-order author string that
+masked them; production feeds docpluck/pdftotext, which exposes them.
+
+**Single-initial IEEE authors mis-detected the style as Vancouver.** `hasIEEEAuthors`
+required at least TWO initials (`J. A. Smith`), so a bracketed single-initial author
+`[1] W. Yang` produced zero IEEE signal and the numeric-paradigm branch fell through to
+`vancouver`. The surname-first Vancouver parser then kept the initials-first author whole
+(`firstAuthorLastName = "W. Yang"` instead of `"Yang"`), so every reference keyed on
+`w yang` and failed to pair with the gold's `Yang`. Fix: make the additional initials
+optional (`[A-Z]\.\s*(?:[A-Z]\.\s*)*[A-Z][a-z]`), so a `[N] Initial. Surname` opener with
+one OR more initials reads as IEEE — which routes `parseIEEEReference`, extracting `Yang`.
+Net: references F1 (strict) 0.000 → 0.706, style false → true (ieee), matching 0.000 →
+0.453, zero corpus regression.
+
+**A bracket-numbered reference was truncated at an internal journal-name period,
+dropping its year.** The Kermack & McKendrick reference [22], whose journal is
+"Proceedings of the royal society of london. Series A, …", carries a period inside the
+journal name. Step 1c's inline concatenation-splitter read "london. Series" as a sentence
+end and "Series A, …" as a "Surname A," reference start (with a year within 300 chars),
+so it FALSE-split the single entry at its journal name — orphaning "…Series A, … pp.
+700-721, 1927." and leaving `ref.year` empty. Fix: for a block that carries a `[N]`
+bracket marker, only split where a real `[N]` marker begins — an internal sentence period
+is never a numeric-reference boundary. (Bare-numbered Vancouver run-ons with no brackets
+still split on the author pattern, unchanged.) Net: Kermack [22] year `""` → `1927`.
+
++5 regression tests against real ieee_access_2 extraction text. Full suite 484 green.
+Sonnet re-audit of ieee_access_2 returned PASS (0 citelink defects remain); the residual
+sub-1.0 scores are filed gold defects (book-ref `title_start` = publisher; 4 wrong years)
+and upstream docpluck losses (3 refs absent from the extracted text), not citelink.
+
 ## 0.7.47
 
 Harvard reference orphan-split at a title phrase, surfaced by the R-0177 Sonnet

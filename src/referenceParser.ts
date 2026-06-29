@@ -1720,6 +1720,17 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     // Pattern: after period/paren/bracket preceded by 2+ lowercase/digit chars (sentence end,
     // not author initial like "S."), followed by space and an uppercase letter.
     const candidates: number[] = [];
+    // A BRACKET-numbered reference ("[22] W. O. Kermack …") is delimited only by
+    // its "[N]" marker, never by an internal sentence period — a real next entry
+    // begins at "[23]", not mid-text. When the block carries a "[N]" marker, a
+    // journal name with an internal period ("Proceedings of the royal society of
+    // london. Series A, …") otherwise reads as sentence-end + "Series A," →
+    // "Surname A," and FALSE-split the entry at its journal name, orphaning the
+    // tail and its year (ieee_access_2 Kermack [22] 1927 — citationguard-iterate
+    // cycle 6). For such blocks, only split where a "[N]" marker actually begins.
+    // (Bare-numbered Vancouver run-ons with no brackets — "…J Foo. 2019. Brown KL,
+    // …" — still split on the author pattern below; they have no marker to anchor.)
+    const blockIsBracketNumbered = /\[\d+\]/.test(block);
     // Match sentence endings: 2+ lowercase/digit chars then one or more closing punctuation
     // (.)\] etc.), then whitespace before uppercase. The + handles "89). " and "38]. " patterns.
     const candidatePattern = /[a-z0-9]{2}[\.\)\]]+\s+(?=[A-ZÀ-Ÿ])/g;
@@ -1727,6 +1738,10 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     while ((m = candidatePattern.exec(block)) !== null) {
       // Split position is right before the uppercase letter
       const splitPos = m.index + m[0].length;
+      // Bracket-numbered block: only a real "[N]" marker (preceded by whitespace,
+      // which the candidate pattern's sentence-end can't satisfy) is a boundary —
+      // so reject every internal sentence-period candidate here.
+      if (blockIsBracketNumbered && !/^\[\d+\]/.test(block.slice(splitPos))) continue;
       // Skip splitting at volume/page range boundaries: "94–107. Author" or "e123). Author"
       // These are within a single reference (page ranges), not between two references.
       // NOTE: Do NOT skip year boundaries ("2005. Author") — those ARE valid splits between refs.
