@@ -249,12 +249,20 @@ function hasVancouverAuthors(text: string): boolean {
   return vcMatches >= 3;
 }
 
-/** Check for IEEE/PNAS author format (J. A. Smith) in reference list */
+/** Check for IEEE/PNAS author format (J. A. Smith, or single-initial W. Yang) in reference list */
 function hasIEEEAuthors(text: string): boolean {
   const after = findRefSectionText(text);
   if (!after) return false;
   // IEEE: "[1] J. A. Smith and B. C. Jones, ..." or PNAS: "1.\tJ. A. Smith et al., ..."
-  const ieeeMatches = (after.match(/(?:\[\d+\]|\d+\.)\s*[A-Z]\.\s*[A-Z]?\.\s*[A-Z][a-z]/g) || []).length;
+  // The leading initial is required; ADDITIONAL initials are optional — so a
+  // single-initial author "[1] W. Yang" matches as well as the two-initial
+  // "J. A. Smith". The earlier pattern made the second initial's period
+  // mandatory ([A-Z]?\.), so a single-initial IEEE author was missed, the IEEE
+  // signal read 0, and the numeric branch mis-detected vancouver — routing the
+  // surname-first Vancouver parser at an initials-first IEEE list, which kept
+  // "W. Yang" whole instead of extracting "Yang" (citationguard-iterate cycle 6,
+  // ieee_access_2 — references F1 1.000 → 0.000 against the real pdftotext text).
+  const ieeeMatches = (after.match(/(?:\[\d+\]|\d+\.)\s*[A-Z]\.\s*(?:[A-Z]\.\s*)*[A-Z][a-z]/g) || []).length;
   return ieeeMatches >= 2;
 }
 
