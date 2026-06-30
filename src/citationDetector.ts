@@ -303,15 +303,20 @@ const CITATION_PATTERNS = {
   
   // ============ NARRATIVE PATTERNS ============
   
-  // Single author narrative: Smith (2020)
+  // Single author narrative: Smith (2020). A trailing in-paren qualifier after the
+  // year — "Smith (2020, p. 12)", "Slovic and Fischhoff (1977, Experiment 3)" — is
+  // optional and ignored (same `(?:,\s*[^)]+)?` tolerance the et-al narrative already
+  // has; without it the closing-paren anchor fails and the citation is missed).
+  // (citationguard-iterate cycle 7, chen — R-0177 Sonnet deep audit.)
   singleNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
     'g',
   ),
 
-  // Two authors narrative: Smith and Jones (2020) - uses "and"
+  // Two authors narrative: Smith and Jones (2020) - uses "and". Trailing in-paren
+  // qualifier after the year is optional and ignored (see singleNarrative).
   twoAuthorNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})\\s+and\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+and\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
     'g',
   ),
   

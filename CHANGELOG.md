@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.55
+
+A narrative citation with a trailing in-paren qualifier after the year was dropped —
+citationguard-iterate cycle 7 (2026-06-30), chen_2021_jesp, R-0177 Sonnet deep audit.
+
+`singleNarrative` and `twoAuthorNarrative` anchored on the closing paren IMMEDIATELY
+after the year ("Smith (2020)"), so a legal trailing qualifier — "Slovic and Fischhoff
+(1977, Experiment 3)", "Fischhoff (1977, p. 12)" — failed the closing-paren match and the
+whole citation was missed. The et-al narrative already tolerated this; the single/two-author
+narratives did not. Fix: add the same optional `(?:,\s*[^)]+)?` qualifier to both.
+chen intext.f1 0.983->0.988, matching 0.950->0.959. Full detection-set corpus diff: 0 new
+false positives, 0 regression (only chen moved). +4 tests.
+
 ## 0.7.54
 
 A sentence-initial connector before a 3+-author narrative citation collapsed the
