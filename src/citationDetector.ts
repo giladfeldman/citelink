@@ -892,25 +892,54 @@ export function detectCitations(text: string): DetectedCitation[] {
     // Sentence-connector guard (2026-05-26 canary audit cycle): the leading
     // captured token in the comma-separated author list is the part most
     // susceptible to absorbing a sentence-initial adverb (e.g. "Also, Werth
-    // and Strack (2003)" → first author = "Also"). Skip and let downstream
-    // narrative patterns pick up the real citation.
-    const firstToken = match[1].split(/\s*,\s*/)[0] ?? '';
-    if (isSentenceConnector(firstToken)) continue;
+    // and Strack (2003)" → first author = "Also").
+    //
+    // For a TWO-author list ("Also, Werth and Strack (2003)") dropping the match
+    // is safe — `twoAuthorNarrative` re-picks "Werth and Strack (2003)" downstream.
+    // But for a 3+-author list ("Similarly, Kickul, Griffiths, Brannback, and Robb
+    // (2023)") there is NO downstream pattern that recovers the full citation: only
+    // `singleNarrative` survives, catching the LAST author ("Robb (2023)") as a
+    // spurious solo citation with the wrong first author. So instead of discarding
+    // the whole match, STRIP the leading connector token(s) and re-emit starting at
+    // the first real surname — recovering "Kickul, Griffiths, Brannback, and Robb
+    // (2023)" with the correct first author. (citationguard-iterate cycle 7, amp_1
+    // — TC-D, R-0177 Sonnet audit.)
+    let namedTokens = match[1].split(/\s*,\s*/).filter(t => t.length > 0);
+    let leadStripped = 0;
+    while (namedTokens.length > 0 && isSentenceConnector(namedTokens[0])) {
+      namedTokens.shift();
+      leadStripped++;
+    }
+    // If nothing real remains before the "and <lastAuthor>", skip (a bare connector
+    // list is not a citation; let downstream patterns handle it).
+    if (namedTokens.length === 0) continue;
     const { year, suffix } = parseYear(match[3]);
     const authors = [
-      ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
+      ...namedTokens.map(a => createParsedAuthor(a)),
       createParsedAuthor(match[2]),
     ];
+    // Recompute the citation span to begin at the first real surname when a leading
+    // connector was stripped, so `raw`/`position` don't carry the discourse adverb.
+    let citeStart = match.index;
+    let citeRaw = match[0];
+    if (leadStripped > 0) {
+      const firstReal = namedTokens[0];
+      const off = match[0].indexOf(firstReal);
+      if (off > 0) {
+        citeStart = match.index + off;
+        citeRaw = match[0].slice(off);
+      }
+    }
     addCitation({
-      raw: match[0],
-      normalized: normalizeCitation(match[0]),
+      raw: citeRaw,
+      normalized: normalizeCitation(citeRaw),
       type: classifyCitation(authors, false, false),
       citationStyle: 'narrative',
       authors,
       year,
       yearSuffix: suffix,
-      position: { start: match.index, end: match.index + match[0].length },
-      context: extractContext(text, match.index, match[0].length),
+      position: { start: citeStart, end: match.index + match[0].length },
+      context: extractContext(text, citeStart, (match.index + match[0].length) - citeStart),
     });
   }
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.54
+
+A sentence-initial connector before a 3+-author narrative citation collapsed the
+citation to its LAST author — citationguard-iterate cycle 7 (2026-06-30), amp_1,
+surfaced by the R-0177 Sonnet audit.
+
+The 2026-05-26 connector guard dropped a `multiAuthorAndNarrative` match whose first
+captured token is a sentence connector ("Also,", "Similarly,") so a downstream pattern
+could re-pick the real citation. That is correct for a TWO-author list ("Also, Werth and
+Strack (2003)" → `twoAuthorNarrative` re-picks "Werth and Strack"), but for a 3+-author
+list there is no downstream pattern that recovers the full citation: only
+`singleNarrative` survives, catching the LAST author — "Similarly, Kickul, Griffiths,
+Brannback, and Robb (2023)" produced a spurious "Robb (2023)" with the wrong first author.
+
+Fix: when the leading captured author is a connector, strip the connector token(s) and
+re-emit the citation starting at the first real surname (recomputing the span so the
+adverb is not carried), recovering "Kickul, Griffiths, Brannback, and Robb (2023)" with
+first author "Kickul". The two-author and single-author connector cases are unchanged.
+Full 11-paper detection-set corpus diff: zero new false positives, zero regression (the
+canary corpus has no CLEAN-text instance — amp_1's live occurrence is additionally
+docpluck-glyph-corrupted "Brännback"→"Br€ annback", filed to docpluck, so it recovers
+only once that glyph is fixed). +5 regression tests (507 total).
+
+Surfaced by the R-0177 Sonnet canary audit (citationguard-iterate cycle 7).
+
 ## 0.7.53
 
 A phantom reference was created from an ORPHANED EDITOR LIST — citationguard-iterate
