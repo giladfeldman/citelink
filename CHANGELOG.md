@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.53
+
+A phantom reference was created from an ORPHANED EDITOR LIST — citationguard-iterate
+cycle 7 (2026-06-30), amp_1, surfaced by the R-0177 Sonnet re-audit.
+
+When docpluck injects a running-header page number mid reference-list, an edited-book
+chapter can split into two entries: the real chapter ("Feldman, D. C. 2008. Building and
+maintaining a strong editorial board. In Y. Baruch, … (Eds.), Opening the black box of
+editorship: 68-74. London: Palgrave Macmillan.") and an orphaned tail that BEGINS with
+the editor list and ends in the injected page-footer year ("Baruch, A. M. Konrad, …
+(Eds.), Opening the black box of editorship: 68-74. London: Palgrave Macmillan. 2024").
+citelink keyed the orphan as a phantom "Baruch (2024)" reference with an empty title.
+
+Fix: `looksLikeOrphanedEditorList` rejects an entry with an empty title whose author
+segment runs into "(Eds.)," with NO 4-digit publication year ahead of the editor list. A
+real chapter always carries its year before the editors; a "." inside author initials
+("A. M.") is not a sentence break, so the year — not a period scan — is the reliable
+signal. Net on amp_1: references F1 (strict) 0.963 → 0.969 (the spurious Baruch reference
+removed). Zero regression on the 10 other canary papers (byte-identical); no real
+edited-book chapter was rejected.
+
 ## 0.7.52
 
 A capitalized two-word particle surname ("Van Iddekinge") was truncated to its particle

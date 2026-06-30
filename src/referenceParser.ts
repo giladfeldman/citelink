@@ -635,6 +635,34 @@ function looksLikePmcManuscriptHeader(raw: string): boolean {
 }
 
 /**
+ * An ORPHANED EDITOR LIST is the tail of an edited-book-chapter reference that got
+ * split off into its own entry — typically when docpluck injects a running-header
+ * page number mid-list, creating a spurious "bare year". A real chapter reads
+ * "Author. Year. Chapter title. In <Eds.> (Eds.), Book: pages. City: Publisher."; the
+ * orphan is just "<editor names> (Eds.), Book title: pages. City: Publisher. <year>"
+ * — it BEGINS with the editor list (no leading "Author. Year. ChapterTitle.") and has
+ * no chapter title of its own. citelink keys it as a phantom author+year reference.
+ * Reject an entry whose author segment runs straight into "(Eds.),"/"(Ed.)," with no
+ * preceding title and no DOI/URL. (citationguard-iterate cycle 7, amp_1 — the
+ * "Baruch … (Eds.), Opening the black box of editorship … 2024" phantom split off the
+ * Feldman 2008 chapter by a docpluck page-footer "2024"; R-0177 Sonnet re-audit.)
+ */
+function looksLikeOrphanedEditorList(ref: ParsedReference): boolean {
+  const raw = (ref.raw ?? '').trim();
+  if (ref.doi || ref.url) return false; // a real web/DOI entry is never this artifact
+  if ((ref.title ?? '').trim()) return false; // a real chapter keeps its chapter title
+  const edPos = raw.search(/\(Eds?\.\)\s*,/);
+  if (edPos < 0) return false;
+  // A REAL edited-book-chapter reference carries its publication YEAR before the editor
+  // list: "Author. 2008. Chapter title. In <editors> (Eds.), …". The orphaned tail has
+  // NO 4-digit year ahead of "(Eds.),"  — its only year is the trailing page-footer the
+  // docpluck split attached. (A "." inside author initials — "A. M." — is NOT a sentence
+  // break, so the year check is the reliable signal, not a period scan.)
+  const head = raw.slice(0, edPos);
+  return !/\b(?:19|20)\d{2}[a-z]?\b/.test(head);
+}
+
+/**
  * Repair a reference whose `title` is nothing but a URL / DOI.
  *
  * A website reference with an organizational author and no separate work title
@@ -703,7 +731,7 @@ export function parseReferences(text: string, style?: CitationStyleType): Parsed
         rawLower.startsWith('to guide') ||
         rawLower.match(/^\[-?\d+\.\d+/); // Confidence intervals
 
-      return hasValidStructure && !isMainText && !looksLikeAuthorBio(ref.raw) && !looksLikePmcManuscriptHeader(ref.raw);
+      return hasValidStructure && !isMainText && !looksLikeAuthorBio(ref.raw) && !looksLikePmcManuscriptHeader(ref.raw) && !looksLikeOrphanedEditorList(ref);
     });
 
   // Deduplicate by raw text (case-insensitive, trimmed)
