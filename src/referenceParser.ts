@@ -2131,11 +2131,39 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
     if (bareYearMatch) {
       ref.year = bareYearMatch[1];
       ref.yearSuffix = bareYearMatch[2]?.toLowerCase();
+      // The author + title extraction below is gated on `yearMatch.index` — the
+      // PARENTHESIZED year. When the year was only found via this bare-year fallback
+      // (`Diamond, A. M., Jr., 1986. What is a citation worth?` — comma, not paren,
+      // before the year), `yearMatch` is null, so author/title extraction is skipped
+      // and the title comes out EMPTY. Synthesize a yearMatch positioned so that
+      // `index + [0].length` lands immediately AFTER the year token, so `afterYear`
+      // (the title section) and `authorSection` resolve correctly.
+      // (citationguard-iterate cycle 7, amp_1 Diamond 1986 — TC-A.)
+      if (!yearMatch && bareYearMatch.index !== undefined) {
+        const yearTok = bareYearMatch[1] + (bareYearMatch[2] || '');
+        const yearStart = cleanedText.indexOf(yearTok, bareYearMatch.index);
+        if (yearStart >= 0) {
+          // Minimal synthetic match: only .index (end-of-year anchor via index +
+          // [0].length) and [1] (the year) are read downstream.
+          const synthMatch = [yearTok, bareYearMatch[1]] as unknown as RegExpMatchArray;
+          synthMatch.index = yearStart;
+          yearMatch = synthMatch;
+        }
+      }
     } else {
       // Try "in press." or "in press" without parens
       const inPressMatch = cleanedText.match(/\bin\s+press\b/i);
-      if (inPressMatch) {
+      if (inPressMatch && inPressMatch.index !== undefined) {
         ref.year = 'in press';
+        // Same gating fix as the bare-year branch: synthesize a yearMatch anchored
+        // at the END of "in press" so the title section is extracted. Without this,
+        // `Grand, … in press. A systems-based approach to fostering robust science…`
+        // parses with an EMPTY title. (citationguard-iterate cycle 7, annals_2 — TC-C.)
+        if (!yearMatch) {
+          const synthMatch = [inPressMatch[0], 'in press'] as unknown as RegExpMatchArray;
+          synthMatch.index = inPressMatch.index;
+          yearMatch = synthMatch;
+        }
       }
     }
   }

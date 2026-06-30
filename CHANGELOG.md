@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.50
+
+APA-path reference TITLE came out EMPTY when the year was resolved via a fallback
+rather than the parenthesized `(YYYY)` — citationguard-iterate cycle 7 (2026-06-30),
+amp_1 Diamond + annals_2 Grand, surfaced by the R-0177 Sonnet audit.
+
+`parseAPAReference` gates BOTH author and title extraction on `yearMatch.index`, where
+`yearMatch` is the parenthesized-year match. Two real reference shapes resolve the year
+only through a fallback, leaving `yearMatch` null and the title empty:
+- **comma-before-year (Jr. suffix):** `Diamond, A. M., Jr., 1986. What is a citation
+  worth? …` — the bare-year fallback set `ref.year` but not `yearMatch`.
+- **"in press":** `Grand, … in press. A systems-based approach to fostering robust
+  science…` — the in-press fallback set `ref.year='in press'` but not `yearMatch`.
+
+Fix: when the year is resolved through either fallback, synthesize a `yearMatch` anchored
+at the END of the year / "in press" token so `afterYear` (the title section) and the
+author section resolve. Net: amp_1 references F1 (strict) 0.951 → 0.963 (field_mismatches
+3 → 2), annals_2 0.676 → 0.684 (6), zero corpus regression, in-text + matching
+byte-identical. (A title that genuinely ends in `?` followed by a journal still runs into
+the journal — the documented `.`-first terminator trade-off in
+`apaTitleQuestionMarkBoundary`, which protects interior-`?` titles like "Science or
+protoscience? Ten years later." — so Diamond's title is asserted by prefix.)
+
 ## 0.7.49
 
 AOM bare-year reference TITLE truncation on amp_1 + annals_2, surfaced by the R-0177
