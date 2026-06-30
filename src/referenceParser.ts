@@ -1499,6 +1499,18 @@ export function splitConcatenatedHarvardReferences(block: string): string[] {
  */
 export function splitConcatenatedAomReferences(block: string): string[] {
   if (block.length < 120) return [block];
+  // docpluck's 2-column AOM extraction preserves a per-entry bullet marker as a
+  // literal `*` between concatenated references on the same line ("…623-639.
+  // *Aguinis, H., & Vandenberg, R. J. 2014. …"). The `*` sits BETWEEN the previous
+  // entry's terminal period and the next author, so the bare-year opener below —
+  // whose lookahead expects an author CAPITAL right after the whitespace — never
+  // fires, and the concatenation stays one giant block. The `*` never occurs
+  // mid-word in the corpus (0 inline `\w\*\w` across every fixture), so it is
+  // unambiguously a boundary artifact: drop a ` *`-style marker to a plain space so
+  // the existing splitter sees the real `Author Year. Title` boundary.
+  // (citationguard-iterate cycle 7, annals_2 — the Aguinis & Vandenberg 2014
+  // "An ounce of prevention" entry and ~65 other ` *Surname,` boundaries.)
+  block = block.replace(/\s\*(?=[A-ZÀ-Ÿ])/g, ' ');
   const particle =
     `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*`;
   const surname = `[A-ZÀ-Ÿ][\\wà-ÿā-ž'’-]+`;

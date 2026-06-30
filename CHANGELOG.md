@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.51
+
+AOM references concatenated on one line and separated by a literal `*` bullet marker
+were not split — citelink lost every entry after the first (citationguard-iterate cycle 7,
+2026-06-30, annals_2, surfaced by the R-0177 Sonnet audit).
+
+docpluck's two-column AOM extraction preserves each entry's leading bullet as a literal
+`*` BETWEEN concatenated references on the same line (`…13: 623-639. *Aguinis, H., &
+Vandenberg, R. J. 2014. An ounce of prevention… *Aguinis, H., Werner, S., … 2010b. …`).
+The `*` sits between the previous entry's terminal period and the next author, so
+`splitConcatenatedAomReferences`' bare-year opener — whose lookahead expects an author
+capital right after the whitespace — never fired, and the whole run stayed one block.
+
+Fix: the `*` never occurs mid-word anywhere in the corpus (0 inline `\w\*\w` across every
+fixture), so it is unambiguously a boundary artifact — drop a ` *` marker to a plain space
+at the start of the splitter so the existing bare-year opener sees the real `Author Year.
+Title` boundary. Net on annals_2: references F1 (strict) **0.684 → 0.936** (matched
+160/172, was ~109), citation→reference matching **0.630 → 0.919** — ~50 references
+recovered. Zero regression on the 9 other canary papers (byte-identical; only annals_2
+carries `*` markers). The residual annals_2 field-mismatches are runner same-author-year
+pairing artifacts (4 Aguinis 2014 siblings) + filed gold/docpluck issues, not citelink.
+
 ## 0.7.50
 
 APA-path reference TITLE came out EMPTY when the year was resolved via a fallback
