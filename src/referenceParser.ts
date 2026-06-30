@@ -2929,6 +2929,66 @@ function parseNoCommaFullNameAuthors(authorSection: string): ParsedReferenceAuth
   return authors;
 }
 
+/**
+ * Extract a reference TITLE from the text that follows the year, anchoring on the
+ * first sentence-ending period. Shared spelling of the APA-path title logic (the
+ * inline block in `parseAPAReference`), so the bare-year parser (AOM / ASA /
+ * Chicago) gets the SAME title fidelity instead of its old "first `.` wins"
+ * truncation. `afterYear` is the slice immediately after the year token; leading
+ * orphan punctuation/whitespace is stripped here.
+ *
+ * Handles three shapes the naive `indexOf('.')` mis-parsed on AOM references
+ * (citationguard-iterate cycle 7, amp_1 + annals_2 Sonnet audit):
+ *  - Quoted phrase that is only PART of the title: `"An A is an A": The new bottom
+ *    line for valuing academic research.` — the quote is not the whole title, so do
+ *    NOT stop at the closing quote; fall through to the sentence-period anchor.
+ *  - Single-WORD first sentence: `Retraction. Externally commercializing…` — the
+ *    first `.` truncates to the lone word; re-anchor to the NEXT sentence period,
+ *    but ONLY when the continuation is genuine title prose (≥3 lowercase words), so
+ *    a real one-word title + journal (`Leadership. New York: Harper & Row.`) is not
+ *    swallowed. (Mirrors the APA-path guard added 2026-06-25.)
+ *  - PART-NUMBER / volume prefix: `VII. Mathematical contributions…`, `Pt. 1.` —
+ *    re-anchor past the prefix (mirrors the APA-path guard added 2026-06-08).
+ */
+function extractTitleFromAfterYear(afterYear: string): string {
+  const titleSection = afterYear.replace(/^[.,\s]+/, '');
+  if (!titleSection) return '';
+
+  // A title can legitimately contain `?` or `!` mid-title; prefer the first `.` as
+  // the terminator, fall back to `?`/`!` only when no period exists.
+  let sentenceEnd = titleSection.search(/\.(?:\s|$)/);
+  if (sentenceEnd < 0) {
+    sentenceEnd = titleSection.search(/[?!](?:\s|$)/);
+  }
+
+  if (sentenceEnd > 0) {
+    const head = titleSection.slice(0, sentenceEnd + 1).trim();
+    if (/^(?:[IVXLCDM]{1,6}|(?:Pt|Vol|No|Ch|Sec|Bk|Part)\.?\s*\d*)\.$/i.test(head)) {
+      // Roman-numeral / volume prefix: re-anchor to the next sentence period.
+      const rest = titleSection.slice(sentenceEnd + 1);
+      let nextEnd = rest.search(/\.(?:\s|$)/);
+      if (nextEnd < 0) nextEnd = rest.search(/[?!](?:\s|$)/);
+      if (nextEnd > 0) sentenceEnd = sentenceEnd + 1 + nextEnd;
+    } else if (/^[^\s.]+\.$/.test(head)) {
+      // Single-word first sentence (e.g. "Retraction.", "Erratum.") — re-anchor to
+      // the next sentence period when the continuation is genuine title prose.
+      const rest = titleSection.slice(sentenceEnd + 1);
+      let nextEnd = rest.search(/\.(?:\s|$)/);
+      if (nextEnd < 0) nextEnd = rest.search(/[?!](?:\s|$)/);
+      if (nextEnd > 0) {
+        const continuation = rest.slice(0, nextEnd);
+        const lowercaseWords = (continuation.match(/\b[a-z][a-zà-ÿ]+\b/g) || []).length;
+        if (lowercaseWords >= 3) sentenceEnd = sentenceEnd + 1 + nextEnd;
+      }
+    }
+  }
+
+  if (sentenceEnd > 0) {
+    return titleSection.slice(0, sentenceEnd + 1).trim();
+  }
+  return titleSection.trim();
+}
+
 // ── Bare-year parser (AOM, ASA, Chicago Author-Date) ─────────────────────
 
 function parseBareYearReference(cleanedText: string, listNumber?: number, style?: CitationStyleType): ParsedReference {
@@ -2969,16 +3029,20 @@ function parseBareYearReference(cleanedText: string, listNumber?: number, style?
     // Title + source: everything after "Year. "
     const afterYear = cleanedText.slice(bareYearM.index + bareYearM[0].length);
 
-    // Check for quoted title (ASA/Chicago)
-    const quotedTitle = afterYear.match(/^"(.+?)"\s*\.?\s*/);
-    if (quotedTitle) {
-      ref.title = quotedTitle[1];
+    // Check for a FULLY-quoted title (ASA/Chicago): `"Some title."` where the quote
+    // IS the whole title — the closing quote is immediately followed by a sentence
+    // boundary (end / `.` / `,`). When the quote is only a PHRASE of a longer title
+    // (`"An A is an A": The new bottom line for valuing academic research.`), the
+    // closing quote is followed by `:`/more text, so fall through to the
+    // sentence-period anchor and capture the full title — never just the quoted span.
+    const quotedTitle = afterYear.match(/^"([^"]+?)"\s*([.,]?)\s*(?=$|[A-Z(])/);
+    if (quotedTitle && (quotedTitle[2] === '.' || quotedTitle[2] === ',' || quotedTitle.index! + quotedTitle[0].length >= afterYear.trimEnd().length)) {
+      ref.title = quotedTitle[1].trim();
     } else {
-      // Non-quoted title: take until next period
-      const dotPos = afterYear.indexOf('.');
-      if (dotPos > 0) {
-        ref.title = afterYear.slice(0, dotPos).trim();
-      }
+      // Non-quoted title (or quoted phrase that is only part of the title): anchor on
+      // the first sentence-ending period, with single-word / volume-prefix re-anchors.
+      const t = extractTitleFromAfterYear(afterYear);
+      if (t) ref.title = t;
     }
   } else {
     // Fallback to APA parser

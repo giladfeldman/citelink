@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.7.49
+
+AOM bare-year reference TITLE truncation on amp_1 + annals_2, surfaced by the R-0177
+Sonnet canary audit (citationguard-iterate cycle 7, 2026-06-30). The bare-year parser
+(`parseBareYearReference`, used for AOM / ASA / Chicago author-date) had a primitive
+title extractor that the APA path had already outgrown, truncating real titles in two
+shapes:
+
+**Quoted-phrase + subtitle drop.** `"An A is an A": The new bottom line for valuing
+academic research.` — AOM/ASA titles are not fully quoted; only a phrase may be quoted.
+The old `^"(.+?)"` rule grabbed only the quoted span `An A is an A` and discarded the
+post-colon subtitle. (amp_1: Aguinis 2020, Rasheed 2020.)
+
+**Single-word / Retraction-prefix truncation.** `Retraction. Externally commercializing
+technology assets: An examination of different process stages.` — the old `indexOf('.')`
+stopped at the first period, truncating the title to the lone word `Retraction`. (annals_2:
+Hunton, Lichtenthaler, Min, Stapel, Walumbwa retraction notices.)
+
+Fix: `extractTitleFromAfterYear` ports the APA-path title logic (first sentence-ending
+period anchor + single-word / roman-numeral / volume-prefix re-anchors, with the
+≥3-lowercase-word continuation guard) to the bare-year path, and only treats a leading
+quote as the whole title when the closing quote is immediately followed by a sentence
+boundary. Net: amp_1 references F1 (strict) 0.926 → 0.951 (field_mismatches 5 → 3),
+annals_2 0.633 → 0.676 (field_mismatches 13 → 7), zero corpus regression on the 9 other
+canary papers (byte-identical), in-text detection + matching byte-identical. The APA path
+is untouched (the fix is a scoped addition to the bare-year parser only).
+
 ## 0.7.48
 
 Two IEEE reference-parsing defects on ieee_access_2, surfaced by the R-0177 Sonnet
