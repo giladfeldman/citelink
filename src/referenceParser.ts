@@ -3045,12 +3045,24 @@ function parseBareYearReference(cleanedText: string, listNumber?: number, style?
 
     // Authors: everything before the year
     const authorSection = cleanedText.slice(0, bareYearM.index).trim();
+    // A first-author surname may be a TWO-WORD particle surname ("Van Iddekinge,
+    // C. H.", "De Wals, P.", "Von Hippel, P."): a capitalized particle + a surname
+    // word, THEN the comma + initials. Allow that optional prefix in the comma-format
+    // detectors below — otherwise the `^Word,` test sees the particle ("Van") followed
+    // by a SPACE (not a comma), concludes "no comma in first author", and the
+    // `hasNoCommaFullNames` branch routes to the no-comma parser, which mis-reads
+    // "Van Iddekinge" as lastName="Van" firstName="Iddekinge" (dropping the real
+    // surname). `van Aken` (lowercase tussenvoegsel) already parsed correctly because
+    // its first word starts lowercase and never matched `^[A-Z]…`; the capitalized
+    // "Van X" was the gap. (citationguard-iterate cycle 7, annals_2 — R-0177 Sonnet
+    // audit; "Van Iddekinge" → "Van".)
+    const capParticle = '(?:Van|Von|De[lnr]?|Della|Di|Du|Da|Dos|Das|La|Le|El|Al|Ten|Ter|Bin|Ibn|Mac|Mc|St)';
     // Detect if first author has comma between last name and first name/initials.
     // Standard ASA/Chicago: "LastName, FirstName" or "LastName, I." (has comma)
     // PMC/non-standard: "LastName FirstName" (no comma within author name)
-    const hasCommaInFirstAuthor = /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\s+[A-ZÀ-Ÿ]/.test(authorSection);
+    const hasCommaInFirstAuthor = new RegExp(`^(?:${capParticle}\\s+)?[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s+[A-ZÀ-Ÿ]`).test(authorSection);
     // Detect full-name format: "LastName, FullFirstName" (2+ lowercase chars after initial uppercase)
-    const hasFullNames = /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž]{2,}/.test(authorSection);
+    const hasFullNames = new RegExp(`^(?:${capParticle}\\s+)?[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž]{2,}`).test(authorSection);
     // Detect no-comma full-name ASA: "LastName FirstName" (no comma, full first name)
     // E.g., "Anderson Kaitlin P." or "Allard Brian"
     const hasNoCommaFullNames = !hasCommaInFirstAuthor &&

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.52
+
+A capitalized two-word particle surname ("Van Iddekinge") was truncated to its particle
+("Van") in bare-year (AOM/ASA/Chicago) references — citationguard-iterate cycle 7
+(2026-06-30), annals_2, surfaced by the R-0177 Sonnet audit.
+
+`parseBareYearReference` chose its author sub-parser from `hasCommaInFirstAuthor` /
+`hasNoCommaFullNames`, both of which tested `^[A-Z][a-z]+,` against the FIRST WORD. For
+"Van Iddekinge, C. H., …" the first word "Van" is followed by a space (not a comma), so it
+concluded "no comma in first author" and routed to the no-comma full-name parser — which
+read "Van Iddekinge" as lastName="Van", firstName="Iddekinge", dropping the real surname.
+The lowercase tussenvoegsel "van Aken" already parsed correctly (its first word starts
+lowercase and never matched `^[A-Z]`); the capitalized "Van X" was the gap.
+
+Fix: allow an optional capitalized-particle prefix (Van/Von/De/Della/Di/La/Mac/Mc/St/…) in
+the comma-format detectors, so "[Particle] Surname, Initials" routes to the parser that
+keeps the full surname. Net on annals_2: references F1 (strict) 0.936 → 0.947, matching
+0.919 → 0.931 (the surname now keys correctly and its in-text mentions match). Zero
+regression on the 9 other canary papers (byte-identical; only annals_2 carries a
+capitalized particle surname).
+
 ## 0.7.51
 
 AOM references concatenated on one line and separated by a literal `*` bullet marker
