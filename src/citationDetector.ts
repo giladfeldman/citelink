@@ -75,6 +75,9 @@ const ORGANIZATION_ABBREVIATIONS: Record<string, string[]> = {
   'OECD': ['Organisation for Economic Co-operation and Development'],
   'IMF': ['International Monetary Fund'],
   'WTO': ['World Trade Organization'],
+  // Statistical-software org authors cited as the tool acronym ("JASP Team" → cited
+  // in-text as "JASP (2023)"). (citationguard-iterate cycle 7, collabra — R-0177.)
+  'JASP': ['JASP Team'],
 };
 
 // Surname-particle whitelist. The optional middle group in author-capture
@@ -369,6 +372,14 @@ const CITATION_PATTERNS = {
   
   // Abbreviation only: (WHO, 2020) or (CDC, 2020)
   groupAbbrevOnly: /\(\s*([A-Z]{2,})\s*,\s*(\d{4}[a-z]?|n\.d\.)\s*\)/g,
+
+  // NARRATIVE abbreviation: "JASP (2023)", "WHO (2020)" — an ALL-CAPS acronym author
+  // with the year in trailing parens (the narrative analogue of groupAbbrevOnly). The
+  // consumer gates this on the known-org allowlist (ORGANIZATION_ABBREVIATIONS) so it
+  // CANNOT fire on inline technical acronyms like "(SDE)", "(SIR)", "(ODE)" + a year,
+  // which is exactly the corpus-wide false-positive risk that kept the bare all-caps
+  // narrative form deferred. (citationguard-iterate cycle 7, collabra JASP — R-0177.)
+  narrativeAbbrev: /\b([A-Z]{2,})\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
 
   // Acronym-colon institutional author: (KNAW: Royal Dutch Academy of Arts and
   // Sciences, 2018). Keyed on the acronym. Name part may contain and/&/commas.
@@ -770,6 +781,35 @@ export function detectCitations(text: string): DetectedCitation[] {
       normalized: normalizeCitation(match[0]),
       type: 'group',
       citationStyle: 'parenthetical',
+      authors: [author],
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length)
+    });
+  }
+
+  // Narrative abbreviation: "JASP (2023)", "WHO (2020)". Gated on the known-org
+  // allowlist so an inline technical acronym ("(SDE)", "(SIR)") + a year can NEVER
+  // be mistaken for a citation — only acronyms in ORGANIZATION_ABBREVIATIONS fire.
+  CITATION_PATTERNS.narrativeAbbrev.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.narrativeAbbrev.exec(text)) !== null) {
+    const abbrev = match[1];
+    const expansions = ORGANIZATION_ABBREVIATIONS[abbrev.toUpperCase()];
+    if (!expansions) continue; // allowlist gate — never fires on inline technical acronyms
+    const { year, suffix } = parseYear(match[2]);
+    const author = createParsedAuthor(abbrev);
+    author.isOrganization = true;
+    author.abbreviation = abbrev.toUpperCase();
+    // Key on the EXPANDED org name too, so the citation matches a reference / gold
+    // that records the full author ("JASP (2023)" ↔ the "JASP Team" reference) rather
+    // than the bare acronym.
+    author.normalized = normalizeText(expansions[0]);
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: 'group',
+      citationStyle: 'narrative',
       authors: [author],
       year,
       yearSuffix: suffix,

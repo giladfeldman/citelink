@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.57
+
+A narrative citation whose author is an ALL-CAPS organization acronym ("JASP (2023)",
+"WHO (2020)") was not detected — citationguard-iterate cycle 7 (2026-06-30),
+collabra_90203, R-0177 deep audit.
+
+singleNarrative's COMPOUND_SURNAME requires a lowercase letter after the first capital,
+so an all-caps acronym author in narrative position ("JASP (2023)") was missed even though
+the "JASP Team" reference parsed. Broadening the bare all-caps narrative form was long
+deferred (high FP risk: "(SDE)"/"(SIR)"/"(ODE)" + a year in technical papers). Fix: a
+narrativeAbbrev pattern GATED on the ORGANIZATION_ABBREVIATIONS allowlist (so it can never
+fire on an inline technical acronym), keyed on the expanded org name so it matches the
+"JASP Team" reference. Added JASP to the allowlist. collabra intext.f1 0.987->0.990,
+matching 0.993->1.000 (JASP now matched). Full detection-set corpus diff: 0 new FP, 0
+regression (only collabra moved). +5 tests.
+
 ## 0.7.56
 
 An APA reference whose author spells the GIVEN NAME in full ("Hoffman, Martin L. (1981)")
