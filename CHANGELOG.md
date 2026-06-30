@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.56
+
+An APA reference whose author spells the GIVEN NAME in full ("Hoffman, Martin L. (1981)")
+was swallowed when concatenated after a DOI/URL-terminated previous reference —
+citationguard-iterate cycle 7 (2026-06-30), chan_feldman_2025_cogemo, R-0177 deep audit.
+
+splitConcatenatedApaReferences' author opener required "Surname, Initials." A full first
+name did not match, so when docpluck flowed "…309601282 Hoffman, Martin L. (1981). …" onto
+the previous reference, the splitter never opened a new entry and Hoffman was lost (chan:
+89 refs vs 90 gold). Fix: the given name may be initials OR a Capitalized full word +
+optional middle initial; the trailing `(year).` closer prevents over-matching a mid-title
+"Word, Word". chan refs.f1 0.994->1.000, matching 0.980->0.986. Full corpus diff: only chan
+moved (improved), 0 regression. +3 tests.
+
 ## 0.7.55
 
 A narrative citation with a trailing in-paren qualifier after the year was dropped —

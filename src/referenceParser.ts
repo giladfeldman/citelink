@@ -1277,9 +1277,19 @@ function getAuthorYearSplitRegex(style?: CitationStyleType): RegExp {
  */
 export function splitConcatenatedApaReferences(block: string): string[] {
   if (block.length < 120) return [block];
+  // After the surname-comma, the given name is normally INITIALS ("Smith, J. A.").
+  // Some APA reference lists spell the first name in full ("Hoffman, Martin L. (1981)",
+  // "Tukey, John W. (1977)"): a Capitalized full word, optionally followed by a middle
+  // INITIAL. Without admitting this, a full-first-name entry concatenated after a
+  // DOI/URL-terminated previous reference is swallowed (chan_feldman: "…309601282
+  // Hoffman, Martin L. (1981). …" lost the Hoffman entry into the Hittner reference).
+  // The trailing `(year).`/`(year),` closer (see `opener` below) keeps this from
+  // over-matching a mid-title "Word, Word". (citationguard-iterate cycle 7 — R-0177
+  // chan deep audit.)
+  const givenName = `(?:[A-Z]\\.(?:[-\\s]?[A-Z]\\.)*|[A-ZÀ-Ÿ][a-zà-ÿā-ž]+(?:\\s+[A-Z]\\.)*)`;
   const author =
     `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*` +
-    `[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+,\\s+[A-Z]\\.(?:[-\\s]?[A-Z]\\.)*`;
+    `[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+,\\s+${givenName}`;
   // An author-list connector: ",", "&", "and", "et al.", OR an APA-7 ellipsis
   // ("…" / "...") that precedes the FINAL author when a reference has 21+ authors
   // ("Munafò, M. R., Nosek, B. A., …, Ioannidis, J. P. (2017)."). Without the
