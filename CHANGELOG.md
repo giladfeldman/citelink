@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.60
+
+A same-paragraph page-only back-reference that ELIDES the year — '"…quote…" (Slovic &
+Fischhoff, p. 549).' where the author was cited with a year moments earlier — was not
+detected — citationguard-iterate cycle 8 (2026-07-02), chen_2021_jesp (TC-G), R-0177
+deep audit.
+
+citelink's detectors require a 4-digit year, so a year-less "(Author, p. N)" was missed.
+Fix: a stateful post-pass (`YEAR_ELIDED_PAGE_REF`) that resolves the year from the
+nearest already-detected same-first-author citation. FP is bounded hard: (1) a page
+locator ("p. N"/"pp. N") AND no year are both required — a bare "(Name)" never matches;
+(2) the year is taken ONLY from a citation citelink already detected for that exact
+author, so it can never invent a citation for an author not otherwise cited with a year.
+chen intext.f1 +0.002, matching +0.004 ("(Slovic & Fischhoff, p. 549)" now resolves to
+1977). Full-corpus diff: only chen moved, 0 new FP anywhere (the post-pass added zero
+spurious predictions across the corpus), 0 regression. +4 tests.
+
 ## 0.7.59
 
 A narrative et-al citation whose FULL reference is spelled out inline in square brackets

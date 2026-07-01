@@ -1995,6 +1995,68 @@ export function detectCitations(text: string): DetectedCitation[] {
     }
   }
 
+  // ============ YEAR-ELIDED PAGE-ONLY BACK-REFERENCE (stateful post-pass) ============
+  // A same-paragraph back-reference that omits the year because the author was
+  // cited (with a year) just before: '"…quote…" (Slovic & Fischhoff, p. 549).'
+  // (valid APA — chen_2021_jesp, TC-G, citationguard-iterate cycle 8). citelink's
+  // year-anchored detectors require a 4-digit year, so this is missed.
+  //
+  // FP is bounded HARD by two requirements: (1) the parenthetical must carry a
+  // page locator ("p. N" / "pp. N") and NO year — a bare "(Name)" never matches;
+  // (2) the year is RESOLVED only from an ALREADY-DETECTED citation whose first
+  // author surname matches, taking the nearest such citation that appears BEFORE
+  // this position. So it can fire only where citelink already found that exact
+  // author cited with a year — it can never invent a citation for an author not
+  // otherwise present. Runs as a post-pass so every year-bearing citation this
+  // author has is already in `citations`.
+  {
+    const YEAR_ELIDED_PAGE_REF = new RegExp(
+      `\\((${COMPOUND_SURNAME})(?:\\s*(?:&|and)\\s*(${COMPOUND_SURNAME}))?` +
+        `,\\s*pp?\\.\\s*\\d+[^)]*\\)`,
+      'g',
+    );
+    // Snapshot of citations detected so far, sorted by position, for nearest-prior lookup.
+    const priorByAuthor = citations
+      .filter(c => c.year && /^\d{4}$/.test(c.year))
+      .map(c => ({
+        surname: (c.authors[0]?.normalized ?? c.authors[0]?.raw ?? '').toLowerCase(),
+        year: c.year,
+        yearSuffix: c.yearSuffix,
+        start: c.position.start,
+      }));
+    let em: RegExpExecArray | null;
+    YEAR_ELIDED_PAGE_REF.lastIndex = 0;
+    while ((em = YEAR_ELIDED_PAGE_REF.exec(text)) !== null) {
+      // The parenthetical must NOT already contain a 4-digit year (that would be a
+      // normal citation another pattern owns).
+      if (/\b(?:19|20)\d{2}\b/.test(em[0])) continue;
+      const first = em[1];
+      if (isSentenceConnector(first) || isMonthName(first)) continue;
+      const firstNorm = first.toLowerCase();
+      // Resolve the year from the nearest already-detected same-first-author
+      // citation that starts before this occurrence; fall back to the nearest
+      // overall if none precedes (still same author).
+      const sameAuthor = priorByAuthor.filter(p => p.surname === firstNorm);
+      if (sameAuthor.length === 0) continue; // author never cited with a year → do not invent
+      const before = sameAuthor.filter(p => p.start < em!.index);
+      const resolved = (before.length ? before[before.length - 1] : sameAuthor[0]);
+      const authors = em[2]
+        ? [createParsedAuthor(first), createParsedAuthor(em[2])]
+        : [createParsedAuthor(first)];
+      addCitation({
+        raw: em[0],
+        normalized: normalizeCitation(em[0]),
+        type: classifyCitation(authors, false, false),
+        citationStyle: 'parenthetical',
+        authors,
+        year: resolved.year,
+        yearSuffix: resolved.yearSuffix,
+        position: { start: em.index, end: em.index + em[0].length },
+        context: extractContext(text, em.index, em[0].length),
+      });
+    }
+  }
+
   // Sort by position
   citations.sort((a, b) => a.position.start - b.position.start);
 
