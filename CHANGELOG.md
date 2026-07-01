@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.58
+
+A narrative citation whose parentheses hold a MULTI-YEAR LIST ("McCullough et al. (1997,
+1998)", "Bishop (2019, 2020)", "Werth and Strack (2001, 2003)") emitted only the FIRST
+year, dropping every year after it — citationguard-iterate cycle 8 (2026-07-01),
+chan_feldman_2025_cogemo (TC-I), R-0177 deep audit.
+
+The single/two/et-al narrative patterns each accept an optional trailing in-paren
+qualifier `(?:,\s*[^)]+)?` (added in 0.7.55 for "(1977, Experiment 3)" / "(1977, p. 12)").
+That tolerance SWALLOWED a genuine second year: "(1997, 1998)" matched with year=1997 and
+absorbed ", 1998" as an ignored qualifier. The PARENTHETICAL form "(Author, Y1, Y2)" was
+already handled by `sameAuthorMultiYear`. Fix: a new `sameAuthorMultiYearNarrative` pattern
+fires FIRST on a PURE year-list (2+ comma-separated years, no page/note token) across the
+et-al / single / two-author narrative shapes, emitting one citation per year at a distinct
+position window (mirroring the parenthetical loop); the three narrative loops skip a span
+that loop already consumed, so no full-span first-year duplicate appears. A non-year
+qualifier does not match the year-list, so "(2020, p. 12)" stays a single citation. chan
+intext.f1 0.987->0.990, matching 0.986->0.993 (McCullough 1998 recall recovered); xiao also
+recovered a real "(1982, 2014)" dual-year narrative. Full-corpus diff: only chan + xiao
+moved (both improved), 0 new FP, 0 regression, 0 same-span duplicates. +8 tests.
+
 ## 0.7.57
 
 A narrative citation whose author is an ALL-CAPS organization acronym ("JASP (2023)",

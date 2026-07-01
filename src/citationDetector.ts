@@ -330,6 +330,27 @@ const CITATION_PATTERNS = {
     'g',
   ),
 
+  // Same-author multi-year NARRATIVE: "McCullough et al. (1997, 1998)", "Bishop
+  // (2019, 2020)", "Werth and Strack (2001, 2003)". The narrative analog of
+  // `sameAuthorMultiYear` (which handles the PARENTHETICAL "(Bishop, 2019, 2020)").
+  // The et-al / single / two-author narrative patterns each accept an OPTIONAL
+  // trailing in-paren qualifier (`(?:,\s*[^)]+)?`) that ignores "(1997, p. 12)" /
+  // "(2020, Experiment 3)" — but that same tolerance SWALLOWS a genuine second
+  // YEAR ("(1997, 1998)"), emitting only the first year and dropping the rest
+  // (citationguard-iterate cycle 7 TC-I, chan McCullough — R-0177 Sonnet audit).
+  // This pattern fires FIRST on a PURE year-list (2+ comma-separated years, no
+  // page/note token), emitting one citation per year at a distinct position
+  // window (mirroring the parenthetical loop). group 1 = first surname; group 2 =
+  // the connector (` et al.` / ` and <Surname>` / empty); group 3 = the year list.
+  // A non-year qualifier (`p. 12`, `Experiment 3`) does NOT match group 3, so the
+  // existing single/two/et-al narrative loops keep owning the qualifier case.
+  sameAuthorMultiYearNarrative: new RegExp(
+    `\\b(${SURNAME_LASTNAME})` +
+      `(\\s+et\\s*\\.?\\s*al\\.?|\\s+and\\s+${COMPOUND_SURNAME})?` +
+      `\\s+\\(((?:\\d{4}[a-z]?)(?:\\s*,\\s*\\d{4}[a-z]?)+)\\)`,
+    'g',
+  ),
+
   // Possessive single: Smith's (2020) study
   possessiveSingle: new RegExp(
     `\\b(${SURNAME_LASTNAME})['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
@@ -708,7 +729,16 @@ function parseAuthors(authorString: string): ParsedCitationAuthor[] {
 export function detectCitations(text: string): DetectedCitation[] {
   const citations: DetectedCitation[] = [];
   const processedPositions = new Set<string>();
-  
+  // Full-match spans consumed by the same-author multi-year NARRATIVE loop
+  // ("McCullough et al. (1997, 1998)"). The single/two/et-al narrative loops
+  // that run afterwards would otherwise re-match the same span and emit ONLY
+  // the first year at the full span — a duplicate of the per-year siblings this
+  // loop already emitted. Each of those three loops skips a match whose start
+  // falls inside a consumed span (TC-I, citationguard-iterate cycle 8).
+  const multiYearNarrativeSpans: Array<{ start: number; end: number }> = [];
+  const inMultiYearNarrativeSpan = (pos: number): boolean =>
+    multiYearNarrativeSpans.some(s => pos >= s.start && pos < s.end);
+
   /**
    * Helper to add citation if not already processed
    */
@@ -928,6 +958,67 @@ export function detectCitations(text: string): DetectedCitation[] {
     });
   }
   
+  // ============ SAME-AUTHOR MULTI-YEAR (NARRATIVE) ============
+  // "McCullough et al. (1997, 1998)", "Bishop (2019, 2020)", "Werth and Strack
+  // (2001, 2003)". Emits one citation per year, all sharing the author(s). Runs
+  // BEFORE the single/two/et-al narrative loops so the bare-year continuation
+  // ("1998") isn't swallowed as an ignored trailing qualifier and dropped
+  // (TC-I, citationguard-iterate cycle 8 — R-0177 Sonnet audit, chan McCullough).
+  // The parenthetical analog is `sameAuthorMultiYear`; this is its narrative twin.
+  CITATION_PATTERNS.sameAuthorMultiYearNarrative.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.sameAuthorMultiYearNarrative.exec(text)) !== null) {
+    const firstAuthor = match[1];
+    if (isSentenceConnector(firstAuthor) || isMonthName(firstAuthor)) continue;
+    const connector = match[2] || '';
+    const years = match[3].split(/\s*,\s*/).map(y => y.trim()).filter(Boolean);
+    if (years.length < 2) continue; // regex guarantees ≥2, but be defensive
+    // Build the author list from the connector shape:
+    //  " et al."        → [firstAuthor, et al.]
+    //  " and <Surname>" → [firstAuthor, secondAuthor]
+    //  "" (single)      → [firstAuthor]
+    let authors: ParsedCitationAuthor[];
+    const etAlMatch = /^\s+et\s*\.?\s*al\.?$/i.test(connector);
+    const andMatch = connector.match(/^\s+and\s+(.+)$/i);
+    if (etAlMatch) {
+      authors = [createParsedAuthor(firstAuthor), createParsedAuthor('et al.', true)];
+    } else if (andMatch) {
+      const second = andMatch[1].trim();
+      if (isSentenceConnector(second) || isMonthName(second)) continue;
+      authors = [createParsedAuthor(firstAuthor), createParsedAuthor(second)];
+    } else {
+      authors = [createParsedAuthor(firstAuthor)];
+    }
+    // Record the full span so the narrative loops below don't re-emit the first
+    // year at the full span (which would duplicate the per-year siblings here).
+    const matchStart = match.index;
+    const matchText = match[0];
+    multiYearNarrativeSpans.push({ start: matchStart, end: matchStart + matchText.length });
+    // Locate each year token's offset inside the matched text (searching forward
+    // so repeated/adjacent years still advance) and give each sibling a distinct
+    // narrow position window — the de-overlap pass keeps identity-distinct
+    // siblings at distinct positions (see the sameAuthorMultiYear note).
+    let searchFrom = 0;
+    for (const rawYear of years) {
+      const { year, suffix } = parseYear(rawYear);
+      if (!year) continue;
+      const yearOffset = matchText.indexOf(rawYear, searchFrom);
+      const start = yearOffset >= 0 ? matchStart + yearOffset : matchStart;
+      const end = yearOffset >= 0 ? start + rawYear.length : matchStart + matchText.length;
+      if (yearOffset >= 0) searchFrom = yearOffset + rawYear.length;
+      addCitation({
+        raw: matchText,
+        normalized: normalizeCitation(matchText),
+        type: classifyCitation(authors, false, false),
+        citationStyle: 'narrative',
+        authors,
+        year,
+        yearSuffix: suffix,
+        position: { start, end },
+        context: extractContext(text, matchStart, matchText.length),
+      });
+    }
+  }
+
   // ============ MULTI-AUTHOR NARRATIVE WITH "AND" ============
   // Run before twoAuthorNarrative so "Hart, Lane, and Chinn (2018)" isn't
   // partially consumed by a two-author match on "Lane and Chinn (2018)".
@@ -1286,6 +1377,10 @@ export function detectCitations(text: string): DetectedCitation[] {
   // ============ ET AL. NARRATIVE ============
   CITATION_PATTERNS.etAlNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.etAlNarrative.exec(text)) !== null) {
+    // Skip a span already emitted per-year by the multi-year narrative loop
+    // ("McCullough et al. (1997, 1998)") — otherwise this loop re-emits the
+    // first year at the full span, duplicating the sibling (TC-I).
+    if (inMultiYearNarrativeSpan(match.index)) continue;
     // Sentence-connector guard — "Recently et al. (2021)" should not parse
     // as a citation; "Recently, Moche and Västfjäll (2021)" should let the
     // multiAuthorAndNarrative loop find the real citation downstream.
@@ -1356,6 +1451,8 @@ export function detectCitations(text: string): DetectedCitation[] {
   // ============ TWO AUTHORS NARRATIVE ============
   CITATION_PATTERNS.twoAuthorNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.twoAuthorNarrative.exec(text)) !== null) {
+    // Skip a span already emitted per-year by the multi-year narrative loop (TC-I).
+    if (inMultiYearNarrativeSpan(match.index)) continue;
     // Sentence-connector guard — same rationale as etAlNarrative.
     if (isSentenceConnector(match[1])) continue;
     const { year, suffix } = parseYear(match[3]);
@@ -1380,6 +1477,8 @@ export function detectCitations(text: string): DetectedCitation[] {
   // ============ SINGLE NARRATIVE ============
   CITATION_PATTERNS.singleNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.singleNarrative.exec(text)) !== null) {
+    // Skip a span already emitted per-year by the multi-year narrative loop (TC-I).
+    if (inMultiYearNarrativeSpan(match.index)) continue;
     const { year, suffix } = parseYear(match[2]);
     const authors = [createParsedAuthor(match[1])];
 
