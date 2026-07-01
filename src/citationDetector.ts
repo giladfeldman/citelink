@@ -351,6 +351,22 @@ const CITATION_PATTERNS = {
     'g',
   ),
 
+  // Et al. narrative with the FULL reference inlined in square brackets:
+  // "McCullough et al. [McCullough, M. E., Worthington, E. L., & Rachal, K. C.
+  // (1997). Interpersonal Forgiving… 73(2), 321-336.] demonstrated…". An unusual
+  // form (a narrative et-al lead-in whose bracket spells out the whole reference)
+  // seen in chan_feldman_2025_cogemo's abstract (TC-J, citationguard-iterate cycle
+  // 8, R-0177 Sonnet audit). The bracket opener is TIGHTLY anchored — it must begin
+  // with an author-list token `Surname, X.` (surname, comma, initial+dot) — so it
+  // can never fire on an editorial bracket (`[Note: …]`, `[sic]`), a numeric
+  // citation (`[12]`), or a bracketed quote. group 1 = the lead-in surname; group 2
+  // = the FIRST year inside the bracket (the reference's publication year).
+  etAlBracketedInlineRef: new RegExp(
+    `\\b(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+` +
+      `\\[${SURNAME_LASTNAME},\\s*[A-Z]\\.[^\\]]*?\\((\\d{4}[a-z]?)\\)`,
+    'g',
+  ),
+
   // Possessive single: Smith's (2020) study
   possessiveSingle: new RegExp(
     `\\b(${SURNAME_LASTNAME})['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
@@ -1017,6 +1033,33 @@ export function detectCitations(text: string): DetectedCitation[] {
         context: extractContext(text, matchStart, matchText.length),
       });
     }
+  }
+
+  // ============ ET AL. NARRATIVE WITH BRACKETED INLINE REFERENCE ============
+  // "McCullough et al. [McCullough, M. E., … (1997). … 321-336.] demonstrated…"
+  // The bracket spells out the whole reference; the citation is the et-al lead-in
+  // keyed to the FIRST year inside the bracket (TC-J, citationguard-iterate cycle
+  // 8). Register the full span so the bracket's inner "(1997)" isn't separately
+  // emitted by a downstream parenthetical/narrative pattern.
+  CITATION_PATTERNS.etAlBracketedInlineRef.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.etAlBracketedInlineRef.exec(text)) !== null) {
+    const leadSurname = match[1];
+    if (isSentenceConnector(leadSurname) || isMonthName(leadSurname)) continue;
+    const { year, suffix } = parseYear(match[2]);
+    if (!year) continue;
+    const authors = [createParsedAuthor(leadSurname), createParsedAuthor('et al.', true)];
+    multiYearNarrativeSpans.push({ start: match.index, end: match.index + match[0].length });
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: 'et_al',
+      citationStyle: 'narrative',
+      authors,
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length),
+    });
   }
 
   // ============ MULTI-AUTHOR NARRATIVE WITH "AND" ============

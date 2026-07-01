@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.59
+
+A narrative et-al citation whose FULL reference is spelled out inline in square brackets
+— "McCullough et al. [McCullough, M. E., … (1997). … 321-336.] demonstrated…" — was not
+detected — citationguard-iterate cycle 8 (2026-07-02), chan_feldman_2025_cogemo (TC-J),
+R-0177 deep audit.
+
+`etAlNarrative` requires "(" immediately after "et al.", so the "[" bracketed-reference
+form (chan's abstract spells out its two McCullough references inline) was missed. Fix:
+`etAlBracketedInlineRef` — an et-al lead-in followed by "[<Surname>, <Initial>. … (year)",
+keyed to the first year inside the bracket. The bracket opener is tightly required to be
+an author-list token (surname — including internal-capital surnames like "McCullough" —
+comma, initial+dot) so it can never fire on an editorial bracket ("[Note: …]"), a numeric
+citation ("[12]"), or a bracketed quote. chan matching 0.986->1.000 (both McCullough
+bracketed refs now resolve; chan fully citelink-DRY). Full-corpus diff: only chan moved
+(the one new prediction is the real abstract citation the gold's multiset keys differently
+— a gold under-count, not an FP), 0 regression elsewhere. +5 tests.
+
 ## 0.7.58
 
 A narrative citation whose parentheses hold a MULTI-YEAR LIST ("McCullough et al. (1997,
