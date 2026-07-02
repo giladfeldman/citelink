@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.7.61
+
+Two narrative-citation detection fixes surfaced by onboarding **annals_1** (Glikson &
+Woolley, "Human Trust in Artificial Intelligence", Academy of Management Annals 2020) —
+scimeto-iterate cycle 9 (2026-07-02). Both reproduce on CLEAN text (not docpluck
+artifacts). Full-corpus detection-set baseline diff: only annals_1 + annals_2 moved (both
+improved), 0 regression on the other 11 papers, 0 new false positives. annals_1 intext.f1
+0.909→0.975, matching 0.891→0.947.
+
+- **Two-author narrative with "&"** (`twoAuthorNarrative`, +siblings): "Wang & Benbasat
+  (2007)", "Möhlmann & Zalmanson (2017)" were mis-keyed to the SECOND author ("benbasat",
+  "zalmanson") because the narrative connector was hard-coded to the literal "and" — the
+  "&" form fell through to `singleNarrative`, which caught the trailing last-author. The
+  parenthetical patterns already accepted "&"; the narrative ones did not. The connector
+  now accepts both "and" and "&" in `twoAuthorNarrative`, `multiAuthorAndNarrative`,
+  `twoAuthorParentheticalHarvardNoComma`, `possessiveTwoAuthor`, and
+  `sameAuthorMultiYearNarrative`. Test: `twoAuthorNarrativeAmpersand.test.ts`.
+
+- **Et al. narrative with a particle surname** (`etAlNarrative`, `sameAuthorMultiYearNarrative`):
+  "de Visser et al. (2017)", "Ben Mimoun et al. (2012)", "Von Der Pütten et al. (2010)"
+  dropped the leading particle and keyed on the last name-part ("visser", "mimoun",
+  "putten"), never matching their reference. The first author now uses `COMPOUND_SURNAME`
+  (particle-aware) instead of the plain `SURNAME_LASTNAME`. A companion over-capture guard
+  (`stripLeadingNonNameWord`) prevents a preceding sentence lead-in from being swallowed
+  into the compound ("As de Visser et al." → "de visser", not "as de visser"). Test:
+  `etAlNarrativeParticleSurname.test.ts`.
+
 ## 0.7.60
 
 A same-paragraph page-only back-reference that ELIDES the year — '"…quote…" (Slovic &

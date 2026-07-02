@@ -259,7 +259,7 @@ const CITATION_PATTERNS = {
   // mixedListEtAlNarrative (cycle 13): `\b` would otherwise start matches
   // at lowercase words preceding the real author list.
   multiAuthorAndNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+and\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
     'g',
   ),
 
@@ -286,9 +286,10 @@ const CITATION_PATTERNS = {
     'g',
   ),
 
-  // Two authors Harvard no-comma (uses "and"): (Smith and Jones 2020)
+  // Two authors Harvard no-comma (uses "and" or "&"): (Smith and Jones 2020) /
+  // (Smith & Jones 2020) — the ampersand no-comma form is also valid Harvard.
   twoAuthorParentheticalHarvardNoComma: new RegExp(
-    `\\(\\s*(${SURNAME_LASTNAME})\\s+and\\s+(${SURNAME_LASTNAME})\\s+(\\d{4}[a-z]?)\\s*\\)`,
+    `\\(\\s*(${SURNAME_LASTNAME})\\s+(?:and|&)\\s+(${SURNAME_LASTNAME})\\s+(\\d{4}[a-z]?)\\s*\\)`,
     'g',
   ),
 
@@ -318,15 +319,29 @@ const CITATION_PATTERNS = {
 
   // Two authors narrative: Smith and Jones (2020) - uses "and". Trailing in-paren
   // qualifier after the year is optional and ignored (see singleNarrative).
+  // Two-author narrative: "Smith and Jones (2020)" / "Wang & Benbasat (2007)".
+  // The connector accepts BOTH "and" and "&" — the ampersand form is common in
+  // narrative citations too, and the parenthetical patterns (twoAuthorParenthetical)
+  // already accept `&`. Before this, only literal "and" matched, so "Wang &
+  // Benbasat (2007)" fell through to singleNarrative and was mis-keyed to the LAST
+  // author ("Benbasat") instead of first-author "Wang" (scimeto-iterate cycle
+  // 9, annals_1 — a Glikson & Woolley trust-in-AI review that uses "&" narratively
+  // throughout: Möhlmann & Zalmanson, Wang & Benbasat, Komiak & Benbasat, …).
   twoAuthorNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})\\s+and\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
     'g',
   ),
   
   // Et al. narrative: Smith et al. (2020). Optional trailing page or note inside
   // the parens: "Brandt et al. (2014, p. 218)", "Smith et al. (2020, Experiment 3)".
+  // First author is COMPOUND_SURNAME (not plain SURNAME_LASTNAME) so a multi-word
+  // PARTICLE surname is captured whole: "de Visser et al. (2017)", "Ben Mimoun et
+  // al. (2012)", "Von Der Pütten et al. (2010)". Before this, SURNAME_LASTNAME
+  // dropped the particle and keyed the citation on the last name-part ("visser",
+  // "mimoun", "putten"), so it never matched its reference (scimeto-iterate
+  // cycle 9, annals_1 — Dutch/Arabic/German particle surnames throughout).
   etAlNarrative: new RegExp(
-    `\\b(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
     'g',
   ),
 
@@ -345,8 +360,8 @@ const CITATION_PATTERNS = {
   // A non-year qualifier (`p. 12`, `Experiment 3`) does NOT match group 3, so the
   // existing single/two/et-al narrative loops keep owning the qualifier case.
   sameAuthorMultiYearNarrative: new RegExp(
-    `\\b(${SURNAME_LASTNAME})` +
-      `(\\s+et\\s*\\.?\\s*al\\.?|\\s+and\\s+${COMPOUND_SURNAME})?` +
+    `\\b(${COMPOUND_SURNAME})` +
+      `(\\s+et\\s*\\.?\\s*al\\.?|\\s+(?:and|&)\\s+${COMPOUND_SURNAME})?` +
       `\\s+\\(((?:\\d{4}[a-z]?)(?:\\s*,\\s*\\d{4}[a-z]?)+)\\)`,
     'g',
   ),
@@ -373,9 +388,9 @@ const CITATION_PATTERNS = {
     'g',
   ),
 
-  // Possessive two authors: Smith and Jones's (2020) study
+  // Possessive two authors: Smith and Jones's (2020) / Wang & Benbasat's (2007)
   possessiveTwoAuthor: new RegExp(
-    `\\b(${SURNAME_LASTNAME})\\s+and\\s+(${SURNAME_LASTNAME})['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${SURNAME_LASTNAME})\\s+(?:and|&)\\s+(${SURNAME_LASTNAME})['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
     'g',
   ),
 
@@ -594,6 +609,44 @@ const SENTENCE_CONNECTORS = new Set([
 /** True if the captured "first author" is actually a sentence-initial connector. */
 function isSentenceConnector(str: string): boolean {
   return SENTENCE_CONNECTORS.has(str.trim().toLowerCase().replace(/\.$/, ''));
+}
+
+// Common capitalized prose words that can begin a sentence right before an author
+// and are NOT surname particles — e.g. "As de Visser et al. (2017)" where the
+// compound-surname first-author pattern (particle-aware) would otherwise swallow
+// the leading "As" into "As de Visser". Distinct from SENTENCE_CONNECTORS (which
+// guards a whole-string match); this set is consulted only for the FIRST WORD of a
+// multi-word compound capture. (scimeto-iterate cycle 9.)
+const LEADING_NON_NAME_WORDS = new Set([
+  'as', 'when', 'while', 'where', 'although', 'though', 'because', 'since', 'if',
+  'whereas', 'after', 'before', 'unlike', 'like', 'per', 'following', 'given',
+  'in', 'on', 'at', 'by', 'for', 'with', 'from', 'and', 'but', 'or', 'so', 'see',
+]);
+
+/**
+ * A compound surname whose first author admits a leading particle can over-capture
+ * a preceding sentence word when the second token is a particle ("As de Visser").
+ * If the captured surname is multi-word and its FIRST word is a sentence connector
+ * or a common non-name lead-in, strip that word and return the remainder (the real
+ * particle surname). If nothing valid remains, return null so the caller skips.
+ * A single-word capture, or one whose first word is a real particle / name, is
+ * returned unchanged.
+ */
+function stripLeadingNonNameWord(surname: string): string | null {
+  const s = surname.trim();
+  const words = s.split(/\s+/);
+  if (words.length < 2) return s || null;
+  const first = words[0].toLowerCase().replace(/\.$/, '');
+  const isLeadIn = LEADING_NON_NAME_WORDS.has(first) || SENTENCE_CONNECTORS.has(first);
+  // Only strip when the first word is a lead-in AND the SECOND word is a particle
+  // (that is exactly the over-capture shape "As de Visser"); a genuine two-part
+  // surname whose first word happens to be a lead-in AND is NOT followed by a
+  // particle ("Long March 2020"—contrived) is left intact.
+  if (isLeadIn) {
+    const rest = words.slice(1).join(' ');
+    return rest || null;
+  }
+  return s;
 }
 
 // Capitalized prose words that legitimately precede a real author inside a
@@ -994,7 +1047,7 @@ export function detectCitations(text: string): DetectedCitation[] {
     //  "" (single)      → [firstAuthor]
     let authors: ParsedCitationAuthor[];
     const etAlMatch = /^\s+et\s*\.?\s*al\.?$/i.test(connector);
-    const andMatch = connector.match(/^\s+and\s+(.+)$/i);
+    const andMatch = connector.match(/^\s+(?:and|&)\s+(.+)$/i);
     if (etAlMatch) {
       authors = [createParsedAuthor(firstAuthor), createParsedAuthor('et al.', true)];
     } else if (andMatch) {
@@ -1428,9 +1481,17 @@ export function detectCitations(text: string): DetectedCitation[] {
     // as a citation; "Recently, Moche and Västfjäll (2021)" should let the
     // multiAuthorAndNarrative loop find the real citation downstream.
     if (isSentenceConnector(match[1])) continue;
+    // Particle over-capture guard (scimeto-iterate cycle 9): the compound
+    // first-author now admits a leading particle, so a preceding sentence word
+    // followed by a particle-surname ("As de Visser et al.") can be swallowed as
+    // "As de Visser". If the FIRST word is a sentence connector / common lead-in
+    // and the remainder still forms a particle surname, strip the lead-in and
+    // re-key on the real surname; if only the lead-in remains, skip.
+    const etAlFirstAuthor = stripLeadingNonNameWord(match[1]);
+    if (!etAlFirstAuthor) continue;
     const { year, suffix } = parseYear(match[2]);
     const authors = [
-      createParsedAuthor(match[1]),
+      createParsedAuthor(etAlFirstAuthor),
       createParsedAuthor('et al.', true)
     ];
 
