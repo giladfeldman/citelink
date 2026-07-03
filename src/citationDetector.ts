@@ -359,9 +359,20 @@ const CITATION_PATTERNS = {
   // the connector (` et al.` / ` and <Surname>` / empty); group 3 = the year list.
   // A non-year qualifier (`p. 12`, `Experiment 3`) does NOT match group 3, so the
   // existing single/two/et-al narrative loops keep owning the qualifier case.
+  // group 1 = the leading author list (one surname, OR a comma-separated run of
+  //   2+ surnames — "de Melo, Marsella" — for the explicit multi-author form).
+  // group 2 = the connector: " et al." | " and/&  <LastSurname>" (with an optional
+  //   Oxford comma before the connector, "…, & Gratch") | empty.
+  // group 3 = the pure year list (2+ years).
+  // TC-MULTIYEAR-NARRATIVE-MULTIAUTHOR (scimeto-iterate 2026-07-04): before,
+  // group 1 was a SINGLE surname, so "de Melo, Marsella, & Gratch (2016, 2017)" did
+  // not match at "de Melo" (the ", Marsella, &…" tail was neither an et-al nor an
+  // "and <Surname>" connector) and instead matched at the LAST author "Gratch",
+  // mis-keying both year siblings to gratch. group 1 now admits the comma list and
+  // the handler splits it, so the citation keys on the FIRST author (de melo).
   sameAuthorMultiYearNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})` +
-      `(\\s+et\\s*\\.?\\s*al\\.?|\\s+(?:and|&)\\s+${COMPOUND_SURNAME})?` +
+    `\\b(${COMPOUND_SURNAME}(?:\\s*,\\s*${COMPOUND_SURNAME})*)` +
+      `(\\s+et\\s*\\.?\\s*al\\.?|\\s*,?\\s*(?:and|&)\\s+${COMPOUND_SURNAME})?` +
       `\\s+\\(((?:\\d{4}[a-z]?)(?:\\s*,\\s*\\d{4}[a-z]?)+)\\)`,
     'g',
   ),
@@ -1036,25 +1047,37 @@ export function detectCitations(text: string): DetectedCitation[] {
   // The parenthetical analog is `sameAuthorMultiYear`; this is its narrative twin.
   CITATION_PATTERNS.sameAuthorMultiYearNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.sameAuthorMultiYearNarrative.exec(text)) !== null) {
-    const firstAuthor = match[1];
+    // group 1 may be a single surname OR a comma-separated list ("de Melo, Marsella").
+    const leadingList = match[1].split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+    // Particle over-capture guard (same as etAlNarrative): the compound first author
+    // admits a leading particle, so a preceding sentence word ("As de Visser…") can be
+    // swallowed as "As de Visser". Strip a lead-in word from the FIRST list element.
+    const strippedFirst = stripLeadingNonNameWord(leadingList[0]);
+    if (!strippedFirst) continue;
+    leadingList[0] = strippedFirst;
+    const firstAuthor = leadingList[0];
     if (isSentenceConnector(firstAuthor) || isMonthName(firstAuthor)) continue;
     const connector = match[2] || '';
     const years = match[3].split(/\s*,\s*/).map(y => y.trim()).filter(Boolean);
     if (years.length < 2) continue; // regex guarantees ≥2, but be defensive
-    // Build the author list from the connector shape:
-    //  " et al."        → [firstAuthor, et al.]
-    //  " and <Surname>" → [firstAuthor, secondAuthor]
-    //  "" (single)      → [firstAuthor]
+    // Build the author list from the leading list + the connector shape:
+    //  "A"          + " et al."        → [A, et al.]
+    //  "A"          + " and <B>"       → [A, B]
+    //  "A, B"       + " & <C>"         → [A, B, C]         (explicit multi-author)
+    //  "A"          + ""               → [A]               (single)
     let authors: ParsedCitationAuthor[];
     const etAlMatch = /^\s+et\s*\.?\s*al\.?$/i.test(connector);
-    const andMatch = connector.match(/^\s+(?:and|&)\s+(.+)$/i);
+    const andMatch = connector.match(/^\s*,?\s*(?:and|&)\s+(.+)$/i);
     if (etAlMatch) {
-      authors = [createParsedAuthor(firstAuthor), createParsedAuthor('et al.', true)];
+      authors = [...leadingList.map(a => createParsedAuthor(a)), createParsedAuthor('et al.', true)];
     } else if (andMatch) {
-      const second = andMatch[1].trim();
-      if (isSentenceConnector(second) || isMonthName(second)) continue;
-      authors = [createParsedAuthor(firstAuthor), createParsedAuthor(second)];
+      const last = andMatch[1].trim();
+      if (isSentenceConnector(last) || isMonthName(last)) continue;
+      authors = [...leadingList.map(a => createParsedAuthor(a)), createParsedAuthor(last)];
     } else {
+      // No connector: a bare comma list with no "& last" is almost never a real
+      // citation lead-in ("Smith, 2019, 2020" is the parenthetical splitter's job);
+      // keep the prior single-author behavior and only take the first surname.
       authors = [createParsedAuthor(firstAuthor)];
     }
     // Record the full span so the narrative loops below don't re-emit the first
@@ -1722,6 +1745,70 @@ export function detectCitations(text: string): DetectedCitation[] {
         .replace(/(,\s*\d{4}[a-z]?)\s+[a-z][\s\S]*$/, '$1');
       // Try to match individual citation patterns
 
+      // TC-MULTIYEAR-MULTIAUTHOR bundle form (scimeto-iterate 2026-07-03):
+      // a ';'-bundle MEMBER carrying a trailing YEAR LIST — "(…; de Melo,
+      // Marsella, & Gratch, 2016, 2017; …)", "(Jones, 2016; Smith & Lee, 2018,
+      // 2019)". Every $-anchored member matcher below captures ONE year, so a
+      // "…, 2016, 2017" member matched NONE of them and the WHOLE member was
+      // dropped (not just the extra year). The shared `emitExtraBundleYears`
+      // helper is called by each matcher right after its first-year addCitation:
+      // it scans for a "(\s*,\s*YYYY)+" tail immediately after the matched year in
+      // the member and emits one sibling citation per extra year, sharing the
+      // author list, each at its own narrow position window (addCitation dedupes
+      // by exact (start,end)). This mirrors the standalone `(A, B, & C, Y1, Y2)`
+      // fix in the PROSE_PAREN pass, which never sees ';'-bundles.
+      //
+      // NON-RECURSIVE by design (CLAUDE.md gotcha #15): we never call
+      // detectCitations() from inside this loop — the module-level
+      // CITATION_PATTERNS regexes carry `g`-flag `lastIndex` state and a nested
+      // call would reset multipleCitations.lastIndex, corrupting THIS loop into an
+      // infinite loop. The helper re-parses only its own local literal.
+      // Returns TRUE if `citeText` carried a trailing "YYYY(, YYYY)+" list and the
+      // helper emitted one citation PER year (each at its own narrow window at the
+      // year token) — in which case the caller MUST NOT also emit its usual
+      // full-span primary, because the full span would strictly CONTAIN the narrow
+      // year siblings and the de-overlap pass would drop every sibling but the
+      // first (different identity key + larger containing span = dropped). This is
+      // the same narrow-window discipline the `sameAuthorMultiYear` splitter uses.
+      // Returns FALSE for a single-year member (no list) so the caller emits its
+      // normal full-span citation unchanged.
+      const emitAllBundleYears = (
+        authors: ParsedCitationAuthor[],
+        baseType: DetectedCitation['type'],
+        matchedFirstYear: string,
+      ): boolean => {
+        if (authors.length === 0) return false;
+        const firstIdx = citeText.indexOf(matchedFirstYear);
+        if (firstIdx < 0) return false;
+        const afterFirst = citeText.slice(firstIdx + matchedFirstYear.length);
+        const tail = /^((?:\s*,\s*\d{4}[a-z]?)+)\s*$/.exec(afterFirst);
+        if (!tail) return false; // single year — caller emits its normal primary
+        const headText = citeText.slice(0, firstIdx).replace(/,\s*$/, '');
+        // The full year list = the first matched year + the tail years.
+        const allYears = [matchedFirstYear, ...tail[1].split(/\s*,\s*/).map((y) => y.trim())].filter(Boolean);
+        let searchFrom = firstIdx;
+        for (const rawYear of allYears) {
+          const { year, suffix } = parseYear(rawYear);
+          if (!year) continue;
+          const off = citeText.indexOf(rawYear, searchFrom);
+          const yStart = off >= 0 ? currentPos + off : currentPos;
+          const yEnd = off >= 0 ? yStart + rawYear.length : currentPos + citeText.length;
+          if (off >= 0) searchFrom = off + rawYear.length;
+          addCitation({
+            raw: `(${headText}, ${rawYear})`,
+            normalized: normalizeCitation(`(${headText}, ${rawYear})`),
+            type: baseType,
+            citationStyle: 'parenthetical',
+            authors,
+            year,
+            yearSuffix: suffix,
+            position: { start: yStart, end: yEnd },
+            context: extractContext(text, currentPos, citeText.length),
+          });
+        }
+        return true;
+      };
+
       // Institutional acronym-colon author FIRST: "KNAW: Royal Dutch Academy of
       // Arts and Sciences, 2018" as a bundle item. Keyed on the acronym. The
       // name part may contain "and"/"&"/commas (institution names do), so it is
@@ -1849,32 +1936,35 @@ export function detectCitations(text: string): DetectedCitation[] {
       // pattern already does; cycle 22 brings the anchored bundle fragment to
       // parity, recovering "(…; Hom Jr & Van Nuland, 2019; …)".
       const twoAuthorMatch = citeText.match(new RegExp(
-        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*&\\s*${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*&\\s*${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (twoAuthorMatch) {
         const { year, suffix } = parseYear(twoAuthorMatch[3]);
-        addCitation({
-          raw: `(${citeText})`,
-          normalized: normalizeCitation(`(${citeText})`),
-          type: 'two_authors',
-          citationStyle: 'parenthetical',
-          authors: [
-            createParsedAuthor(twoAuthorMatch[1]),
-            createParsedAuthor(twoAuthorMatch[2])
-          ],
-          year,
-          yearSuffix: suffix,
-          position: { start: currentPos, end: currentPos + citeText.length },
-          context: extractContext(text, currentPos, citeText.length)
-        });
+        const twoAuthors = [
+          createParsedAuthor(twoAuthorMatch[1]),
+          createParsedAuthor(twoAuthorMatch[2]),
+        ];
+        if (!emitAllBundleYears(twoAuthors, 'two_authors', twoAuthorMatch[3])) {
+          addCitation({
+            raw: `(${citeText})`,
+            normalized: normalizeCitation(`(${citeText})`),
+            type: 'two_authors',
+            citationStyle: 'parenthetical',
+            authors: twoAuthors,
+            year,
+            yearSuffix: suffix,
+            position: { start: currentPos, end: currentPos + citeText.length },
+            context: extractContext(text, currentPos, citeText.length)
+          });
+        }
         currentPos += citeText.length + 2;
         continue;
       }
       
       // Mixed-list with trailing et al.: "Bartoš, Maier, Wagenmakers, et al., 2022"
       const mixedEtAlMatch = citeText.match(new RegExp(
-        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (mixedEtAlMatch) {
@@ -1883,24 +1973,26 @@ export function detectCitations(text: string): DetectedCitation[] {
           ...mixedEtAlMatch[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
           createParsedAuthor('et al.', true),
         ];
-        addCitation({
-          raw: `(${citeText})`,
-          normalized: normalizeCitation(`(${citeText})`),
-          type: 'et_al',
-          citationStyle: 'parenthetical',
-          authors,
-          year,
-          yearSuffix: suffix,
-          position: { start: currentPos, end: currentPos + citeText.length },
-          context: extractContext(text, currentPos, citeText.length),
-        });
+        if (!emitAllBundleYears(authors, 'et_al', mixedEtAlMatch[2])) {
+          addCitation({
+            raw: `(${citeText})`,
+            normalized: normalizeCitation(`(${citeText})`),
+            type: 'et_al',
+            citationStyle: 'parenthetical',
+            authors,
+            year,
+            yearSuffix: suffix,
+            position: { start: currentPos, end: currentPos + citeText.length },
+            context: extractContext(text, currentPos, citeText.length),
+          });
+        }
         currentPos += citeText.length + 2;
         continue;
       }
 
       // Multi-author pattern (3-6 authors): "Bosco, Aguinis, Field, & Dalton, 2016"
       const multiAuthorMatch = citeText.match(new RegExp(
-        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (multiAuthorMatch) {
@@ -1909,40 +2001,46 @@ export function detectCitations(text: string): DetectedCitation[] {
           ...multiAuthorMatch[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
           createParsedAuthor(multiAuthorMatch[2]),
         ];
-        addCitation({
-          raw: `(${citeText})`,
-          normalized: normalizeCitation(`(${citeText})`),
-          type: classifyCitation(authors, false, false),
-          citationStyle: 'parenthetical',
-          authors,
-          year,
-          yearSuffix: suffix,
-          position: { start: currentPos, end: currentPos + citeText.length },
-          context: extractContext(text, currentPos, citeText.length),
-        });
+        const maType = classifyCitation(authors, false, false);
+        if (!emitAllBundleYears(authors, maType, multiAuthorMatch[3])) {
+          addCitation({
+            raw: `(${citeText})`,
+            normalized: normalizeCitation(`(${citeText})`),
+            type: maType,
+            citationStyle: 'parenthetical',
+            authors,
+            year,
+            yearSuffix: suffix,
+            position: { start: currentPos, end: currentPos + citeText.length },
+            context: extractContext(text, currentPos, citeText.length),
+          });
+        }
         currentPos += citeText.length + 2;
         continue;
       }
 
       // Single author pattern (with optional initial prefix — "S. Lee, 2018")
       const singleMatch = citeText.match(new RegExp(
-        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (singleMatch) {
         const { year, suffix } = parseYear(singleMatch[2]);
         const authors = parseAuthors(singleMatch[1]);
-        addCitation({
-          raw: `(${citeText})`,
-          normalized: normalizeCitation(`(${citeText})`),
-          type: classifyCitation(authors, false, false),
-          citationStyle: 'parenthetical',
-          authors,
-          year,
-          yearSuffix: suffix,
-          position: { start: currentPos, end: currentPos + citeText.length },
-          context: extractContext(text, currentPos, citeText.length)
-        });
+        const smType = classifyCitation(authors, false, false);
+        if (!emitAllBundleYears(authors, smType, singleMatch[2])) {
+          addCitation({
+            raw: `(${citeText})`,
+            normalized: normalizeCitation(`(${citeText})`),
+            type: smType,
+            citationStyle: 'parenthetical',
+            authors,
+            year,
+            yearSuffix: suffix,
+            position: { start: currentPos, end: currentPos + citeText.length },
+            context: extractContext(text, currentPos, citeText.length)
+          });
+        }
       } else {
         // Organizational / multi-word author fragment: "Open Science
         // Collaboration, 2015", "R Core Team, 2019" as a ';'-bundle member. The
@@ -2053,6 +2151,54 @@ export function detectCitations(text: string): DetectedCitation[] {
         position: { start, end },
         context: extractContext(text, start, am[0].length),
       });
+      // TC-MULTIYEAR-MULTIAUTHOR (scimeto-iterate 2026-07-03): an explicit
+      // multi-author parenthetical with a trailing YEAR LIST —
+      // "(de Melo, Marsella, & Gratch, 2016, 2017)", "(Wang & Benbasat, 2016,
+      // 2017)" — must emit ONE citation per year, all sharing the author list
+      // (gold expects 2 works). The `sameAuthorMultiYear` splitter above handles
+      // only the SINGLE-author "(de Melo, 2016, 2017)" and ET-AL "(Smith et al.,
+      // 2016, 2017)" shapes; the explicit-author list falls to this generic
+      // in-paren scanner, whose regex captures a single year and dropped the
+      // "2016" tail's siblings. Here we look for a "(\s*,\s*YYYY)+" continuation
+      // in `interior` immediately after this match's first year and emit each
+      // extra year as its own citation with a DISTINCT narrow position window
+      // (addCitation dedupes by exact start-end, so siblings need distinct
+      // windows or only the first survives — same discipline as sameAuthorMultiYear).
+      const YEAR_TAIL = /^((?:\s*,\s*\d{4}[a-z]?)+)/;
+      const tailMatch = interior.slice(am.index + am[0].length).match(YEAR_TAIL);
+      if (tailMatch) {
+        const extraYears = tailMatch[1]
+          .split(/\s*,\s*/)
+          .map(y => y.trim())
+          .filter(Boolean);
+        // Absolute offset (into `interior`) where the year tail begins.
+        const tailBaseInInterior = am.index + am[0].length;
+        let searchFrom = 0;
+        for (const rawYear of extraYears) {
+          const { year: yr, suffix: sfx } = parseYear(rawYear);
+          if (!yr) continue;
+          const off = tailMatch[1].indexOf(rawYear, searchFrom);
+          if (off < 0) continue;
+          searchFrom = off + rawYear.length;
+          const yStart = interiorStart + tailBaseInInterior + off;
+          const yEnd = yStart + rawYear.length;
+          if (overlapsExisting(yStart, yEnd)) continue;
+          addCitation({
+            raw: `(${am[1]}${am[2] ? ', ' + am[2] : ''}, ${rawYear})`,
+            normalized: normalizeCitation(`(${am[1]}, ${rawYear})`),
+            type: classifyCitation(authors, false, false),
+            citationStyle: 'parenthetical',
+            authors,
+            year: yr,
+            yearSuffix: sfx,
+            position: { start: yStart, end: yEnd },
+            context: extractContext(text, start, am[0].length),
+          });
+        }
+        // Advance the scanner past the consumed year tail so the bare years
+        // aren't re-examined as author-less fragments on the next iteration.
+        INPAREN_AUTHOR_YEAR.lastIndex = am.index + am[0].length + tailMatch[1].length;
+      }
     }
   }
 

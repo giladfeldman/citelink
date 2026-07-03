@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.7.62
+
+Multi-year multi-author citation support — an explicit multi-author citation with a
+trailing YEAR LIST now emits one citation per year, all keyed on the FIRST author
+(scimeto-iterate 2026-07-04, surfaced on annals_1). Two distinct code paths
+(parenthetical and narrative), fixed as separate defect classes. Full-corpus baseline
+diff: annals_1 intext.f1 0.975→0.978, matching 0.947→0.953; 0 regression on the other
+12 papers, 0 new false positives.
+
+- **Parenthetical `(A, B, & C, Y1, Y2)`** — "(de Melo, Marsella, & Gratch, 2016, 2017)"
+  emitted only the first year (2016). The `sameAuthorMultiYear` splitter handled only
+  the single-author "(de Melo, 2016, 2017)" and et-al "(Smith et al., 2016, 2017)"
+  shapes; the explicit-author list fell to the generic in-paren scanner, which captures
+  one year. **Two sub-forms:** (1) the standalone `INPAREN_AUTHOR_YEAR` scanner now
+  detects a trailing "(,YYYY)+" continuation and emits per-year siblings; (2) inside a
+  ';'-bundle ("(…; de Melo, Marsella, & Gratch, 2016, 2017; …)" — how annals_1 actually
+  writes it), the $-anchored member matchers captured one year, so a multi-year member
+  matched none and the WHOLE citation was dropped — the shared `emitAllBundleYears`
+  helper now emits one narrow-window citation per year (the caller skips its full-span
+  emit when the helper fires, so de-overlap keeps the siblings). Implemented
+  NON-RECURSIVELY on purpose: a nested `detectCitations` call resets the module-level
+  `g`-flag `multipleCitations.lastIndex` and hangs the outer loop. Test:
+  `multiAuthorMultiYearParenthetical.test.ts` (13).
+
+- **Narrative `A, B, & C (Y1, Y2)`** — "de Melo, Marsella, & Gratch (2016, 2017)" emitted
+  the right count but keyed ALL year siblings on the LAST author ("gratch") instead of
+  the first, because `sameAuthorMultiYearNarrative` captured a single leading surname in
+  group 1, so it matched at the last author. group 1 now admits a comma-separated author
+  list; the handler splits it and keys on the first author. A `stripLeadingNonNameWord`
+  guard (as in `etAlNarrative`) prevents a preceding sentence word being swallowed
+  ("As de Visser, …" → "de visser", not "as de visser"). Test:
+  `multiAuthorMultiYearNarrative.test.ts` (8).
+
 ## 0.7.61
 
 Two narrative-citation detection fixes surfaced by onboarding **annals_1** (Glikson &
