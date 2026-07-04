@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.63
+
+Reference-parser particle-surname fix — a reference-list entry whose first author has
+a name particle was dropped or mis-keyed, so it never matched its citations
+(scimeto-iterate 2026-07-04, surfaced by the R-0177 Sonnet canary audit on
+annals_1, which the summary-F1 gate scored as a passing 0.980 refs). annals_1 refs.f1
+0.980→0.989, matching 0.953→0.975; 0 regression on the other 12 papers.
+
+- **Single particle** "Ben Mimoun, M. S., Poncin, I., & Garnier, M. 2012." was keyed on
+  "Ben" (or dropped entirely), because FOUR hand-copied particle lists in
+  `referenceParser.ts` had drifted incomplete (all omitted "Ben"/"Bin"/"Ibn"/"Ter"):
+  the APA/Harvard/AOM concatenation splitters, `parseAuthorsFromSection`'s `particleAlt`,
+  and `parseBareYearReference`'s `capParticle`. Consolidated the splitter lists into one
+  shared `REF_SPLIT_PARTICLE` constant and added the missing particles to all four,
+  kept in sync with `COMPOUND_SURNAME`. Effect: the gold's two "Ben Mimoun" references
+  now match AND the 6+ in-text "Ben Mimoun et al." citations resolve.
+- **Double particle** "Von Der Pütten, A. M., Krämer, N. C., …" was keyed on "Von"
+  because the AOM bare-year path's has-comma detector consumed only ONE optional
+  particle; changed to `(?:capParticle\s+)*` so a stacked particle surname is seen as
+  a comma-format first author and kept whole.
+- Test: `referenceParticleSurnameSplit.test.ts` (5).
+
 ## 0.7.62
 
 Multi-year multi-author citation support — an explicit multi-author citation with a

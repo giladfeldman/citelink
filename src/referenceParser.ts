@@ -119,8 +119,22 @@ export interface Author {
 const NAME_PARTICLES = [
   'van', "van't", "van's", "'t", "'s", 'von', 'de', 'del', 'della', 'der', 'den',
   'la', 'le', 'les', 'du', 'des', 'di', 'da', 'dos', 'das', 'ten', 'ter', 'bin',
-  'ibn', 'al', 'el', 'lo', 'los', 'san', 'santa', 'st', 'mac', 'mc', "o'"
+  'ben', 'ibn', 'al', 'el', 'lo', 'los', 'san', 'santa', 'st', 'mac', 'mc', "o'"
 ];
+
+// Surname-particle prefix for the reference-SPLITTER boundary regexes (APA / Harvard
+// / AOM concatenation splitters + the generic splitIntoReferences opener). A reference
+// whose first author has a particle surname must be split ON the particle, not on the
+// bare surname — otherwise the whole entry is swallowed into the previous reference and
+// never parsed. This single shared constant replaces four hand-copied particle lists
+// that had drifted incomplete: they omitted "Ben"/"Bin"/"Ibn"/"Ter"/"Der", so
+// "Ben Mimoun, M. S., Poncin, I., & Garnier, M. 2012." (and every other particle-surname
+// entry) was dropped, cascading into 6+ unmatched in-text citations
+// (scimeto-iterate 2026-07-04, R-0177 Sonnet audit on annals_1). Kept in sync with
+// COMPOUND_SURNAME's particle set in citationDetector.ts. Each alternative allows both
+// cases so it matches at a mid-block boundary (Ben) and a lowercased continuation (ben).
+const REF_SPLIT_PARTICLE =
+  `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Dd]a|[Ll][ea]|[Ee]l|[Aa]l|[Dd]e[nr]|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]e[nr]|[Bb]en|[Bb]in|[Ii]bn)\\s+)*`;
 
 // Name suffixes to extract
 const NAME_SUFFIXES = ['Jr', 'Jr.', 'Sr', 'Sr.', 'II', 'III', 'IV', 'V', 'VI'];
@@ -438,7 +452,12 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   // "Veer" (chen: van't Veer 2016 matched the wrong reference). The bare "'t"/"'s"
   // alternative covers the particle written on its own ("'t Hart").
   // (scimeto-iterate 2026-06-25, chen — R-0177 Sonnet canary audit.)
-  const particleAlt = "(?:[Vv]an(?:['’][ts])?|['’][ts]|[Vv]on|[Dd]e|[Dd]el|[Dd]er|[Dd]en|[Dd]i|[Dd]u|[Dd]a|[Dd]o|[Dd]os|[Dd]as|[Ll]a|[Ll]e|[Ee]l|[Aa]l|[Bb]in|[Aa]bd|[Aa]bu)";
+  // "Ben"/"Ibn"/"Ter" added 2026-07-04 (R-0177 annals_1 audit): without "Ben" here,
+  // "Ben Mimoun, M. S." parses its surname as "Ben" (the 2nd-surname-word branch is
+  // outrun by the lookahead), keying the author "ben" — so the reference never matches
+  // the gold's "Ben Mimoun" nor the in-text "Ben Mimoun et al." citations. Kept in sync
+  // with REF_SPLIT_PARTICLE / NAME_PARTICLES / COMPOUND_SURNAME.
+  const particleAlt = "(?:[Vv]an(?:['’][ts])?|['’][ts]|[Vv]on|[Dd]e|[Dd]el|[Dd]er|[Dd]en|[Dd]i|[Dd]u|[Dd]a|[Dd]o|[Dd]os|[Dd]as|[Ll]a|[Ll]e|[Ee]l|[Aa]l|[Bb]en|[Bb]in|[Ii]bn|[Tt]er|[Aa]bd|[Aa]bu)";
   const authorPattern = new RegExp(
     `(?:${particleAlt}\\s+)?` +                     // Optional particle prefix
     `(?:[A-ZÀ-Ÿ][A-Za-zÀ-ÿā-ž'-]+` +              // LastName (allows camelCase + Latin Extended-A, e.g. "Bartoš")
@@ -1288,7 +1307,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // chan deep audit.)
   const givenName = `(?:[A-Z]\\.(?:[-\\s]?[A-Z]\\.)*|[A-ZÀ-Ÿ][a-zà-ÿā-ž]+(?:\\s+[A-Z]\\.)*)`;
   const author =
-    `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*` +
+    REF_SPLIT_PARTICLE +
     `[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+,\\s+${givenName}`;
   // An author-list connector: ",", "&", "and", "et al.", OR an APA-7 ellipsis
   // ("…" / "...") that precedes the FINAL author when a reference has 21+ authors
@@ -1447,8 +1466,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
  */
 export function splitConcatenatedHarvardReferences(block: string): string[] {
   if (block.length < 120) return [block];
-  const particle =
-    `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*`;
+  const particle = REF_SPLIT_PARTICLE;
   // Surname: a capitalized word, optionally followed by up to two more
   // capitalized words to admit multi-word surnames ("Santos Silva", "Ross
   // Russell") — without this, the second author of "Barros L and Santos Silva M
@@ -1549,8 +1567,7 @@ export function splitConcatenatedAomReferences(block: string): string[] {
   // (scimeto-iterate cycle 7, annals_2 — the Aguinis & Vandenberg 2014
   // "An ounce of prevention" entry and ~65 other ` *Surname,` boundaries.)
   block = block.replace(/\s\*(?=[A-ZÀ-Ÿ])/g, ' ');
-  const particle =
-    `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*`;
+  const particle = REF_SPLIT_PARTICLE;
   const surname = `[A-ZÀ-Ÿ][\\wà-ÿā-ž'’-]+`;
   // Personal author: "Surname, I." / "van Raan, A. F." — comma then 1+ initials.
   const personalAuthor = `${particle}${surname},\\s+[A-Z]\\.(?:[-\\s]?[A-Z]\\.)*`;
@@ -1685,7 +1702,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     // - Vancouver: "Smith J," "Smith AB,"
     // Particle prefixes (case-insensitive): De, Van, Von, Di, Le, La, El, Al-, O', ten, Mc, Mac, Del, Della, Dos, Das, Den, du, van't, Kordes-de, etc.
     // Pattern: optional particle prefix(es) + Uppercase surname + comma/space + initial
-    const particlePrefix = `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Ll][ea]|[Ee]l|[Dd]en|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]en|[Aa]l-)\\s+)*`;
+    const particlePrefix = REF_SPLIT_PARTICLE;
     // Also handle hyphenated compound particles like "Kordes-de Vaal"
     const compoundParticle = `(?:[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+-(?:de|van|von|di|le|la)\\s+)?`;
     // Build pattern based on style — ASA gets extra no-comma full-name pattern
@@ -3094,13 +3111,23 @@ function parseBareYearReference(cleanedText: string, listNumber?: number, style?
     // its first word starts lowercase and never matched `^[A-Z]…`; the capitalized
     // "Van X" was the gap. (scimeto-iterate cycle 7, annals_2 — R-0177 Sonnet
     // audit; "Van Iddekinge" → "Van".)
-    const capParticle = '(?:Van|Von|De[lnr]?|Della|Di|Du|Da|Dos|Das|La|Le|El|Al|Ten|Ter|Bin|Ibn|Mac|Mc|St)';
+    // "Ben" added 2026-07-04 (R-0177 annals_1 audit): without it, "Ben Mimoun, M. S."
+    // fails the has-comma test (Ben+space, not Ben+comma), so hasNoCommaFullNames fires
+    // and parseNoCommaFullNameAuthors reads lastName="Ben" firstName="Mimoun" — the exact
+    // "Van Iddekinge → Van" bug this capParticle exists to prevent, for a Hebrew/Arabic
+    // "Ben" (son-of) particle. Kept in sync with REF_SPLIT_PARTICLE / particleAlt.
+    const capParticle = '(?:Van|Von|De[lnr]?|Della|Di|Du|Da|Dos|Das|La|Le|El|Al|Ten|Ter|Ben|Bin|Ibn|Mac|Mc|St)';
+    // `*` (not `?`) so a DOUBLE particle surname — "Von Der Pütten, A. M." — is seen as
+    // a comma-format first author; with a single optional particle the "Der" was left
+    // dangling, the has-comma test failed, and the no-comma parser keyed the author
+    // "Von" (2026-07-04 R-0177 annals_1 audit — same class as Ben Mimoun, one more particle).
+    const capParticles = `(?:${capParticle}\\s+)*`;
     // Detect if first author has comma between last name and first name/initials.
     // Standard ASA/Chicago: "LastName, FirstName" or "LastName, I." (has comma)
     // PMC/non-standard: "LastName FirstName" (no comma within author name)
-    const hasCommaInFirstAuthor = new RegExp(`^(?:${capParticle}\\s+)?[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s+[A-ZÀ-Ÿ]`).test(authorSection);
+    const hasCommaInFirstAuthor = new RegExp(`^${capParticles}[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s+[A-ZÀ-Ÿ]`).test(authorSection);
     // Detect full-name format: "LastName, FullFirstName" (2+ lowercase chars after initial uppercase)
-    const hasFullNames = new RegExp(`^(?:${capParticle}\\s+)?[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž]{2,}`).test(authorSection);
+    const hasFullNames = new RegExp(`^${capParticles}[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž]{2,}`).test(authorSection);
     // Detect no-comma full-name ASA: "LastName FirstName" (no comma, full first name)
     // E.g., "Anderson Kaitlin P." or "Allard Brian"
     const hasNoCommaFullNames = !hasCommaInFirstAuthor &&
