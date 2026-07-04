@@ -465,7 +465,7 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
     `|\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?` +                // OR one capitalized 2nd surname word ("Ross Russell")
     `(?:-(?:[a-z]+\\s+)?[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)*)` + // Optional hyphenated part
     `\\s*,\\s*` +                                     // Comma separator
-    `(?:[A-ZÀ-Ÿ]\\.?\\s*)+` +                       // Initials (A. B. or AB)
+    `(?:[A-ZÀ-Ÿ]\\.?[-\\s]*)+` +                     // Initials (A. B. / AB / M.-A. hyphenated)
     `(?:,\\s*(?:Jr|Sr|II|III|IV)\\.?)?\\s*` +        // Optional suffix
     `(?=,\\s*[A-ZÀ-Ÿ]|,\\s*${particleAlt}\\s+[A-ZÀ-Ÿ]|$|\\.{3}|…)`, // Lookahead
     'g'
@@ -490,9 +490,15 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
       const part = rawParts[i].trim();
       if (!part || part.match(/^\.{3}$|^…$/)) { i++; continue; }
 
-      // Check if next part looks like initials (1-4 letters, possibly with periods)
+      // Check if next part looks like initials (1-4 letters, possibly with periods
+      // and hyphens between them — "M.-A.", "J.-P." — a hyphenated given name's
+      // initials must count as initials, else the middle author is dropped and its
+      // reference under-counts its authors, which then fails et-al matching:
+      // "Camilleri, A. R., Cam, M.-A., & Hoffmann, R." lost "Cam" so the in-text
+      // "Camilleri, Cam, & Hoffmann (2007)" never matched (scimeto-iterate
+      // 2026-07-04, R-0177 annals_1 audit).
       const nextPart = rawParts[i + 1]?.trim();
-      if (nextPart && /^[A-Z]\.?(\s*[A-Z]\.?)*$/.test(nextPart)) {
+      if (nextPart && /^[A-Z]\.?([-\s]*[A-Z]\.?)*$/.test(nextPart)) {
         // Check for suffix after initials (Jr., Sr., II, III, IV)
         const suffixPart = rawParts[i + 2]?.trim();
         if (suffixPart && /^(?:Jr|Sr|II|III|IV)\.?$/.test(suffixPart)) {

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.64
+
+Reference author with a HYPHENATED initial no longer dropped (scimeto-iterate
+2026-07-04, R-0177 Sonnet audit on annals_1). "Camilleri, A. R., Cam, M.-A., &
+Hoffmann, R. 2007." parsed only 2 authors — "Cam, M.-A." was lost because the initials
+patterns did not admit a hyphen between initials, so "M.-A." wasn't recognized as
+initials and "Cam" was mis-split away. The under-count then broke matching: the in-text
+et-al citation "Camilleri, Cam, & Hoffmann (2007)" needs the reference to have ≥3
+authors (`matchEtAl`), so with authorCount=2 it scored below threshold and went
+unmatched. Both initials patterns in `parseAuthorsFromSection` (the `authorPattern`
+group and the comma-split fallback test) now allow `[-\s]` between initials. annals_1
+matching 0.975→0.978; 0 regression. Test: `referenceHyphenatedInitials.test.ts` (3).
+
 ## 0.7.63
 
 Reference-parser particle-surname fix — a reference-list entry whose first author has
