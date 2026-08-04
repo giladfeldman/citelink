@@ -1748,10 +1748,27 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     const asaNoCommaPattern = (style === 'asa')
       ? `|${compoundParticle}${particlePrefix}[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž]{2,}`   // ASA no-comma: "LastName FirstName"
       : '';
+    // A PARTICLE-LESS two-word surname opens a reference line too: "Strohkorb Sebo,
+    // S., Traeger, M., …". `particlePrefix` only knows Van/Von/De/Ben/…, so it cannot
+    // consume "Strohkorb", and the comma-form alternative below (which expects the
+    // comma right after ONE surname word) fails at position 0. The line was therefore
+    // not recognized as a new reference and got JOINED onto the previous entry — in
+    // annals_1 the 2016 "Strohkorb, S., …" reference absorbed the trailing word
+    // "Strohkorb", and the 2018 reference began at "Sebo, S., …". The in-text
+    // "Strohkorb Sebo … (2018)" then had no correctly-keyed target and resolved
+    // against the WRONG same-surname 2016 reference.
+    //
+    // Requiring a following `, Initial.` keeps this tight: an ordinary two-word
+    // sentence fragment wrapping onto a continuation line does not match, so genuine
+    // continuation lines are still joined. (scimeto-iterate 2026-08-04, annals_1
+    // — R-0177 Sonnet audit, "Strohkorb Sebo".)
+    const compoundSurnameNoParticle =
+      `[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s*[A-Z]\\.`;
     const newRefLinePattern = new RegExp(
       `^(?:\\*\\s*)?(?:` +
       `${compoundParticle}${particlePrefix}[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+,\\s*[A-Z](?:\\.|[a-zà-ÿā-ž])|` +  // With comma: "LastName, I." or "LastName, First"
-      `${compoundParticle}${particlePrefix}[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+\\s+[A-Z]{1,3}[,.\\s]` +            // Vancouver: "LastName ABC,"
+      `${compoundParticle}${particlePrefix}[A-ZÀ-Ÿ][\\wà-ÿā-ž'-]+\\s+[A-Z]{1,3}[,.\\s]|` +          // Vancouver: "LastName ABC,"
+      compoundSurnameNoParticle +
       asaNoCommaPattern +
       `)|^(?:\\*\\s*)?[A-ZÀ-Ÿ]{2,}[.\\s]+\\((?:19|20)\\d{2}` +
       // Acronym-colon org author: "KNAW: Royal Dutch Academy of Arts and
@@ -3167,9 +3184,32 @@ function parseBareYearReference(cleanedText: string, listNumber?: number, style?
     const hasCommaInFirstAuthor = new RegExp(`^${capParticles}[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s+[A-ZÀ-Ÿ]`).test(authorSection);
     // Detect full-name format: "LastName, FullFirstName" (2+ lowercase chars after initial uppercase)
     const hasFullNames = new RegExp(`^${capParticles}[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž]{2,}`).test(authorSection);
+    // A PARTICLE-LESS two-word surname — "Strohkorb Sebo, S.", "Ross Russell, S." —
+    // is a compound surname in COMMA format, not the no-comma "LastName FirstName"
+    // form. It is spelled with two ordinary capitalized words, so `capParticles`
+    // (which only knows Van/Von/De/Ben/… ) cannot see it: `hasCommaInFirstAuthor`
+    // is false, `hasNoCommaFullNames` is true, and the no-comma parser takes
+    // `words[0]` as the surname — yielding lastName "Strohkorb" and firstName
+    // "Sebo", then emitting every following INITIAL as its own author
+    // ("Strohkorb", "S.", "Traeger", "M.", …).
+    //
+    // In annals_1 that dropped the real "Strohkorb Sebo, S., … 2018" reference
+    // entirely while a genuinely different author, "Strohkorb, S., … 2016", was
+    // parsed correctly — so the in-text "Strohkorb Sebo … (2018)" had no correct
+    // target and resolved against the WRONG same-surname reference.
+    //
+    // Distinguishing signal: the two capitalized words are IMMEDIATELY followed by
+    // a comma + initials. A real no-comma ASA list ("Anderson Kaitlin P., Allard
+    // Brian") has a full given NAME there, not initials, so it still routes to the
+    // no-comma parser. (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet
+    // audit; same class as the Van Iddekinge / Ben Mimoun particle fixes above, for
+    // a compound surname with NO particle to key on.)
+    const compoundSurnameThenInitials =
+      /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\s*[A-ZÀ-Ÿ]\.(?:\s*[A-ZÀ-Ÿ]\.)*(?:\s*,|\s*&|\s*$)/
+        .test(authorSection);
     // Detect no-comma full-name ASA: "LastName FirstName" (no comma, full first name)
     // E.g., "Anderson Kaitlin P." or "Allard Brian"
-    const hasNoCommaFullNames = !hasCommaInFirstAuthor &&
+    const hasNoCommaFullNames = !hasCommaInFirstAuthor && !compoundSurnameThenInitials &&
       /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž]{2,}/.test(authorSection);
     // For ASA/Chicago with comma in first author: use full-name parser
     // (handles mixed initials/full-names where 2nd+ authors use natural order)

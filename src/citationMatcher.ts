@@ -123,7 +123,24 @@ function fuzzyNameMatch(name1: string, name2: string): number {
   
   // Exact match after normalization
   if (norm1 === norm2) return 1.0;
-  
+
+  // Space-insensitive exact match, checked BEFORE the containment rule below.
+  // PDF extraction can lose the space inside a multi-word surname: annals_1 prints
+  // "Strohkorb Sebo, Traeger, Jung, and Scassellati (2018)" but docpluck extracts the
+  // citation as "StrohkorbSebo". Its reference parses (correctly) as "Strohkorb Sebo",
+  // so the two never compared equal.
+  //
+  // Order matters. This paper ALSO cites a different author, "Strohkorb, S., … 2016",
+  // and the containment rule below scores "strohkorb" inside "strohkorb sebo" at 0.95 —
+  // so without an exact space-insensitive hit first, the glued 2018 citation could
+  // resolve to the 2016 reference (or vice versa), which is the wrong-target defect the
+  // R-0177 Sonnet audit reported. A full-string equality after removing spaces is
+  // unambiguous and cannot pull two genuinely different surnames together.
+  // (scimeto-iterate 2026-08-04, annals_1.)
+  const despaced1 = norm1.replace(/\s+/g, '');
+  const despaced2 = norm2.replace(/\s+/g, '');
+  if (despaced1 === despaced2) return 1.0;
+
   // One contains the other (handles particles like "van der Berg" vs "Berg")
   if (norm1.includes(norm2) || norm2.includes(norm1)) return 0.95;
 
