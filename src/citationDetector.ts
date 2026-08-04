@@ -1948,9 +1948,18 @@ export function detectCitations(text: string): DetectedCitation[] {
         continue;
       }
 
-      // Et al. pattern
+      // Et al. pattern.
+      // COMPOUND_SURNAME (not the single-word SURNAME_LASTNAME) so a PARTICLE surname
+      // survives as a ';'-bundle member: "(de Visser et al., 2016; Pak, Fink, Price,
+      // Bass, & Sturre, 2012; …)". Every sibling matcher in this loop already uses
+      // COMPOUND_SURNAME; this one alone did not, so "de Visser et al., 2016" matched
+      // no bundle matcher at all and the member was silently DROPPED — while the very
+      // same citation OUTSIDE a bundle ("(e.g., de Visser et al., 2016)") detected
+      // fine. That asymmetry is why it read as an occurrence-count discrepancy (1 of 2
+      // found) rather than an outright parse failure.
+      // (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit, de Visser.)
       const etAlMatch = citeText.match(new RegExp(
-        `^(${SURNAME_LASTNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        `^(${COMPOUND_SURNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
         'i',
       ));
       if (etAlMatch) {
