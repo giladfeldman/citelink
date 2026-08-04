@@ -402,6 +402,39 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   // — bjps_1: 25 Harvard "et al." refs mis-keyed on the first author.)
   authorSection = authorSection.replace(/[,;]?\s*\bet\s+al\.?\s*$/i, '').trim();
 
+  // Strip a parenthesized PREFERRED-NAME aside inside the author list. Some authors
+  // publish under a given name that differs from their legal first name, and journals
+  // print it parenthesized in the author list:
+  //
+  //   "Fox, J., (Grace) Ahn, S. J., Janssen, J. H., ... & Bailenson, J. N. 2015."
+  //
+  // The `authorPattern` lookahead after "Fox, J.," requires `,\s*[A-ZÀ-Ÿ]` (or a
+  // particle); it sees "(" instead, the match fails, and the scan resyncs at the NEXT
+  // parseable author — silently DROPPING the first author "Fox" and keying the whole
+  // reference on "Ahn". A reference keyed on the wrong author cannot match its in-text
+  // citations, and the drop is invisible because the remaining authors parse cleanly.
+  //
+  // Only a short alphabetic aside is stripped (a preferred given name), so genuine
+  // parenthesized content that is not a name — a year, "(2nd ed.)" — cannot match.
+  //
+  // Editorial ROLE words are excluded EXPLICITLY rather than relying on their trailing
+  // period: upstream normalization can drop it, and a period-less "(Ed)" then matched
+  // the aside pattern. Stripping it turned "In H. Aguinis (Ed.), Test-score banding…"
+  // into a parseable pseudo-author, so annals_4 grew a SPURIOUS second "Aguinis 2004"
+  // reference that out-competed the real "Aguinis & Harden 2004" for its in-text
+  // citation (matching 0.9133 -> 0.9101). Caught by the 18-paper corpus gate, not by
+  // the unit suite — the strip was correct on every string I tested in isolation.
+  // Guarded by the NON-REGRESSION assertions in embeddedPreferredName.test.ts.
+  // (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit, Fox 2015.)
+  const EDITORIAL_ROLE = /^(?:Eds?|Trans|Comps?|Illus|Narr|Dir|Prod|Vol|Pt|No)$/i;
+  authorSection = authorSection
+    .replace(
+      /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'’-]{1,20})\s*\.?\s*\)\s*/g,
+      (whole, inner: string) => (EDITORIAL_ROLE.test(inner) ? whole : ''),
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
   // Check for organization author first
   const orgMatch = authorSection.match(REFERENCE_PATTERNS.organizationAuthor);
   if (orgMatch) {

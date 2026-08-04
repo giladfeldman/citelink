@@ -132,8 +132,33 @@ const SURNAME_LASTNAME =
 // single unit so multi-author patterns see compound surnames as one unit.
 // The {0,2} bound covers up to two stacked particles ("van der", "de la",
 // "von der") before the surname; anything beyond two is vanishingly rare.
+// A parenthesized PREFERRED-NAME aside may precede a surname inside an author
+// list, when an author publishes under a given name that differs from their legal
+// first name and the journal prints it parenthesized:
+//
+//   "(Fox, (Grace) Ahn, Janssen, Yeykelis, Segovia, & Bailenson, 2015)"
+//
+// Without this, the author-list alternation cannot cross "(Grace)", so the whole
+// citation failed to match and was never detected at all (annals_1 cites this
+// reference once; the reference parser dropped its first author on the same
+// input — see parseAuthorsFromSection).
+//
+// Deliberately restricted to a single short Capitalized alphabetic token so it
+// cannot swallow a nested real citation, an "(e.g., …)" signal phrase, or a year.
+// It is NOT anchored to the start of the surname group, so an aside is tolerated
+// wherever it appears between authors.
+//
+// Editorial ROLE words are excluded via a negative lookahead rather than by relying
+// on their trailing period, which upstream normalization can drop — a period-less
+// "(Ed)" otherwise reads as a preferred name. (The reference-side twin of this
+// oversight manufactured a spurious "Aguinis 2004" reference in annals_4; see
+// parseAuthorsFromSection.)
+// (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit, Fox 2015.)
+const EDITORIAL_ROLE_WORD = '(?:Eds?|Trans|Comps?|Illus|Narr|Dir|Prod|Vol|Pt|No)';
+const PREFERRED_NAME_ASIDE =
+  `(?:\\(\\s*(?!${EDITORIAL_ROLE_WORD}\\s*\\.?\\s*\\))[A-ZÀ-Ÿ][a-zà-ÿā-ž'’-]{1,20}\\s*\\.?\\s*\\)\\s*)?`;
 const COMPOUND_SURNAME =
-  `(?:${SURNAME_PARTICLE}\\s+){0,2}${SURNAME_LASTNAME}(?:\\s+${SURNAME_PARTICLE}\\s+${SURNAME_LASTNAME})?`;
+  `${PREFERRED_NAME_ASIDE}(?:${SURNAME_PARTICLE}\\s+){0,2}${SURNAME_LASTNAME}(?:\\s+${SURNAME_PARTICLE}\\s+${SURNAME_LASTNAME})?`;
 // Optional signal-phrase prefix inside parens, e.g. "(e.g., Lakens et al.,
 // 2018)" or "(see Hoffrage & Pohl, 2003)". cycle 9 stripped this in the
 // multi-citation split handler; cycle 14 extends the strip to single-citation
@@ -719,7 +744,19 @@ function isOrganizationName(str: string): boolean {
  * Create a ParsedCitationAuthor from a raw author string
  */
 function createParsedAuthor(raw: string, isEtAl: boolean = false): ParsedCitationAuthor {
-  const trimmed = raw.trim();
+  // Drop a parenthesized preferred-name aside that COMPOUND_SURNAME tolerated so the
+  // citation could be detected at all ("(Grace) Ahn" -> "Ahn"). It must not survive
+  // into `raw` or `normalized`, or the author key would never match the reference's
+  // plain surname. See PREFERRED_NAME_ASIDE.
+  const trimmed = raw
+    .replace(
+      new RegExp(
+        `\\(\\s*(?!${EDITORIAL_ROLE_WORD}\\s*\\.?\\s*\\))[A-ZÀ-Ÿ][a-zà-ÿā-ž'’-]{1,20}\\s*\\.?\\s*\\)\\s*`,
+        'g',
+      ),
+      '',
+    )
+    .trim();
   const isOrg = isOrganizationAbbreviation(trimmed) || isOrganizationName(trimmed);
 
   // Strip a trailing generational suffix (Jr / Sr / II / III / IV) from the
