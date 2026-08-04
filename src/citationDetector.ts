@@ -413,6 +413,38 @@ const CITATION_PATTERNS = {
     'g',
   ),
 
+  // UNPARENTHESIZED multi-author narrative with a bare comma-year, followed by a
+  // reporting verb:
+  //
+  //   "In a meta-analysis of 32 studies, Fox, (Grace) Ahn, Janssen, Yeykelis,
+  //    Segovia, & Bailenson, 2015 found that when avatars were presented…"
+  //
+  // The year carries NO parentheses, so every narrative pattern above (which anchor
+  // on `\(year\)`) misses it and the citation was never detected at all — annals_1,
+  // R-0177 Sonnet audit (the "Fox" finding), scimeto-iterate 2026-08-04.
+  //
+  // DELIBERATELY TIGHT, because "Surname, YYYY" in running prose is overwhelmingly
+  // NOT a citation. Measured over the 18-paper corpus body text (reference lists
+  // excluded): a loose `Surname, YYYY` rule fires 42 times to catch this ONE real
+  // citation — ~2% precision, matching country-year pairs ("Poland, 2015"), date
+  // ranges ("Italy, 1992-"), and multi-line parenthetical spillover. This pattern
+  // instead requires ALL of:
+  //   1. an explicit list of >=3 comma-separated capitalized surnames,
+  //   2. a final "& Surname" connector (the multi-author shape),
+  //   3. a bare `, YYYY`, and
+  //   4. an immediately-following REPORTING VERB.
+  // With those four, it scores 1 hit / 1 true positive / 0 false positives on the
+  // same corpus. If this ever needs loosening, re-measure precision first — the
+  // over-detection risk here is far larger than the recall gain.
+  bareYearMultiAuthorNarrative: new RegExp(
+    `\\b(${COMPOUND_SURNAME}(?:\\s*,\\s*${COMPOUND_SURNAME}){1,})\\s*,\\s*&\\s*(${COMPOUND_SURNAME})` +
+      `\\s*,\\s*(\\d{4}[a-z]?)\\s+` +
+      `(?:found|showed|shows|demonstrated|demonstrates|reported|reports|argued|argues|` +
+      `noted|notes|observed|observes|concluded|concludes|suggested|suggests|examined|` +
+      `examines|proposed|proposes|revealed|reveals|documented|documents|established)\\b`,
+    'g',
+  ),
+
   // Et al. narrative with the FULL reference inlined in square brackets:
   // "McCullough et al. [McCullough, M. E., Worthington, E. L., & Rachal, K. C.
   // (1997). Interpersonal Forgiving… 73(2), 321-336.] demonstrated…". An unusual
@@ -1086,6 +1118,37 @@ export function detectCitations(text: string): DetectedCitation[] {
     });
   }
   
+  // ============ BARE-YEAR MULTI-AUTHOR NARRATIVE ============
+  // "…, Fox, (Grace) Ahn, …, & Bailenson, 2015 found that…" — an unparenthesized
+  // author list with a bare comma-year, disambiguated from prose by a following
+  // reporting verb. See the pattern comment for the precision measurement that
+  // justifies how tight this is. (annals_1, R-0177 Sonnet audit.)
+  CITATION_PATTERNS.bareYearMultiAuthorNarrative.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.bareYearMultiAuthorNarrative.exec(text)) !== null) {
+    const leadingList = match[1].split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+    // The list can begin mid-sentence ("In a meta-analysis of 32 studies, Fox, …"),
+    // so drop a leading prose word the same way the et-al narrative loop does.
+    const cleanedLead = stripLeadingNonNameWord(leadingList[0]);
+    if (cleanedLead === null) continue;
+    leadingList[0] = cleanedLead;
+    const authors = [
+      ...leadingList.map(a => createParsedAuthor(a)),
+      createParsedAuthor(match[2]),
+    ];
+    const { year, suffix } = parseYear(match[3]);
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: classifyCitation(authors, false, false),
+      citationStyle: 'narrative',
+      authors,
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length),
+    });
+  }
+
   // ============ SAME-AUTHOR MULTI-YEAR (NARRATIVE) ============
   // "McCullough et al. (1997, 1998)", "Bishop (2019, 2020)", "Werth and Strack
   // (2001, 2003)". Emits one citation per year, all sharing the author(s). Runs
