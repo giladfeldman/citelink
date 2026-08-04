@@ -1655,8 +1655,16 @@ export function splitConcatenatedAomReferences(block: string): string[] {
   // then a title capital (a space, then a capital/digit/quote — never another
   // year). The bare-year shape `\b(19|20)\d{2}[a-z]?\.\s` is the AOM marker the
   // APA/Harvard openers (which demand "(year)") cannot see.
+  //
+  // "n.d." (no date) counts as the date token too, with its optional
+  // disambiguating letter suffix ("n.d.a."). Requiring 4 digits meant an UNDATED
+  // reference could not open an entry, so annals_3's two concatenated
+  // "Merriam-Webster. n.d.a. System. …" / "n.d.b. Transaction. …" dictionary
+  // entries were swallowed into the preceding Maula 2023 reference and neither
+  // was ever parsed. (scimeto-iterate 2026-08-04, annals_3.)
+  const dateToken = `(?:(?:19|20)\\d{2}[a-z]?|n\\.\\s?d\\.(?:[a-z])?)\\.`;
   const opener = new RegExp(
-    `(\\s+)(?=(?:${personalList}|${orgAuthor})\\s+(?:19|20)\\d{2}[a-z]?\\.\\s+[A-ZÀ-Ÿ0-9“”"'‘’#])`,
+    `(\\s+)(?=(?:${personalList}|${orgAuthor})\\s+${dateToken}\\s+[A-ZÀ-Ÿ0-9“”"'‘’#])`,
     'g'
   );
   const splitPoints: number[] = [0];
@@ -1818,8 +1826,34 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     const allJoinedRefs: string[] = [];
 
     for (const block of blocks) {
-      // Only apply line-by-line joining to blocks that contain single-newline-wrapped content
-      if (block.length < 200 || !block.includes('\n')) {
+      // Only apply line-by-line joining to blocks that contain single-newline-wrapped content.
+      //
+      // The <200-char skip assumes a short block cannot need joining, but ONE
+      // reference whose AUTHOR LIST wraps is legitimately shorter than that. When a
+      // BLANK line precedes such an entry, `section.split(/\n\s*\n/)` makes it its
+      // own ~159-char block, joining is skipped, and the wrapped list is never
+      // rejoined — so the entry keys on the author after the break instead of the
+      // first one. annals_2 prints exactly this (the "*" marks a reviewed study):
+      //
+      //     *Casper, W. J., Eby, L. T., Bordeaux, C., Lockwood, A., &
+      //     Lambert, D. A. 2007. Review of research methods in IO/OB work-family…
+      //
+      // which parsed as "Lambert 2007", so the in-text "Casper, Eby, …, & Lambert
+      // (2007)" had no correctly-keyed reference to resolve to. The SAME entry after
+      // a single newline joins fine (it lands in a ≥200-char block with its
+      // predecessor), which is why a synthetic single-newline test passes while the
+      // real document stays broken.
+      //
+      // The continuation line CANNOT be identified by shape: "Lambert, D. A. 2007."
+      // is indistinguishable from a genuine reference opener. The reliable signal is
+      // on the line BEFORE the break — an author list that is grammatically
+      // INCOMPLETE, ending in "&" / "and" / a comma / an initial. A reference never
+      // ends that way, so such a line must continue onto the next one.
+      const hasDanglingAuthorLine = block
+        .split('\n')
+        .slice(0, -1)
+        .some(l => /(?:,|&|\band)\s*$|,\s*[A-Z]\.\s*$/.test(l.trim()));
+      if (!block.includes('\n') || (block.length < 200 && !hasDanglingAuthorLine)) {
         allJoinedRefs.push(block);
         continue;
       }
@@ -2253,6 +2287,22 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
 
   // Extract year in parens
   let yearMatch = cleanedText.match(REFERENCE_PATTERNS.year);
+
+  // An "n.d." (no date) marker that comes BEFORE any matched year wins. Undated
+  // web sources routinely carry a later real date in an access note — annals_3's
+  // "Merriam-Webster. n.d.a. System. Retrieved from … Accessed November 2, 2022."
+  // — and taking that 2022 as the publication year also drags the whole entry into
+  // the author field (the author/title split is anchored on the year position), so
+  // the reference parses with a nonsense author and an empty title. The n.d. marker
+  // is the actual date token and sits before the access note.
+  // (scimeto-iterate 2026-08-04, annals_3.)
+  const ndEarly = cleanedText.match(/\bn\.\s?d\.(?:([a-z])\.)?/);
+  if (ndEarly && ndEarly.index !== undefined &&
+      (!yearMatch || yearMatch.index === undefined || ndEarly.index < yearMatch.index)) {
+    const synthMatch = [ndEarly[0], ndEarly[1] ? `n.d.${ndEarly[1].toLowerCase()}` : 'n.d.'] as unknown as RegExpMatchArray;
+    synthMatch.index = ndEarly.index;
+    yearMatch = synthMatch;
+  }
 
   // Validate: ensure matched "year" is actually a year, not an org name or volume number in parens
   if (yearMatch && yearMatch[1]) {

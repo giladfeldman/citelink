@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.7.73
+
+Two reference-list defects found by the **R-0177 Sonnet canary audit**, which returned FAIL on
+two papers the F1 gate had scored as passing (scimeto-iterate 2026-08-04).
+
+**1. A wrapped author list after a BLANK line dropped its first author** (annals_2 =
+10.5465/annals.2016.0011). The paper prints, with the "*" marking a reviewed study:
+
+    …Journal of Applied Psychology, 102: 274-290.
+                                                    ← blank line
+    *Casper, W. J., Eby, L. T., Bordeaux, C., Lockwood, A., &
+    Lambert, D. A. 2007. Review of research methods in IO/OB work-family research.
+
+This parsed as **"Lambert 2007"** instead of "Casper 2007", so the correctly-detected in-text
+"Casper, Eby, Bordeaux, Lockwood, & Lambert (2007)" had no correctly-keyed reference to resolve to.
+
+Root cause: the blank line makes the entry its own ~159-char block, and line-joining was skipped
+for any block under 200 chars — but ONE reference whose author list wraps is legitimately shorter
+than that. The continuation line cannot be identified by shape ("Lambert, D. A. 2007." is
+indistinguishable from a real opener); the reliable signal is the line BEFORE the break being a
+grammatically INCOMPLETE author list (ending in "&"/"and"/a comma/an initial), which a reference
+never is. The same entry after a single newline joins fine, which is why a synthetic
+single-newline test passes while the real document stays broken.
+
+**2. An "n.d." (no date) reference lost its author and title entirely** (annals_3 =
+10.5465/annals.2022.0049). "n.d." is the standard APA/AOM marker for an undated source, with a
+letter suffix when one author has several. Only a 4-digit year was recognized, so an n.d. entry
+matched no year, and the author/title extraction — which is gated on the year position — never
+ran. Two fixes were needed: the AOM concatenation splitter now accepts "n.d." as a date token
+(annals_3 prints all three references on ONE line, so both Merriam-Webster dictionary entries
+were being swallowed into the preceding reference), and an n.d. marker occurring BEFORE any
+matched year now wins — otherwise the trailing "Accessed November 2, 2022" access note was taken
+as the publication year, which also dragged the whole entry into the author field.
+
+**The n.d. match is case-SENSITIVE, and that matters.** The first attempt matched
+case-insensitively and hit the *initials* of "Tomcik, **N. D.**," in chan_feldman_2025_cogemo,
+re-dating a perfectly good 2009 reference to "n.d." and turning a 1.000-references paper into
+0.989. Caught only by the full-corpus diff — no unit test would have. The marker is the lowercase
+literal; author initials are always uppercase. Pinned by a regression test.
+
+**annals_2 references 0.947 → 0.953, matching 0.893 → 0.894; annals_3 references 0.983 → 0.992;
+chan_feldman restored to 1.000. No regression on any of the 16 corpus papers.** Both fixes
+verified red-before-green (3 and 4 failing assertions respectively). Tests:
+`referenceBlankLineWrappedAuthors.test.ts` (5), `referenceNoDateEntry.test.ts` (6).
+
 ## 0.7.72
 
 A FULL PUBLICATION DATE is no longer parsed as the reference title
