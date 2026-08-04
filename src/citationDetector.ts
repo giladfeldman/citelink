@@ -98,8 +98,15 @@ const ORGANIZATION_ABBREVIATIONS: Record<string, string[]> = {
 // longer contracted form over bare "van". They match an apostrophe directly
 // (no whitespace), which a `${PARTICLE}\s+` consumer would otherwise reject.
 // Cycle 25 — "van't Veer".
+// The Welsh patronymics "ap"/"ab" ("son of") are real surname particles —
+// "Ap Cenydd", "Ab Owen". Without them the citation detector keyed
+// "(Headleand, Jackson, Williams, Priday, Teahan, & Ap Cenydd, 2016)" on the
+// bare last token "Cenydd" and DROPPED the five preceding authors, so the
+// citation never matched its reference (whose positional `Lastname, Initials`
+// parse had kept "Ap Cenydd" whole all along — the asymmetry was the bug).
+// scimeto-iterate 2026-08-04, R-0177 Sonnet audit on annals_1.
 const SURNAME_PARTICLE =
-  "(?:[Vv]an['’]t|[Vv]an['’]s|['’]t|['’]s|[Dd]e|[Dd]el|[Dd]ella|[Dd]ello|[Dd]er|[Dd]en|[Dd]es|[Dd]i|[Dd]u|[Dd]a|[Dd]al|[Dd]alla|[Dd]ei|[Dd]egli|[Dd]elle|[Dd]os|[Dd]as|[Ee]l|[Aa]f|[Aa]v|[Ll]a|[Ll]e|[Ll]os|[Ll]as|[Tt]en|[Tt]er|[Vv]an|[Vv]on|[Yy]|[Zz]u|[Zz]ur|[Aa]l|[Bb]en|[Bb]in|[Ii]bn|[Aa]bu|[Ss]t|[Ss]aint)";
+  "(?:[Vv]an['’]t|[Vv]an['’]s|['’]t|['’]s|[Dd]e|[Dd]el|[Dd]ella|[Dd]ello|[Dd]er|[Dd]en|[Dd]es|[Dd]i|[Dd]u|[Dd]a|[Dd]al|[Dd]alla|[Dd]ei|[Dd]egli|[Dd]elle|[Dd]os|[Dd]as|[Ee]l|[Aa]f|[Aa]v|[Ll]a|[Ll]e|[Ll]os|[Ll]as|[Tt]en|[Tt]er|[Vv]an|[Vv]on|[Yy]|[Zz]u|[Zz]ur|[Aa]l|[Aa]p|[Aa]b|[Bb]en|[Bb]in|[Ii]bn|[Aa]bu|[Ss]t|[Ss]aint)";
 // SURNAME_LASTNAME allows ONE embedded uppercase letter to admit CamelCase
 // surnames like McCullough / DeScioli / MacDonald / O'Connor — without
 // admitting "FooBarBaz" or two-word phrases. The reference parser got this
