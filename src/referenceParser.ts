@@ -136,6 +136,24 @@ const NAME_PARTICLES = [
 const REF_SPLIT_PARTICLE =
   `(?:(?:[Dd]e[l]?|[Vv]an(?:'t)?|[Vv]on|[Dd]i|[Dd]a|[Ll][ea]|[Ee]l|[Aa]l|[Dd]e[nr]|[Dd]ella|[Dd]os|[Dd]as|[Dd]u|[Mm]c|[Mm]ac|[Oo]['']|[Tt]e[nr]|[Bb]en|[Bb]in|[Ii]bn)\\s+)*`;
 
+// The "Month D." remainder of a FULL PUBLICATION DATE, left at the head of the
+// title section when the year matcher consumed only the year from
+// "2023, January 10.". Stripped so the title starts at the real title.
+//
+// The DAY number is REQUIRED. Without it, a month-only head would also match
+// "Author. 2023. March. Journal of Applied Psychology." — where "March." is a
+// legitimate one-word title — and promote the journal into the title. Month-only
+// heads are therefore left to the single-word branch, which has a prose guard.
+// An ordinal day ("June 3rd.") and an abbreviated month ("Jan. 10.") are
+// accepted; a month+YEAR ("May 2023.") is not stripped, since a 4-digit number
+// is not a day. Anchored at the string start and requiring the trailing period,
+// so a genuine title merely BEGINNING with a month word ("March of the
+// machines.") is untouched.
+// (scimeto-iterate 2026-08-04, amd_1; shape corrected after a codex
+// cross-model review reproduced three defects in the first attempt.)
+const REF_LEADING_FULL_DATE =
+  /^(?:Jan(?:uary|\.)?|Feb(?:ruary|\.)?|Mar(?:ch|\.)?|Apr(?:il|\.)?|May|Jun(?:e|\.)?|Jul(?:y|\.)?|Aug(?:ust|\.)?|Sep(?:t(?:ember)?|\.)?|Oct(?:ober|\.)?|Nov(?:ember|\.)?|Dec(?:ember|\.)?)\s+\d{1,2}(?:st|nd|rd|th)?\.\s*/i;
+
 // Name suffixes to extract
 const NAME_SUFFIXES = ['Jr', 'Jr.', 'Sr', 'Sr.', 'II', 'III', 'IV', 'V', 'VI'];
 
@@ -2383,7 +2401,28 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
   // stops the title before the journal name on with-issue references.
   if (yearMatch && yearMatch.index !== undefined) {
     const afterYear = cleanedText.slice(yearMatch.index + yearMatch[0].length);
-    const titleSection = afterYear.replace(/^[.,\s]+/, '');
+    // Strip a leading FULL-DATE remainder before the title is located. APA cites
+    // magazines, blog posts, working papers and news with "Author. YEAR, Month D."
+    // and the year matcher consumes only "2023", leaving ", January 10. AI
+    // marking: …" — so the title terminator lands on the DATE and the title comes
+    // out as "January 10." A wrong title is not cosmetic: the title is what
+    // reference verification, retraction lookup and DOI resolution match on, so
+    // such a reference silently cannot be verified against any source.
+    //
+    // The date must be REMOVED, not merely skipped past: re-anchoring only the
+    // terminator leaves the date inside the title ("January 10. AI marking: …")
+    // and, when the real title ends in "?", drags the journal in too
+    // ("… essays? Tes Magazine."). Both were caught by a codex cross-model review
+    // of the first attempt and reproduced locally before this rewrite.
+    //
+    // Requires the DAY number: a month-only head ("March.") is left to the
+    // single-word branch below, which has a prose guard, because "March." is also
+    // a legitimate one-word title ("Author. 2023. March. Journal of Applied
+    // Psychology.") and stripping it unconditionally promoted the journal to the
+    // title. (scimeto-iterate 2026-08-04, amd_1.)
+    const titleSection = afterYear
+      .replace(/^[.,\s]+/, '')
+      .replace(REF_LEADING_FULL_DATE, '');
     // A title can legitimately contain `?` or `!` mid-title (e.g.
     // "Science or protoscience? Ten years later."). Prefer the first `.` as
     // the terminator so the title is not cut at an interior question mark.

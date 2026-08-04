@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.7.72
+
+A FULL PUBLICATION DATE is no longer parsed as the reference title
+(scimeto-iterate 2026-08-04, surfaced on amd_1 = 10.5465/amd.2023.0106).
+
+APA cites magazines, blog posts, working papers and news with a full date rather than
+a bare year:
+
+    Christodoulou, D. 2023, January 10. AI marking: Could ChatGPT mark your
+    students' essays? Tes Magazine.
+
+The year matcher consumes only "2023", leaving ", January 10. AI marking: …", so the
+title terminator landed on the DATE and the parsed title became "January 10." — the
+real title lost. 3 of amd_1's 24 references (all its dated web/working-paper sources)
+were affected, holding references F1 at 0.833 against a **perfect 1.000 author+year key
+match** — the signature of a pure field defect, invisible to a key-only metric.
+
+A wrong title is not cosmetic: the title is what reference verification, retraction
+lookup and DOI resolution match on, so such a reference silently cannot be verified
+against any external source, and it is what the user reads in their reference list.
+
+The date is now STRIPPED from the head of the title section. A first attempt merely
+re-anchored the terminator past it, which a **codex cross-model review** showed was
+wrong in two ways, both reproduced locally before the rewrite: the date stayed *inside*
+the title ("January 10. AI marking: …"), and a "?"-terminated title additionally dragged
+in the journal. The same review caught that the original tests — asserting only "not
+exactly the date" plus "contains the real title" — passed against both defects, since a
+title that merely STARTS with the date satisfies them; they now assert exact titles.
+
+A DAY number is required, so a month-only head ("March.") is left to the single-word
+branch, which has a prose guard — "Author. 2023. March. Journal of Applied Psychology."
+is a legitimate one-word title, and stripping month-only heads promoted the journal into
+the title. Ordinal days ("June 3rd.") and abbreviated months ("Jan. 10.") are handled;
+"May 2023." (month + year) is correctly not stripped.
+
+**amd_1 references F1 0.833 → 0.958 (+0.125); amj_1 0.988 → 1.000 (+0.012)** — the fix
+generalized to a second paper, confirming a real class rather than an overfit. 0
+regression across the other 14 corpus papers. Verified red-before-green. Test:
+`referenceDateSuffixTitle.test.ts` (8).
+
+Known adjacent issue, deliberately NOT changed: a title genuinely ending in "?" absorbs
+the following source ("Does power corrupt? Tes Magazine."), because the terminator search
+prefers "." so an interior question mark does not truncate a title. Verified PRE-EXISTING
+and independent of this fix. Taking the earliest of [.?!] was measured across the 16-paper
+corpus and moved references F1 by exactly 0.0000 — no demonstrated benefit — so the
+existing trade-off stands rather than be churned on a hunch.
+
 ## 0.7.71
 
 Numbered TABLE-NOTE SOURCE CATALOGUES are no longer harvested as in-text citations
