@@ -1,5 +1,108 @@
 # Changelog
 
+## 0.7.71
+
+Numbered TABLE-NOTE SOURCE CATALOGUES are no longer harvested as in-text citations
+(scimeto-iterate 2026-08-04, surfaced on annals_2 = 10.5465/annals.2016.0011).
+
+Academy of Management Annals tables carry a footnote listing every source behind the
+table's recommendations, each entry prefixed by the index number the table body refers
+to, with no separator:
+
+    Notes: Sources used to derive evidence-based recommendations: 3Aguinis and
+    Vandenberg (2014), 7Aram and Salipante (2003), 32Castro (2002), 80Ployhart and
+    Vandenberg (2010), ...
+
+These are a bibliography-style catalogue, not prose citations, and the human-verified
+gold excludes them.
+
+**The damage was worse than spurious extras.** The glued index digit already breaks the
+FIRST author, so citelink never detected "3Aguinis and Vandenberg (2014)" at "Aguinis" —
+it anchored on the SECOND author and emitted a MIS-KEYED "Vandenberg (2014)", losing the
+real first author. Every one of those reaches the user as a citation to reconcile, or as
+a citation-matching ISSUE against their manuscript.
+
+The guard walks LEFT from a detected citation over the entry's author-list run and
+suppresses it when the ENTRY's opener is glued onto index digits. The walk stops at any
+character that cannot occur inside one author list (`.` `;` `:` `(` `)` and digits),
+which keeps it inside a single entry — that bound is load-bearing: a permissive walk
+without the hard stops flagged 158 detections on annals_2 **including real prose
+citations** ("(Karabag & Berggren, 2016)", "(Cortina et al., 2017a)") by eventually
+reaching an unrelated year digit. A lowercase particle is accepted as an opener
+("89van Aken (2004)"), which a capital-only test missed.
+
+Author-year only by construction — numeric-paradigm papers go through
+`detectNumericCitations`, a separate path, so a numeric citation (which legitimately
+lives among digits) can never reach this guard.
+
+**annals_2 intext F1 0.631 → 0.883 (+0.253), matching 0.697 → 0.893 (+0.196)**;
+precision 0.475 → 0.836 with **recall unchanged at 0.937** and unmatched_gold unchanged
+at 11 — a pure precision gain. 0 regression across the other 15 corpus papers, and
+recall did not drop on any paper. None of the 147 suppressed detections appears in the
+gold. Verified red-before-green (3 suppression assertions fail without the fix; the 4
+recall-protection assertions stay green). Test: `tableNoteSourceIndex.test.ts` (7).
+
+## 0.7.70
+
+Unparenthesized bare-year multi-author narrative citation (2026-08-04). annals_1 prints
+"…Fox, (Grace) Ahn, Janssen, Yeykelis, Segovia, & Bailenson, 2015 found that…" — the year
+carries NO parentheses, so every narrative pattern (all anchored on `\(year\)`) missed it
+and the citation was not detected at all. Pairs with the v0.7.66 `(Grace)` aside fix, the
+other half of the same citation.
+
+## 0.7.69
+
+Hardening of the v0.7.65–0.7.68 changes after a **codex cross-model review** (2026-08-04).
+Four claims were raised; each was treated as a hypothesis and reproduced locally before any
+edit — three were real, one was correctly refuted. Chief among them: `fuzzyNameMatch`
+despacing merged genuinely different surnames ("van Dam" vs "VanDam" are both real academic
+surnames, and v0.7.67 scored them an exact 1.0, so a "VanDam (2020)" citation resolved to
+the "van Dam" reference at full confidence). The despaced hit now scores 0.98 — strictly
+below a true normalized-exact match — so a real exact match always wins and a despaced-only
+hit stays visible as lower-confidence rather than silently claiming certainty.
+
+## 0.7.68
+
+Particle surname + "et al." as a `;`-bundle member (2026-08-04, annals_1). The bundle-member
+et-al matcher was built on `SURNAME_LASTNAME` (a single surname word) while every sibling
+matcher in the same loop uses the particle-aware `COMPOUND_SURNAME`, so "de Visser et al.,
+2016" matched no bundle matcher and the member was silently dropped — while the identical
+standalone citation elsewhere in the same document worked, which is why the audit logged it
+as an occurrence-count discrepancy rather than a parse failure. annals_1 intext 0.9848 →
+0.9876, matching 0.9819 → 0.9847; 0 regressions.
+
+## 0.7.67
+
+Particle-less compound surnames (2026-08-04, annals_1). "Strohkorb, S." and "Strohkorb Sebo,
+S." are two genuinely different authors sharing a prefix. Three stacked defects, all needed
+for the citation to resolve — the worst being entry SPLITTING: `newRefLinePattern` matches
+`particlePrefix + Surname + ", I."`, and "Strohkorb" is not a known particle, so the line was
+not recognized as a new reference and was JOINED onto the previous entry. The audit reported
+this as a matching bug ("matched to the wrong same-surname reference 'Sebo'"); the root cause
+was upstream — the reference really was keyed on "Sebo" because the entry boundary was wrong.
+
+## 0.7.66
+
+Parenthesized preferred-name aside in author lists (2026-08-04, annals_1: "Fox, (Grace) Ahn,
+Janssen, … & Bailenson"). TWO independent defects, either of which alone breaks matching:
+the citation-side author-list alternation could not cross "(Grace)" so the citation was not
+detected at all; and — the more dangerous half — the reference-side `authorPattern` lookahead
+saw "(" instead of `,\s*[A-ZÀ-Ÿ]`, resynced at the next parseable author, and SILENTLY DROPPED
+the first author "Fox", keying the reference on "Ahn". Invisible in aggregate metrics: the
+other five authors parse cleanly, so the reference still looks well-formed while pointing at
+the wrong person.
+
+## 0.7.65
+
+Welsh patronymic "Ap"/"Ab" surname particle (2026-08-04, annals_1: "& Ap Cenydd, 2016"). The
+detector's `SURNAME_PARTICLE` whitelist omitted it, so `COMPOUND_SURNAME` could not span "Ap
+Cenydd"; the multi-author capture anchored on the bare trailing token "Cenydd" and dropped the
+five preceding authors. The reference parser was always correct here (it reads the `Lastname,
+Initials` shape positionally, not via the particle regex) — that producer/consumer asymmetry is
+why a reference-side check alone would not have caught it. Corrects the 2026-07-04 handoff's
+hypothesis that this was a "6-author chained parenthetical" limit; a 6-author citation with no
+particle parses fine, asserted as an explicit control.
+
 ## 0.7.64
 
 Reference author with a HYPHENATED initial no longer dropped (scimeto-iterate

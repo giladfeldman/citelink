@@ -2418,12 +2418,75 @@ export function detectCitations(text: string): DetectedCitation[] {
     // the first by position (already sorted).
     const dupKey = `${cKey}@${c.position.start}-${c.position.end}`;
     if (keptKeys.has(dupKey)) continue;
+    if (isDigitGluedSourceIndex(text, c)) continue;
     keptKeys.add(dupKey);
     deoverlapped.push(c);
   }
 
   return deoverlapped;
 }
+
+/**
+ * True when a detected citation is really an entry in a NUMBERED SOURCE
+ * CATALOGUE — a table/figure footnote that lists each source prefixed by the
+ * index number the table body refers to, with no separator:
+ *
+ *   Notes: Sources used to derive evidence-based recommendations: 3Aguinis and
+ *   Vandenberg (2014), 7Aram and Salipante (2003), 32Castro (2002), ...
+ *
+ * These are a bibliography-style catalogue keyed to superscript markers in the
+ * table ("(3, 12, 23)"), not prose citations, and the human-verified gold
+ * excludes them. On annals_2 (10.5465/annals.2016.0011) six such blocks produced
+ * 199 of citelink's 343 detections — precision 0.475 against recall 0.937 — and
+ * every spurious detection reaches the user as a citation to reconcile, or as a
+ * citation-matching ISSUE when it fails to resolve.
+ *
+ * The signature is structural rather than paper-specific: a catalogue entry
+ * OPENS with its index digits glued straight onto the first author's surname
+ * ("3Aguinis", "80Ployhart", "12Banks") — a form running prose never produces.
+ *
+ * Detecting it needs care, because the glued digit ALREADY breaks the first
+ * author: citelink does not detect "3Aguinis and Vandenberg (2014)" at
+ * "Aguinis" — it anchors on the SECOND author and emits a mis-keyed
+ * "Vandenberg (2014)", losing the real first author. So the character before
+ * the citation's own span is an ordinary space, and a span-local digit test
+ * finds nothing. We therefore walk LEFT from the span over the entry's
+ * author-list run and test whether the ENTRY's opener is digit-glued.
+ *
+ * The walk stops at any character that cannot occur inside a single author
+ * list — '.', ';', ':', '(', ')', and digits — which keeps it inside one
+ * catalogue entry. That bound is load-bearing: a permissive 90-char walk
+ * (letters/spaces/commas only, no hard stops) crossed sentence boundaries and
+ * flagged 158 detections including real prose citations
+ * ("(Karabag & Berggren, 2016)", "(Cortina et al., 2017a)"), because it
+ * eventually reached an unrelated digit such as a year. With the stops it
+ * flags 147 on annals_2, every one a genuine catalogue entry, and ZERO of
+ * them appears in the human-verified gold — so the guard costs no recall.
+ *
+ * Author-year only by construction: numeric-paradigm papers are detected by
+ * `detectNumericCitations` (analyze.ts), a separate path this function is not on
+ * — so a numeric citation, which legitimately lives among digits, can never
+ * reach this guard. (scimeto-iterate 2026-08-04.)
+ */
+function isDigitGluedSourceIndex(text: string, c: DetectedCitation): boolean {
+  let i = c.position.start;
+  const limit = Math.max(0, i - 80);
+  // Walk left over the entry's author-list run. Anything else — sentence
+  // punctuation, brackets, or a digit — ends the entry and stops the walk.
+  while (i > limit && /[A-Za-zÀ-ÿ,&'’\-\s]/.test(text[i - 1])) i--;
+  if (i <= 0) return false;
+  if (!/[0-9]/.test(text[i - 1])) return false;
+  // The entry opens with a surname glued onto its index digits. Usually
+  // capitalized ("3Aguinis"), but a particle surname can open lowercase
+  // ("89van Aken (2004)"), so accept a lowercase particle as the opener too —
+  // requiring a capital here left that entry's citation live.
+  if (/[A-ZÀ-Ý]/.test(text[i])) return true;
+  return LOWERCASE_PARTICLE_OPENER.test(text.slice(i, i + 12));
+}
+
+/** A name particle opening a catalogue entry in lowercase ("89van Aken"). */
+const LOWERCASE_PARTICLE_OPENER =
+  /^(?:van|von|de|del|della|den|der|des|di|do|dos|du|la|le|ten|ter|bin|ibn|ben|ap|al|el)\s+[A-ZÀ-Ý]/;
 
 /**
  * Get organization full name from abbreviation
