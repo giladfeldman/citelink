@@ -124,22 +124,30 @@ function fuzzyNameMatch(name1: string, name2: string): number {
   // Exact match after normalization
   if (norm1 === norm2) return 1.0;
 
-  // Space-insensitive exact match, checked BEFORE the containment rule below.
+  // Space-insensitive match, checked BEFORE the containment rule below.
   // PDF extraction can lose the space inside a multi-word surname: annals_1 prints
   // "Strohkorb Sebo, Traeger, Jung, and Scassellati (2018)" but docpluck extracts the
   // citation as "StrohkorbSebo". Its reference parses (correctly) as "Strohkorb Sebo",
   // so the two never compared equal.
   //
-  // Order matters. This paper ALSO cites a different author, "Strohkorb, S., … 2016",
+  // Order matters. That paper ALSO cites a different author, "Strohkorb, S., … 2016",
   // and the containment rule below scores "strohkorb" inside "strohkorb sebo" at 0.95 —
-  // so without an exact space-insensitive hit first, the glued 2018 citation could
-  // resolve to the 2016 reference (or vice versa), which is the wrong-target defect the
-  // R-0177 Sonnet audit reported. A full-string equality after removing spaces is
-  // unambiguous and cannot pull two genuinely different surnames together.
+  // so without a space-insensitive hit first, the glued 2018 citation could resolve to
+  // the 2016 reference, the wrong-target defect the R-0177 Sonnet audit reported.
+  //
+  // Scored 0.98, NOT 1.0, and deliberately so. Despacing is genuinely ambiguous: the
+  // separated and closed-up spellings of a surname can belong to DIFFERENT real people
+  // ("van Dam" vs "VanDam" are both academic surnames; likewise "Van Dyke"/"VanDyke").
+  // A cross-model review (codex, 2026-08-04) produced exactly that collision, and it
+  // reproduced: a "VanDam (2020)" citation matched the "van Dam" reference at a
+  // confidence of 1.0, which additionally let same-key logic report `matched` instead
+  // of `ambiguous`. Keeping this strictly below a true normalized-exact hit means a
+  // real exact match always wins, and a despaced-only hit stays visible as
+  // lower-confidence/ambiguous rather than silently claiming certainty.
   // (scimeto-iterate 2026-08-04, annals_1.)
   const despaced1 = norm1.replace(/\s+/g, '');
   const despaced2 = norm2.replace(/\s+/g, '');
-  if (despaced1 === despaced2) return 1.0;
+  if (despaced1 === despaced2) return 0.98;
 
   // One contains the other (handles particles like "van der Berg" vs "Berg")
   if (norm1.includes(norm2) || norm2.includes(norm1)) return 0.95;

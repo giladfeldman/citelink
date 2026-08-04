@@ -426,11 +426,28 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   // the unit suite — the strip was correct on every string I tested in isolation.
   // Guarded by the NON-REGRESSION assertions in embeddedPreferredName.test.ts.
   // (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit, Fox 2015.)
-  const EDITORIAL_ROLE = /^(?:Eds?|Trans|Comps?|Illus|Narr|Dir|Prod|Vol|Pt|No)$/i;
+  // The role list covers the SPELLED-OUT forms too ("Editor", "Editors", "Chair",
+  // "Translator"), not just the abbreviations. A cross-model review (codex, 2026-08-04)
+  // pointed out that excluding only "Ed"/"Eds" leaves the exact annals_4 pseudo-author
+  // hazard open for any journal that spells the role out; the regex-level reproduction
+  // confirmed "(Editor)", "(Editors)", and "(Chair)" were all being stripped.
+  const EDITORIAL_ROLE =
+    /^(?:Eds?|Editors?|Trans|Translators?|Comps?|Compilers?|Illus|Illustrators?|Narr|Narrators?|Dir|Directors?|Prod|Producers?|Chairs?|Vol|Pt|No)$/i;
   authorSection = authorSection
     .replace(
-      /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'’-]{1,20})\s*\.?\s*\)\s*/g,
-      (whole, inner: string) => (EDITORIAL_ROLE.test(inner) ? whole : ''),
+      /\(\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'’-]{1,20})\s*\.?\s*\)\s*(,?)/g,
+      (whole, inner: string, trailingComma: string) => {
+        if (EDITORIAL_ROLE.test(inner)) return whole;
+        // A parenthesized aside IMMEDIATELY followed by a comma is a qualifier attached
+        // to the PRECEDING surname — "Smith (Jones), A." (a former/alternate name) — not
+        // a preferred given name introducing the FOLLOWING surname ("(Grace) Ahn"). The
+        // two are distinguished only by that comma. Stripping the qualifier collapses
+        // "Smith (Jones), A. 2020" onto the same first-author+year key as a genuinely
+        // different "Smith, A. 2020", letting a citation resolve to the wrong target.
+        // (codex cross-model review 2026-08-04; reproduced — two references became one.)
+        if (trailingComma) return whole;
+        return '';
+      },
     )
     .replace(/\s{2,}/g, ' ')
     .trim();

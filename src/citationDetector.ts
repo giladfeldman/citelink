@@ -154,7 +154,11 @@ const SURNAME_LASTNAME =
 // oversight manufactured a spurious "Aguinis 2004" reference in annals_4; see
 // parseAuthorsFromSection.)
 // (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit, Fox 2015.)
-const EDITORIAL_ROLE_WORD = '(?:Eds?|Trans|Comps?|Illus|Narr|Dir|Prod|Vol|Pt|No)';
+// Spelled-out role words are listed alongside the abbreviations — excluding only
+// "Ed"/"Eds" leaves the same hazard open for any journal that writes "(Editor)".
+// (codex cross-model review 2026-08-04.)
+const EDITORIAL_ROLE_WORD =
+  '(?:Eds?|Editors?|Trans|Translators?|Comps?|Compilers?|Illus|Illustrators?|Narr|Narrators?|Dir|Directors?|Prod|Producers?|Chairs?|Vol|Pt|No)';
 const PREFERRED_NAME_ASIDE =
   `(?:\\(\\s*(?!${EDITORIAL_ROLE_WORD}\\s*\\.?\\s*\\))[A-ZÀ-Ÿ][a-zà-ÿā-ž'’-]{1,20}\\s*\\.?\\s*\\)\\s*)?`;
 const COMPOUND_SURNAME =
