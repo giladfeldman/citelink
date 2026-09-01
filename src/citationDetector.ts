@@ -161,8 +161,28 @@ const EDITORIAL_ROLE_WORD =
   '(?:Eds?|Editors?|Trans|Translators?|Comps?|Compilers?|Illus|Illustrators?|Narr|Narrators?|Dir|Directors?|Prod|Producers?|Chairs?|Vol|Pt|No)';
 const PREFERRED_NAME_ASIDE =
   `(?:\\(\\s*(?!${EDITORIAL_ROLE_WORD}\\s*\\.?\\s*\\))[A-ZÀ-Ÿ][a-zà-ÿā-ž'’-]{1,20}\\s*\\.?\\s*\\)\\s*)?`;
+// Title-cased nobiliary / compound-surname prefixes that DIRECTLY precede a
+// capitalised surname: "Santos Silva", "Van Fleet", "El Soufi", "De Vries".
+// Ported verbatim from harvardCitationDetector.ts, which solved this in cycle 2
+// (bjps_1 H2) and whose comment carries the reason a WHITELIST is required rather
+// than a bare cap+cap extension: without one, "As Smith and Jones (2019)" captures
+// a first author of "As Smith", regressing every narrative citation that opens a
+// sentence. That control is asserted in tests/capitalizedSurnameParticle.test.ts.
+//
+// Why it had to be ported (scimeto-iterate cycle 9, 2026-09-02): the SAME
+// string parsed two different ways depending on which detector the style dispatch
+// had chosen -- detectHarvardCitations returned "Barros + Santos Silva" and
+// detectCitations returned "Silva", dropping the first author entirely. One
+// library giving two answers for one input is a defect independent of which answer
+// is right, and the wrong one is the worse class: a citation attributed to the
+// wrong researcher resolves to the wrong reference, or to none.
+//
+// Lowercase particles ("Smith van Berg") are handled by SURNAME_PARTICLE below;
+// this list is only the Title-cased prefixes.
+const CAP_SURNAME_PARTICLE =
+  '(?:El|Van|Von|De|Del|Della|Den|Der|Des|Di|Da|Das|Dos|Du|La|Le|Lo|Las|Los|San|Santa|Santos|Saint|St|Mac|Mc|Ten|Ter)';
 const COMPOUND_SURNAME =
-  `${PREFERRED_NAME_ASIDE}(?:${SURNAME_PARTICLE}\\s+){0,2}${SURNAME_LASTNAME}(?:\\s+${SURNAME_PARTICLE}\\s+${SURNAME_LASTNAME})?`;
+  `${PREFERRED_NAME_ASIDE}(?:${CAP_SURNAME_PARTICLE}\\s+)?(?:${SURNAME_PARTICLE}\\s+){0,2}${SURNAME_LASTNAME}(?:\\s+${SURNAME_PARTICLE}\\s+${SURNAME_LASTNAME})?`;
 // Optional signal-phrase prefix inside parens, e.g. "(e.g., Lakens et al.,
 // 2018)" or "(see Hoffrage & Pohl, 2003)". cycle 9 stripped this in the
 // multi-citation split handler; cycle 14 extends the strip to single-citation

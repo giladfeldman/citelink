@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.7.79
+
+**One library, two answers for one string.** A two-word surname led by a Title-cased nobiliary
+particle parsed correctly in `detectHarvardCitations` and incorrectly in `detectCitations`:
+
+```
+"while Barros and Santos Silva (2019) show that malesp"
+   harvard  ->  Barros + Santos Silva | 2019     (correct)
+   APA/AOM  ->  Silva | 2019                     (wrong author, Barros lost entirely)
+```
+
+Which answer a caller got depended on which style the dispatcher had decided the paper was. That
+is a defect independent of which answer is right, and the wrong one is the worse class: a
+citation attributed to the wrong researcher resolves to the wrong reference, or to none, and the
+manuscript is accused of an unmatched citation.
+
+**The fix is a port, not an invention.** `harvardCitationDetector.ts` solved this in cycle 2
+(bjps_1 H2) with a vetted `CAP_PARTICLE` whitelist, and its comment already carries the reason a
+whitelist is REQUIRED rather than a bare cap+cap extension: without one, `"As Smith and Jones
+(2019)"` captures a first author of `"As Smith"`, regressing every narrative citation that opens
+a sentence. The same list now backs `COMPOUND_SURNAME`, and that control is asserted here.
+
+The regex fragments were tested in isolation *before* the shared constant — which roughly 30
+patterns depend on — was touched at all.
+
+**A separate PRE-EXISTING defect this surfaced, recorded and pinned rather than folded in.**
+`"As Van Fleet (2009)"` is keyed on **`"As Van Fleet"`**, and `"As De Vries (2015)"` on
+`"As De Vries"`. The route is not the new prefix: it is the lowercase-particle INFIX branch
+combined with the `i` flag on several patterns — `"As"` is itself a valid `SURNAME_LASTNAME`,
+`"Van"` matches the lowercase particle `van` case-insensitively, and `"Fleet"` closes it.
+**Verified against the prior committed code by checkout, rebuild and probe that v0.7.78 returns
+exactly the same strings**, so this is not a regression from the port. Fixing it means either
+dropping the `i` flag from the affected patterns or requiring the infix particle to be genuinely
+lowercase in the source, and either needs its own corpus diff.
+
+**Out of reach, and stated rather than implied.** An Iberian double surname whose first element
+is an ordinary surname rather than a particle — `Delgado López-Cózar`, `McLean Parks` — still
+truncates. Whitelisting those would mean listing surnames, which is keying on paper identity
+instead of on a structural signature. amp_1 and annals_4 each hold one; both stay open and both
+are pinned in the tests.
+
+**Evidence.** Full-corpus diff: 1 paper moved, better, zero regressions — amp_1 in-text F1
+0.9346 -> 0.9395, matching likewise, misses 10 -> 9. **715 tests / 108 suites pass.** The 9 new
+assertions were watched failing first — 4 failed, and the 4 that passed were controls.
+
 ## 0.7.78
 
 **An organisation or journal cited as an author, whose name contains a lowercase function word,
