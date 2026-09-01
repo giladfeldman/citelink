@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.7.78
+
+**An organisation or journal cited as an author, whose name contains a lowercase function word,
+was truncated to its LAST WORD — a wrong author, not a missing one.**
+
+annals_2 (10.5465/annals.2016.0011) cites an editorial policy statement as
+`(Journal of Applied Psychology, 2017)`. citelink reported **`(Psychology, 2017)`**:
+`ORG_AUTHOR` admitted only whitespace-joined capitalised tokens, so the run stopped dead at the
+lowercase `of`, and `singleParenthetical` then matched the trailing `Psychology` as an ordinary
+surname. The citation resolves to the wrong reference or to none, and the manuscript is accused
+of an unmatched citation.
+
+The corpus holds one instance; the class is wide and every member fails identically —
+`National Institute of Mental Health`, `Ministry of Health`, `University of California`,
+`Department of Education`.
+
+**`and` stays out, and that is the binding constraint rather than an oversight.** Admitting it
+would let `(Smith and Jones, 2020)` be swallowed whole as one organisation. The admitted set is
+therefore a closed list of function words that are never author connectives — `of for the in on
+at to` — and the name must still START and END on a capitalised token, so ordinary parenthetical
+prose cannot begin a run.
+
+**A pre-existing defect this work surfaced but did not fix, recorded so it is not lost.** An
+organisation whose name genuinely contains `and` is read as TWO AUTHORS:
+`(Centers for Disease Control and Prevention, 2019)` is reported as the citation
+**`Control and Prevention`** — two researchers who do not exist. Verified against the prior
+committed code (checkout, rebuild, probe) that this **predates this change and is not a
+regression from it**. The only cheap fix is admitting `and` to `ORG_AUTHOR`, which breaks every
+genuine two-author citation; a correct one has to teach `twoAuthorParenthetical` to decline when
+a capitalised-token run precedes its first author inside the same parenthetical, and that
+deserves its own change and its own corpus diff. It is asserted at its exact current value in
+`tests/orgAuthorFunctionWords.test.ts` so the defect is pinned rather than forgotten.
+
+**Evidence.** Full-corpus diff: 1 paper moved, better, zero regressions — annals_2 in-text F1
+0.8949 -> 0.9003, matching 0.9027 -> 0.9051, misses 8 -> 7, spurious 31 -> 30 (the wrong-author
+`Psychology|2017` is gone and the correct `Journal of Applied Psychology|2017` now matches).
+**706 tests / 107 suites pass.** The 10 new assertions were watched failing first — 4 failed,
+and the 6 that passed were controls.
+
 ## 0.7.77
 
 **A capability-integrity defect: `citationDetector.ts` has advertised "Special dates (n.d., in

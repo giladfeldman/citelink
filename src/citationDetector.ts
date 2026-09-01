@@ -211,7 +211,32 @@ const INITIAL_PREFIX = '(?:[A-Z]\\.\\s*){0,3}';
 // "Capitalized prose word + Surname" false positives the [A-Z]-anchor lets
 // through.
 const ORG_CAP_TOKEN = "[A-Z][\\w.'’\\-]*";
-const ORG_AUTHOR = `${ORG_CAP_TOKEN}(?:\\s+${ORG_CAP_TOKEN}){1,5}`;
+// A lowercase FUNCTION WORD may sit between two capitalised tokens of an
+// organisation or journal name: "Journal of Applied Psychology", "National
+// Institute of Mental Health", "University of California", "Centers for Disease
+// Control". Without this the run stopped dead at the lowercase word and
+// singleParenthetical then matched the TRAILING token as an ordinary surname --
+// annals_2's "(Journal of Applied Psychology, 2017)" was reported as
+// "(Psychology, 2017)", a WRONG author rather than a missing one, which resolves
+// to the wrong reference or to none. (scimeto-iterate cycle 9, 2026-09-01.)
+//
+// "and" and "&" are deliberately ABSENT and must stay absent: admitting either
+// would let a two-author citation "(Smith and Jones, 2020)" be swallowed whole as
+// a single organisation named "Smith and Jones". That is the reason the token run
+// was capitalised-only to begin with, and it is still the binding constraint.
+//
+// The cost, recorded rather than left to be rediscovered: an organisation whose
+// name genuinely contains "and" -- "Centers for Disease Control and Prevention" --
+// truncates at the "and". That is a better key than its final word and a worse one
+// than complete; it is accepted because the alternative breaks every two-author
+// citation. Asserted in tests/orgAuthorFunctionWords.test.ts so the trade stays
+// visible.
+//
+// The name still has to START and END on a capitalised token, so ordinary
+// parenthetical prose ("(measured at the end of the study, 2020 wave)") cannot
+// start a run -- the [A-Z] anchor does that work, and controls assert it.
+const ORG_FUNCTION_WORD = '(?:of|for|the|in|on|at|to)';
+const ORG_AUTHOR = `${ORG_CAP_TOKEN}(?:\\s+(?:${ORG_FUNCTION_WORD}\\s+)?${ORG_CAP_TOKEN}){1,5}`;
 
 // A trailing in-paren QUALIFIER after the year of a NARRATIVE citation. Two
 // forms, because two style families write the page locator differently:
