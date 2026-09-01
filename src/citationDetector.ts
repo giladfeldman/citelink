@@ -213,6 +213,43 @@ const INITIAL_PREFIX = '(?:[A-Z]\\.\\s*){0,3}';
 const ORG_CAP_TOKEN = "[A-Z][\\w.'’\\-]*";
 const ORG_AUTHOR = `${ORG_CAP_TOKEN}(?:\\s+${ORG_CAP_TOKEN}){1,5}`;
 
+// A trailing in-paren QUALIFIER after the year of a NARRATIVE citation. Two
+// forms, because two style families write the page locator differently:
+//   APA           "Teple (1949, p. 153)", "Slovic and Fischhoff (1977, Experiment 3)"
+//   AOM / Chicago "Teple (1949: 153)", "Keltner et al. (2003: 268-269)"
+// Every narrative pattern anchors on the closing paren immediately after the
+// year, so an untolerated qualifier does not degrade the match - it destroys it.
+//
+// Measured 2026-09-01 across the 18-paper iterate corpus (scimeto-iterate
+// cycle 9): the colon form was detected by NONE of the five narrative patterns,
+// and 11 of the 83 remaining in-text recall misses are exactly this shape, in
+// amj_1, annals_2 and annals_3 - 13% of all remaining recall loss from one gap.
+//
+// Worse, and this one is a WRONG VALUE rather than a missing one:
+// mixedListEtAlNarrative and multiAuthorAndNarrative carried NO tolerance at all,
+// not even the APA comma form the other three had. So "Ferris, Liden, Munyon,
+// Summers, Basik, and Buckley (2009, p. 1397)" fell through to singleNarrative and
+// was mis-keyed to the LAST author - reported as Buckley (2009). A citation
+// attributed to the wrong first author resolves to the wrong reference, or to
+// none, so an honest manuscript is accused of an unmatched citation.
+//
+// The colon branch requires a DIGIT after the colon, mirroring the rule already
+// used by the ';'-bundle splitter, so a real "Author: Title" or an institutional
+// "ACRONYM: Name" cannot be swallowed. tests/narrativeColonPageLocator.test.ts
+// asserts that control alongside the APA-comma and bare-year controls.
+// A qualifier is a PAGE or a NOTE - never a YEAR LIST. The comma branch refuses
+// a qualifier that opens with a bare year followed by ',' or ')', because that is
+// the multi-year shape "(2018, 2019, 2020)" that sameAuthorMultiYearNarrative
+// owns, emitting one citation per year at its own narrow window. Without the
+// refusal, the narrative pattern matches the whole list as ONE citation whose span
+// strictly CONTAINS those siblings, and the de-overlap pass then drops every
+// sibling - turning three citations into one. (Caught by
+// tests/multiAuthorMultiYearNarrative.test.ts the moment the qualifier reached
+// multiAuthorAndNarrative; it is the same containment hazard the emitAllBundleYears
+// comment describes, reached from the other direction.)
+const NARRATIVE_QUALIFIER =
+  '(?:,(?!\\s*(?:19|20)\\d{2}[a-z]?\\s*[,)])\\s*[^)]+|:\\s*\\d[^)]*)?';
+
 // Comprehensive APA 7 citation patterns
 const CITATION_PATTERNS = {
   // ============ PARENTHETICAL PATTERNS ============
@@ -284,7 +321,7 @@ const CITATION_PATTERNS = {
   // Same disambiguator pattern but with the year in trailing parens rather
   // than the whole thing in parens.
   mixedListEtAlNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
 
@@ -295,7 +332,7 @@ const CITATION_PATTERNS = {
   // mixedListEtAlNarrative (cycle 13): `\b` would otherwise start matches
   // at lowercase words preceding the real author list.
   multiAuthorAndNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
 
@@ -349,7 +386,7 @@ const CITATION_PATTERNS = {
   // has; without it the closing-paren anchor fails and the citation is missed).
   // (scimeto-iterate cycle 7, chen — R-0177 Sonnet deep audit.)
   singleNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
 
@@ -364,7 +401,7 @@ const CITATION_PATTERNS = {
   // 9, annals_1 — a Glikson & Woolley trust-in-AI review that uses "&" narratively
   // throughout: Möhlmann & Zalmanson, Wang & Benbasat, Komiak & Benbasat, …).
   twoAuthorNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
   
@@ -377,7 +414,7 @@ const CITATION_PATTERNS = {
   // "mimoun", "putten"), so it never matched its reference (scimeto-iterate
   // cycle 9, annals_1 — Dutch/Arabic/German particle surnames throughout).
   etAlNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)(?:,\\s*[^)]+)?\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
 

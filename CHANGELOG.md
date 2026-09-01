@@ -1,5 +1,61 @@
 # Changelog
 
+## 0.7.76
+
+**A narrative citation carrying an AOM/Chicago colon page locator — "Teple (1949: 153)",
+"Keltner et al. (2003: 268-269)" — was not detected by ANY of the five narrative patterns; and
+two of those five silently attributed a multi-author citation to the WRONG author.**
+
+Measured before the change with a 5 shapes x 5 qualifier-forms matrix
+(`tmp/iterate-cycle9/probe-qualifier-gap.mjs` in Scimeto):
+
+| narrative shape | bare | APA `, p. 153` | AOM `: 153` |
+|---|---|---|---|
+| single | ok | ok | **none** |
+| two-author | ok | ok | **none** |
+| et al. | ok | ok | **none** |
+| mixed-list et al. | ok | **none** | **none** |
+| multi-author "and" | ok | **`Buckley|2009`** | **none** |
+
+AOM and Chicago author-date write the page after the year as `: 153`, where APA writes
+`, p. 153`. `singleNarrative`, `twoAuthorNarrative` and `etAlNarrative` already tolerated the
+APA form; the colon form was never added, and every narrative pattern anchors on the closing
+paren immediately after the year — so an untolerated qualifier does not degrade the match, it
+destroys it. **11 of the 83 remaining in-text recall misses across the corpus are exactly this
+shape** (amj_1, annals_2, annals_3) — 13% of all remaining recall loss from one gap.
+
+**The second defect is a WRONG VALUE, not a miss, and it is the more serious one.**
+`mixedListEtAlNarrative` and `multiAuthorAndNarrative` carried no tolerance at all — not even
+the APA comma form the other three had. So
+`"Ferris, Liden, Munyon, Summers, Basik, and Buckley (2009, p. 1397)"` fell through to
+`singleNarrative` and was mis-keyed to the LAST author, reported as **Buckley (2009)**. A
+citation attributed to the wrong first author resolves to the wrong reference, or to none, so an
+honest manuscript is accused of an unmatched citation.
+
+**One shared `NARRATIVE_QUALIFIER` now serves all five patterns.** The colon branch requires a
+DIGIT after the colon, mirroring the rule the `;`-bundle splitter already used, so a real
+`Author: Title` or an institutional `ACRONYM: Name` cannot be swallowed.
+
+**A qualifier is a page or a note — never a YEAR LIST**, and getting that wrong cost a
+regression that the suite caught immediately. The moment the qualifier reached
+`multiAuthorAndNarrative`, `"Smith, Jones, & Lee (2018, 2019, 2020)"` matched as ONE citation
+whose span strictly CONTAINS the per-year siblings `sameAuthorMultiYearNarrative` emits — and
+the de-overlap pass then dropped every sibling, turning three citations into one. The comma
+branch now refuses a qualifier opening with a bare year followed by `,` or `)`.
+
+**And that refusal was itself wrong on the first attempt, in a way that reads correctly.**
+Written as `,\s*(?!YEAR\s*[,)])[^)]+`, the engine simply backtracks `\s*` to consume nothing,
+evaluates the lookahead against `" 2019"` instead of `"2019"`, finds a space where it needs a
+digit, and succeeds — admitting the exact year list it was written to refuse. The assertion is
+now anchored on the comma and consumes the whitespace itself, leaving the engine no shorter
+alternative to retry. Watching the test fail first is what caught it.
+
+**Evidence.** Full-corpus diff: **3 papers moved, all better, zero regressions** —
+amj_1 in-text F1 0.9770 -> 0.9873 (misses 7 -> 3), annals_3 0.9373 -> 0.9640 (misses 16 -> 9),
+annals_2 0.8889 -> 0.8919 (misses 10 -> 9). Corpus mean in-text F1 0.962 -> 0.964, matching F1
+0.955 -> 0.957. **682 tests / 105 suites pass.** The 13 new assertions were watched failing
+first — 9 failed, and the 4 that passed were the controls.
+
 ## 0.7.75
 
 **Three ways the v0.7.74 running-head guard could report a WRONG year — found by a
