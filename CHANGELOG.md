@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.7.74
+
+**A bare-year PAGE RUNNING HEAD inside a parenthetical citation was taken as the citation's
+year, FABRICATING a citation that does not exist and losing the real one.**
+
+Found by scimeto-iterate cycle 9 (2026-09-01) on annals_2 = 10.5465/annals.2016.0011.
+AOM Annals prints its volume year as a running head. When the page break falls between a
+citation's author list and its year, docpluck 2.4.137's `normalize_text(academic)` yields,
+verbatim:
+
+    (Green, Tonidandel, & Cortina,\n\n\f2018\n\n2016).
+
+Every parenthetical matcher takes the FIRST year token after the author list, so citelink
+emitted **(Green, Tonidandel, & Cortina, 2018)** — a year that appears nowhere in the paper —
+and lost the real 2016, which the reference list states plainly ("Green, J. P., Tonidandel, S.,
+& Cortina, J. M. 2016. Getting through the gate…").
+
+For an integrity tool this is the worst class available. The fabricated citation resolves to no
+reference, so an **honest manuscript is reported as having an unmatched citation**. Nothing
+crashes and no test goes red. Inside a `;`-bundle it is worse still: the member matchers are
+`$`-anchored after the year, so the intervening running head made the whole member unmatchable
+and it was dropped outright — a silent recall loss on top of the fabrication.
+
+**Fix.** `maskPageRunningHeadYears` blanks the furniture year before detection. Both halves of
+the rule are load-bearing and each has a control asserted in the tests:
+
+* the year must be **adjacent to a form feed and alone on its line** — that is what makes it
+  page furniture rather than content. Without this half a real multi-year citation
+  `(de Melo, Marsella, & Gratch, 2016, 2017)` would be corrupted.
+* another bare year must **follow it on a later line inside the same parenthetical** — that is
+  what proves the citation's real year is still to come. Without this half a legitimate
+  citation split across a page, `(Smith,\n\f\n2016)`, would be corrupted.
+
+The furniture year is replaced by the same number of spaces, never deleted, so every `position`
+this module reports still indexes the caller's own string. An offset-shifting fix would be
+invisible to a diff and fatal to any consumer that slices by offset.
+
+**Scope, measured.** 57 bare-year running-head lines survive docpluck 2.4.137's
+`H0_header_banner_strip` across the 6 AOM papers in the iterate corpus, so the upstream gap is
+systematic for that publisher; filed there as well. This guard is citelink's own defence,
+because citelink is fed text by extractors it does not control.
+
+**Evidence.** Full-corpus diff over the 16 scorable iterate papers: exactly one paper moved —
+annals_2, in-text F1 0.8835 -> 0.8889, matching F1 0.8937 -> 0.8967, spurious detections 32 ->
+31, missed gold 11 -> 10 — and **zero regressions elsewhere**. 664 tests / 104 suites pass. The
+8 new assertions in `tests/pageRunningHeadYear.test.ts` were watched failing first (5 failed,
+and the 3 that passed were the controls, which is the shape a correct guard has).
+
 ## 0.7.73
 
 Two reference-list defects found by the **R-0177 Sonnet canary audit**, which returned FAIL on

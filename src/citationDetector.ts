@@ -883,10 +883,76 @@ function parseAuthors(authorString: string): ParsedCitationAuthor[] {
 }
 
 /**
+ * The page-running-head signature consumed by maskPageRunningHeadYears.
+ * Module level so the pattern is compiled once; it carries the `g` flag and is
+ * used ONLY with String.replace (never .test), so no lastIndex state leaks
+ * between calls (CLAUDE.md gotcha #15).
+ */
+const RUNNING_HEAD_IN_CITATION =
+  /(\([^()]{0,300}?,)(\s*\f[^\S\n]*)((?:19|20)\d{2}[a-z]?)([^\S\n]*\n\s*)((?:19|20)\d{2}[a-z]?)/g;
+
+/**
+ * Blank a PAGE RUNNING HEAD that is a bare year and has landed INSIDE a
+ * parenthetical citation, so that the year following it -- the real one -- is
+ * the one detected.
+ *
+ * WHY. A journal that prints its volume year as a running head emits that year
+ * as its own line immediately after the page-break form feed. When the page
+ * break falls between a citation's author list and its year, the extracted text
+ * reads (verbatim, AOM Annals 10.5465/annals.2016.0011):
+ *
+ *   (Green, Tonidandel, & Cortina,<LF><LF><FF>2018<LF><LF>2016).
+ *
+ * Every parenthetical matcher below takes the FIRST year token after the author
+ * list, so this emitted a citation with year 2018 -- a year that appears nowhere
+ * in the paper -- and lost the real 2016. For an integrity tool that is the
+ * worst failure available: the fabricated citation resolves to no reference, so
+ * an honest manuscript is accused of an unmatched citation. Inside a ';'-bundle
+ * it is worse still: the member matchers are $-anchored after the year, so the
+ * intervening running head made the whole member unmatchable and it was dropped.
+ *
+ * Measured 2026-09-01 (scimeto-iterate cycle 9): 57 bare-year running-head
+ * lines survive docpluck 2.4.137's H0_header_banner_strip across the 6 AOM papers
+ * in the iterate corpus, so this is systematic for that publisher, not a one-off.
+ * Filed upstream too; this guard is citelink's own defence, because citelink is
+ * fed text by extractors it does not control.
+ *
+ * THE RULE, and both halves are load-bearing:
+ *   (a) the year is adjacent to a form feed and alone on its line -- that is what
+ *       makes it page furniture rather than content; and
+ *   (b) another bare year follows it on a later line inside the same parenthetical
+ *       -- that is what proves the citation's real year is still to come.
+ * Requiring (b) alone would corrupt a legitimate citation split across a page,
+ * (Smith,<LF><FF><LF>2016). Requiring (a) alone would corrupt a real multi-year
+ * citation, (de Melo, Marsella, & Gratch, 2016, 2017). Both controls are asserted
+ * in tests/pageRunningHeadYear.test.ts.
+ *
+ * The furniture year is replaced by the SAME NUMBER OF SPACES, never deleted, so
+ * every `position` this module reports still indexes the caller's own string. An
+ * offset-shifting fix here would be invisible to a diff and fatal to any consumer
+ * that slices by offset.
+ */
+export function maskPageRunningHeadYears(text: string): string {
+  if (text.indexOf('\u000c') === -1) return text;
+  return text.replace(RUNNING_HEAD_IN_CITATION, (
+    _match: string,
+    head: string,
+    gap: string,
+    furniture: string,
+    separator: string,
+    realYear: string,
+  ) => head + gap + ' '.repeat(furniture.length) + separator + realYear);
+}
+
+/**
  * Main citation detection function
  * Detects all APA 7 style citations in text
  */
-export function detectCitations(text: string): DetectedCitation[] {
+export function detectCitations(rawText: string): DetectedCitation[] {
+  // A bare-year page running head corrupts the year of any citation the page
+  // break falls inside -- see maskPageRunningHeadYears. Length-preserving, so
+  // every position below still indexes the caller's own string.
+  const text = maskPageRunningHeadYears(rawText);
   const citations: DetectedCitation[] = [];
   const processedPositions = new Set<string>();
   // Full-match spans consumed by the same-author multi-year NARRATIVE loop
