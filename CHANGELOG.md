@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.7.75
+
+**Three ways the v0.7.74 running-head guard could report a WRONG year — found by a
+three-provider cross-model round, in code that already had a clean full-corpus diff and 664
+green tests.**
+
+That is the point worth recording. v0.7.74 was not unreviewed: it shipped with one paper moved,
+zero regressions on the other fifteen, and a full suite green. Three independent models
+(anthropic / openai / xai) each found a hole anyway, and two of them found the same one from
+different directions.
+
+**1. The two-condition rule could not tell furniture from a second REAL year** (anthropic, and
+independently xai from the inverted layout). A legitimate multi-year citation whose page break
+lands between the author list and the first year has exactly the same shape:
+`(Author,\n\n\f2016a\n\n2016b)` silently dropped the real `2016a`.
+
+The discriminator is now **distributional, and it was measured rather than argued**. Across all
+18 papers of the iterate corpus, every form-feed-glued bare year occurs **at least twice** — one
+distinct value per document, counts 2/13/10/12/10/10 — and there are **zero singletons**. A
+running head repeats once per page; a year caught in a genuine mid-citation page split does not.
+The guard now fires only on a form-feed-glued year that RECURS in the same text.
+
+The accepted cost, stated plainly: a document whose running head appears exactly once is no
+longer protected. That is the safe direction — a miss, never a wrong year.
+
+**2. The pattern had no right boundary after the real year** (openai, and independently xai).
+Any token merely STARTING with four digits satisfied it, so
+`\f2016\n\n2020 participants completed the study` blanked the real 2016 and reported **2020**.
+The real year must now be followed only by same-line whitespace and then a line break, `)`, `]`,
+`,`, `;` or `:`.
+
+**3. `raw` and `context` were no longer the original text** (openai, and independently xai).
+Both are documented as the source span, and Scimeto/Scimeto stores them verbatim as the
+user-visible `citation_text` and `context_text`
+(`apps/worker/src/processors/coreProcessors.ts:186,195`). Masking made them carry blank runs
+where the document had characters — a field claiming to be the source while not being it, which
+is precisely the class of defect this library exists to catch. Both are now sliced from the
+UNMASKED string. `normalized` is deliberately left as computed from the masked text: it is the
+cleaned form, not a claim about the source.
+
+**Evidence.** Behaviourally **identical to v0.7.74 on the corpus** — 0 papers moved, 0 metric
+changes — while retaining the whole v0.7.74 gain against the pre-fix baseline (annals_2: in-text
+F1 0.8835 -> 0.8889, matching F1 0.8937 -> 0.8967, spurious 32 -> 31, missed 11 -> 10). So the
+hardening closed three wrong-value holes at zero measured cost. 673 tests / 104 suites pass;
+the five new assertions were each watched failing first.
+
+**Scope limits, recorded because they are real and not fixed here.** The guard protects
+`detectCitations` only: `detectHarvardCitations` and `detectNumericCitations` never see it, and
+`parseReferences` runs on unmasked text — so a reference entry split by the same running head
+still carries furniture (measured: annals_4 parses an author as **"Annals Binning"**). xai's
+point that a one-sided repair can itself create a mismatch is correct and is filed, not waived.
+
 ## 0.7.74
 
 **A bare-year PAGE RUNNING HEAD inside a parenthetical citation was taken as the citation's

@@ -889,7 +889,14 @@ function parseAuthors(authorString: string): ParsedCitationAuthor[] {
  * between calls (CLAUDE.md gotcha #15).
  */
 const RUNNING_HEAD_IN_CITATION =
-  /(\([^()]{0,300}?,)(\s*\f[^\S\n]*)((?:19|20)\d{2}[a-z]?)([^\S\n]*\n\s*)((?:19|20)\d{2}[a-z]?)/g;
+  /(\([^()]{0,300}?,)(\s*\f[^\S\n]*)((?:19|20)\d{2}[a-z]?)([^\S\n]*\n\s*)((?:19|20)\d{2}[a-z]?)(?=[^\S\n]*(?:[\r\n)\],;:]|$))/g;
+
+/**
+ * Every bare year glued to a page-break form feed, used to tell a RECURRING
+ * running head from a one-off. Separate from RUNNING_HEAD_IN_CITATION so the two
+ * never share `lastIndex`.
+ */
+const FORM_FEED_GLUED_YEAR = /\f[^\S\n]*((?:19|20)\d{2}[a-z]?)/g;
 
 /**
  * Blank a PAGE RUNNING HEAD that is a bare year and has landed INSIDE a
@@ -934,14 +941,26 @@ const RUNNING_HEAD_IN_CITATION =
  */
 export function maskPageRunningHeadYears(text: string): string {
   if (text.indexOf('\u000c') === -1) return text;
+  // A running head REPEATS - once per page. A year caught in a genuine
+  // mid-citation page split does not. Measured across the 18-paper iterate corpus
+  // (2026-09-01): every form-feed-glued bare year occurs at least twice, one
+  // distinct value per document, counts 2/13/10/12/10/10, and there are ZERO
+  // singletons. Without this test the guard cannot tell furniture from a second
+  // REAL year, and silently drops 2016a from '(Author,<LF><LF><FF>2016a<LF><LF>2016b)'.
+  const gluedYearCounts = new Map<string, number>();
+  for (const m of text.matchAll(FORM_FEED_GLUED_YEAR)) {
+    gluedYearCounts.set(m[1], (gluedYearCounts.get(m[1]) ?? 0) + 1);
+  }
   return text.replace(RUNNING_HEAD_IN_CITATION, (
-    _match: string,
+    match: string,
     head: string,
     gap: string,
     furniture: string,
     separator: string,
     realYear: string,
-  ) => head + gap + ' '.repeat(furniture.length) + separator + realYear);
+  ) => ((gluedYearCounts.get(furniture) ?? 0) >= 2
+    ? head + gap + ' '.repeat(furniture.length) + separator + realYear
+    : match));
 }
 
 /**
@@ -2487,6 +2506,23 @@ export function detectCitations(rawText: string): DetectedCitation[] {
     if (isDigitGluedSourceIndex(text, c)) continue;
     keptKeys.add(dupKey);
     deoverlapped.push(c);
+  }
+
+  // `raw` and `context` are documented as the ORIGINAL text, and Scimeto
+  // stores them verbatim as the user-visible citation_text / context_text
+  // (apps/worker/src/processors/coreProcessors.ts:186,195). Matching runs against
+  // the masked copy, but what we hand back must be the caller's own bytes - a
+  // field that claims to be the source and is not is exactly the class of defect
+  // this library exists to catch. The mask is length-preserving, so every position
+  // indexes rawText correctly. `normalized` is deliberately left as computed from
+  // the masked text: it is the cleaned form, not a claim about the source.
+  // Raised by the openai seat of the 2026-09-01 cross-model round.
+  if (text !== rawText) {
+    for (const citation of deoverlapped) {
+      const { start, end } = citation.position;
+      citation.raw = rawText.slice(start, end);
+      citation.context = extractContext(rawText, start, end - start);
+    }
   }
 
   return deoverlapped;
