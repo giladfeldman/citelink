@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.7.77
+
+**A capability-integrity defect: `citationDetector.ts` has advertised "Special dates (n.d., in
+press)" in its own header since it was written, and delivered `in press` in exactly ONE of eight
+citation shapes.**
+
+Measured with an 8 shapes x 5 year-forms matrix
+(`tmp/iterate-cycle9/probe-nonnumeric-year.mjs` in Scimeto):
+
+| year form | shapes detecting it, before |
+|---|---|
+| `2019` | 8 of 8 |
+| `n.d.` | 8 of 8 |
+| `in press` | **1 of 8** — only `singleParenthetical` listed it |
+| `n.d.a` | **0 of 8** |
+| `n.d.b` | **0 of 8** |
+
+`n.d.a` / `n.d.b` is the standard APA and AOM form when one author has several undated works,
+exactly as `2019a` / `2019b` is for dated ones. It was not in any pattern.
+
+A citation the library claims to support and silently does not detect is a recall loss with a
+documentation claim sitting on top of it — the header comment was not evidence, and it is not
+evidence now either. `tests/nonNumericYearParity.test.ts` is.
+
+One shared `YEAR_TOKEN` now serves the 22 patterns that already admitted a non-numeric year, and
+`parseYear` splits the letter off `n.d.a` exactly as it does off `2019a`, so a consumer keying on
+(author, year) sees one convention rather than two.
+
+**Scope is deliberately partial and the trade is recorded rather than left to be rediscovered.**
+The 19 patterns that accept only a numeric year are untouched: they are the bare-year forms that
+carry no comma before the year (`(Smith 2020)`) and the multi-year lists, where a two-word
+`in press` would let ordinary prose — `(as noted in press releases)` — pose as a citation. Two
+controls assert exactly that prose stays unmatched.
+
+**Evidence.** Full-corpus diff: **3 papers moved, all better, zero regressions** — annals_4
+in-text F1 0.9494 -> 0.9640 (misses 15 -> 10), annals_3 0.9640 -> 0.9714 (9 -> 7), annals_2
+0.8919 -> 0.8949 (9 -> 8). **696 tests / 106 suites pass.** The 14 new assertions were watched
+failing first — 10 failed, and the 4 that passed were the controls plus the one shape that
+already worked.
+
 ## 0.7.76
 
 **A narrative citation carrying an AOM/Chicago colon page locator — "Teple (1949: 153)",

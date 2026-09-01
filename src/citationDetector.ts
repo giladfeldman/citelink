@@ -250,6 +250,30 @@ const ORG_AUTHOR = `${ORG_CAP_TOKEN}(?:\\s+${ORG_CAP_TOKEN}){1,5}`;
 const NARRATIVE_QUALIFIER =
   '(?:,(?!\\s*(?:19|20)\\d{2}[a-z]?\\s*[,)])\\s*[^)]+|:\\s*\\d[^)]*)?';
 
+// The YEAR slot of a citation. Three forms, and all three are load-bearing:
+//   1999 / 1999a   an ordinary year, optionally lettered when one author has
+//                  several works in it
+//   n.d. / n.d.a   an UNDATED source - the lettered form is standard APA and AOM
+//                  when one author has several undated works, exactly as 2019a is
+//                  for dated ones
+//   in press       accepted, not published yet
+//
+// This module's header has advertised "Special dates (n.d., in press)" since it
+// was written. Measured 2026-09-01 across 8 citation shapes (scimeto-iterate
+// cycle 9): "in press" was detected in exactly ONE of them, and "n.d.a"/"n.d.b" in
+// NONE. A citation the library claims to support and silently does not detect is a
+// recall loss with a documentation claim on top of it - the header comment was not
+// evidence, and is not evidence now either; tests/nonNumericYearParity.test.ts is.
+//
+// Corpus incidence: 5 "in press" citations across annals_2 and annals_4, 2
+// "n.d.a"/"n.d.b" in annals_3, every one of them scored as a recall miss.
+//
+// Used ONLY by the patterns that already admitted n.d. The bare-year forms that
+// carry no comma before the year ("(Smith 2020)") and the multi-year lists keep a
+// numeric-only year on purpose: a two-word "in press" there would let ordinary
+// prose - "(as noted in press releases)" - pose as a citation.
+const YEAR_TOKEN = '\\d{4}[a-z]?|n\\.d\\.[a-z]?|in\\s+press';
+
 // Comprehensive APA 7 citation patterns
 const CITATION_PATTERNS = {
   // ============ PARENTHETICAL PATTERNS ============
@@ -258,7 +282,7 @@ const CITATION_PATTERNS = {
   // Optional leading signal-phrase prefix ("e.g.,", "see", "cf.", etc.)
   // Optional leading initial(s) ("S. Lee, 2020").
   singleParenthetical: new RegExp(
-    `\\(\\s*(?:${SIGNAL_PREFIX})?${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.|in\\s+press)\\s*\\)`,
+    `\\(\\s*(?:${SIGNAL_PREFIX})?${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(${YEAR_TOKEN})\\s*\\)`,
     'gi',
   ),
 
@@ -270,7 +294,7 @@ const CITATION_PATTERNS = {
   // residue. Runs AFTER singleParenthetical so a single/compound surname is
   // always preferred. Cycle 4 (APA-ORG-AUTHOR).
   orgMultiWordParenthetical: new RegExp(
-    `\\(\\s*(?:${SIGNAL_PREFIX})?(${ORG_AUTHOR})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    `\\(\\s*(?:${SIGNAL_PREFIX})?(${ORG_AUTHOR})\\s*,\\s*(${YEAR_TOKEN})\\s*\\)`,
     'g',
   ),
 
@@ -284,7 +308,7 @@ const CITATION_PATTERNS = {
   // Optional initial prefix on each surname for disambiguation (S. Lee &
   // Feeley, 2018 / M. D. Lee & Wagenmakers, 2013).
   twoAuthorParenthetical: new RegExp(
-    `\\(\\s*(?:${SIGNAL_PREFIX})?${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*&\\s*${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    `\\(\\s*(?:${SIGNAL_PREFIX})?${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*&\\s*${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(${YEAR_TOKEN})\\s*\\)`,
     'gi',
   ),
   
@@ -300,7 +324,7 @@ const CITATION_PATTERNS = {
   // et al. for 3+. The classifyCitation helper collapses 3+ authors → et_al
   // automatically; this pattern just needs to capture them.
   multiAuthorParenthetical: new RegExp(
-    `\\(\\s*(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    `\\(\\s*(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(${YEAR_TOKEN})\\s*\\)`,
     'g',
   ),
 
@@ -313,7 +337,7 @@ const CITATION_PATTERNS = {
   // ("reanalysis, Bartoš, …" — the first \b match position is at "r"
   // unless capitalization is strictly enforced).
   mixedListEtAlParenthetical: new RegExp(
-    `\\(\\s*(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    `\\(\\s*(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(${YEAR_TOKEN})\\s*\\)`,
     'g',
   ),
 
@@ -321,7 +345,7 @@ const CITATION_PATTERNS = {
   // Same disambiguator pattern but with the year in trailing parens rather
   // than the whole thing in parens.
   mixedListEtAlNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
+    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s+\\((${YEAR_TOKEN})${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
 
@@ -332,7 +356,7 @@ const CITATION_PATTERNS = {
   // mixedListEtAlNarrative (cycle 13): `\b` would otherwise start matches
   // at lowercase words preceding the real author list.
   multiAuthorAndNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
+    `\\b(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((${YEAR_TOKEN})${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
 
@@ -340,7 +364,7 @@ const CITATION_PATTERNS = {
   // Handles: et al., et al, et. al., etal., Et Al., ET AL.
   // Optional leading signal-phrase prefix (cycle 14).
   etAlParenthetical: new RegExp(
-    `\\(\\s*(?:${SIGNAL_PREFIX})?(${SURNAME_LASTNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)\\s*\\)`,
+    `\\(\\s*(?:${SIGNAL_PREFIX})?(${SURNAME_LASTNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(${YEAR_TOKEN})\\s*\\)`,
     'gi',
   ),
 
@@ -386,7 +410,7 @@ const CITATION_PATTERNS = {
   // has; without it the closing-paren anchor fails and the citation is missed).
   // (scimeto-iterate cycle 7, chen — R-0177 Sonnet deep audit.)
   singleNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+\\((${YEAR_TOKEN})${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
 
@@ -401,7 +425,7 @@ const CITATION_PATTERNS = {
   // 9, annals_1 — a Glikson & Woolley trust-in-AI review that uses "&" narratively
   // throughout: Möhlmann & Zalmanson, Wang & Benbasat, Komiak & Benbasat, …).
   twoAuthorNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+(?:and|&)\\s+(${COMPOUND_SURNAME})\\s+\\((${YEAR_TOKEN})${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
   
@@ -414,7 +438,7 @@ const CITATION_PATTERNS = {
   // "mimoun", "putten"), so it never matched its reference (scimeto-iterate
   // cycle 9, annals_1 — Dutch/Arabic/German particle surnames throughout).
   etAlNarrative: new RegExp(
-    `\\b(${COMPOUND_SURNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((\\d{4}[a-z]?|n\\.d\\.)${NARRATIVE_QUALIFIER}\\)`,
+    `\\b(${COMPOUND_SURNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((${YEAR_TOKEN})${NARRATIVE_QUALIFIER}\\)`,
     'g',
   ),
 
@@ -500,32 +524,32 @@ const CITATION_PATTERNS = {
 
   // Possessive single: Smith's (2020) study
   possessiveSingle: new RegExp(
-    `\\b(${SURNAME_LASTNAME})['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${SURNAME_LASTNAME})['’']s\\s+\\((${YEAR_TOKEN})\\)`,
     'g',
   ),
 
   // Possessive two authors: Smith and Jones's (2020) / Wang & Benbasat's (2007)
   possessiveTwoAuthor: new RegExp(
-    `\\b(${SURNAME_LASTNAME})\\s+(?:and|&)\\s+(${SURNAME_LASTNAME})['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${SURNAME_LASTNAME})\\s+(?:and|&)\\s+(${SURNAME_LASTNAME})['’']s\\s+\\((${YEAR_TOKEN})\\)`,
     'g',
   ),
 
   // Possessive et al.: Smith et al.'s (2020) study
   possessiveEtAl: new RegExp(
-    `\\b(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?['’']s\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${SURNAME_LASTNAME})\\s+et\\s*\\.?\\s*al\\.?['’']s\\s+\\((${YEAR_TOKEN})\\)`,
     'g',
   ),
 
   // And colleagues: Smith and colleagues (2020) or Smith & colleagues (2020)
   // Must match before two-author narrative pattern
   andColleagues: new RegExp(
-    `\\b(${SURNAME_LASTNAME})\\s+(?:and|&)\\s+colleagues\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${SURNAME_LASTNAME})\\s+(?:and|&)\\s+colleagues\\s+\\((${YEAR_TOKEN})\\)`,
     'g',
   ),
 
   // With colleagues: Smith with colleagues (2020)
   withColleagues: new RegExp(
-    `\\b(${SURNAME_LASTNAME})\\s+with\\s+colleagues\\s+\\((\\d{4}[a-z]?|n\\.d\\.)\\)`,
+    `\\b(${SURNAME_LASTNAME})\\s+with\\s+colleagues\\s+\\((${YEAR_TOKEN})\\)`,
     'g',
   ),
   
@@ -648,9 +672,16 @@ function parseYear(yearStr: string): { year: string; suffix?: string } {
       suffix: match[2]?.toLowerCase()
     };
   }
-  // Handle special cases
-  if (yearStr.toLowerCase() === 'n.d.' || yearStr.toLowerCase() === 'in press') {
-    return { year: yearStr.toLowerCase() };
+  // Handle special cases. The lettered no-date form splits exactly as a lettered
+  // year does - "n.d.a" is to "n.d." what "2019a" is to "2019" - so a consumer that
+  // keys on (author, year) sees the same shape for both and does not have to learn a
+  // second convention.
+  const undated = yearStr.toLowerCase().match(/^(n\.d\.)([a-z])?$/);
+  if (undated) {
+    return { year: undated[1], suffix: undated[2] };
+  }
+  if (yearStr.toLowerCase().replace(/\s+/g, ' ') === 'in press') {
+    return { year: 'in press' };
   }
   return { year: yearStr };
 }
@@ -2148,7 +2179,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
       // found) rather than an outright parse failure.
       // (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit, de Visser.)
       const etAlMatch = citeText.match(new RegExp(
-        `^(${COMPOUND_SURNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+        `^(${COMPOUND_SURNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(${YEAR_TOKEN})$`,
         'i',
       ));
       if (etAlMatch) {
@@ -2178,7 +2209,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
       // pattern already does; cycle 22 brings the anchored bundle fragment to
       // parity, recovering "(…; Hom Jr & Van Nuland, 2019; …)".
       const twoAuthorMatch = citeText.match(new RegExp(
-        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*&\\s*${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
+        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*&\\s*${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (twoAuthorMatch) {
@@ -2206,7 +2237,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
       
       // Mixed-list with trailing et al.: "Bartoš, Maier, Wagenmakers, et al., 2022"
       const mixedEtAlMatch = citeText.match(new RegExp(
-        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(\\d{4}[a-z]?|n\\.d\\.)(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
+        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (mixedEtAlMatch) {
@@ -2234,7 +2265,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
 
       // Multi-author pattern (3-6 authors): "Bosco, Aguinis, Field, & Dalton, 2016"
       const multiAuthorMatch = citeText.match(new RegExp(
-        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
+        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (multiAuthorMatch) {
@@ -2263,7 +2294,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
 
       // Single author pattern (with optional initial prefix — "S. Lee, 2018")
       const singleMatch = citeText.match(new RegExp(
-        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
+        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (singleMatch) {
@@ -2292,7 +2323,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
         // when singleMatch (and every earlier matcher) missed. Cycle 4
         // (APA-ORG-AUTHOR).
         const orgFrag = citeText.match(new RegExp(
-          `^(${ORG_AUTHOR})\\s*,\\s*(\\d{4}[a-z]?|n\\.d\\.)$`,
+          `^(${ORG_AUTHOR})\\s*,\\s*(${YEAR_TOKEN})$`,
         ));
         if (orgFrag && orgLeadAllowed(orgFrag[1].split(/\s+/)[0] ?? '') && !isMonthName(orgFrag[1])) {
           const { year, suffix } = parseYear(orgFrag[2]);
