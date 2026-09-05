@@ -2,7 +2,7 @@
  * Regression: author-year citations must NOT be detected inside the reference
  * section itself (reference-list bleed).
  *
- * scimeto-iterate cycle 4 — surfaced on collabra_90203. A
+ * the platform's hardening workflow cycle 4 — surfaced on collabra_90203. A
  * replication/meta-analysis paper's reference entries routinely cite their
  * originals inside the entry title ("... extension of Kogut and Ritov (2005a)
  * Study 2 ..."). The author-year detectors (detectCitations / detectHarvardCitations)

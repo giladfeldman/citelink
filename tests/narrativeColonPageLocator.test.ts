@@ -3,7 +3,7 @@
  * "Teple (1949: 153)", "Keltner et al. (2003: 268–269)" — was not detected at
  * all, by any of the five narrative patterns.
  *
- * scimeto-iterate cycle 9 (2026-09-01). Measured across the 18-paper
+ * the platform's hardening workflow cycle 9 (2026-09-01). Measured across the 18-paper
  * corpus: 11 of the 83 remaining gold recall misses are exactly this shape, in
  * amj_1 (10.5465/amj.2016.1196), annals_2 (10.5465/annals.2016.0011) and
  * annals_3 (10.5465/annals.2022.0049) — 13% of all remaining in-text recall

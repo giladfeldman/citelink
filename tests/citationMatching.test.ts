@@ -761,7 +761,7 @@ describe('Citation-Reference Matching', () => {
     // When the reference list has TWO entries with identical (author, year,
     // yearSuffix) — e.g. two "Fischhoff (1975)" with no suffix to break the
     // tie — the matcher cannot disambiguate from the citation alone. Prior
-    // behavior was status='ambiguous', which scimeto's compare-citelink
+    // behavior was status='ambiguous', which Scimeto's compare-citelink
     // scorer treated as no-match, dropping all 21/21 Fischhoff (1975)
     // citations in chen_2021_jesp from the agreement count. The fix: when
     // ALL alternative matches share the bestMatch's (author, year, suffix)

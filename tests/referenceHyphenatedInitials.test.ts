@@ -15,7 +15,7 @@ import { parseReferences } from '../src/referenceParser';
  * `/^[A-Z]\.?(\s*[A-Z]\.?)*$/` — did not admit a hyphen BETWEEN initials, so "M.-A."
  * was not recognized as initials and "Cam" was mis-split.
  *
- * Fix (scimeto-iterate 2026-07-04, R-0177 Sonnet audit on annals_1): both
+ * Fix (the platform's hardening workflow 2026-07-04, R-0177 Sonnet audit on annals_1): both
  * patterns now allow `[-\s]` between initials.
  */
 describe('reference parser keeps an author with a hyphenated initial', () => {

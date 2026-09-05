@@ -3,7 +3,7 @@ import { detectCitations } from '../src/citationDetector';
 
 /**
  * Regression: AOM / Chicago colon page-locator dropped the FIRST citation of a
- * multi-citation parenthetical (scimeto-iterate 2026-06-25, amp_1 — TC-4).
+ * multi-citation parenthetical (the platform's hardening workflow 2026-06-25, amp_1 — TC-4).
  *
  * AOM (Academy of Management) and Chicago note-style write a page locator after
  * the year as ": page" ("Bedeian, Van Fleet & Hyman, 2009a: 211"), NOT the APA

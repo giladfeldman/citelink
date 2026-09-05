@@ -4,7 +4,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: the Welsh patronymic particle "Ap" ("son of") was missing from the citation
- * detector's SURNAME_PARTICLE whitelist (scimeto-iterate 2026-08-04, annals_1 —
+ * detector's SURNAME_PARTICLE whitelist (the platform's hardening workflow 2026-08-04, annals_1 —
  * R-0177 Sonnet canary audit, logged as an open finding in the 2026-07-04 handoff).
  *
  * annals_1 cites, verbatim inside a ';'-bundle:

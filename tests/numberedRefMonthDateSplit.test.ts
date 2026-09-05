@@ -3,7 +3,7 @@
  * info embeds a capitalized word immediately followed by a publication month +
  * year must NOT be split there.
  *
- * scimeto-iterate 2026-06-10 (ieee_access_2). Reference [5] is:
+ * the platform's hardening workflow 2026-06-10 (ieee_access_2). Reference [5] is:
  *   "[5]. Wang Z, Wen T, and Wu W, "Modeling and simulation of rumor
  *    propagation in social networks based on Petri net theory," in Proc. IEEE
  *    12th Int. Conf. Netw., Sens. Control, Apr. 2015, pp. 492-497. ..."

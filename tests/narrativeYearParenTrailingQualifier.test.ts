@@ -3,7 +3,7 @@ import { detectCitations } from '../src/citationDetector';
 
 /**
  * Regression: a narrative citation with a trailing in-paren qualifier after the year
- * must still be detected (scimeto-iterate cycle 7, 2026-06-30 — chen_2021_jesp,
+ * must still be detected (the platform's hardening workflow cycle 7, 2026-06-30 — chen_2021_jesp,
  * R-0177 Sonnet deep audit).
  *
  * `singleNarrative` and `twoAuthorNarrative` anchored on the closing paren

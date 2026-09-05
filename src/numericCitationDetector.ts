@@ -186,7 +186,7 @@ export function detectNumericCitations(
   // "follow-up"→"up" matched "pp?" (page), "online"→matched "Line" — so a real
   // superscript citation ("follow-up26", "online47") was discarded. Anchoring ^
   // makes "up" ≠ "p" and "online" ≠ "Line" while "page"/"pp"/"Table"/"Fig" still
-  // match exactly. (scimeto-iterate session 2026-06-07b cycle 3.)
+  // match exactly. (the platform's hardening workflow session 2026-06-07b cycle 3.)
   const PLAIN_DIGIT_FP_WORD =
     /^(?:Table|Figure|Fig|Eq|Equation|Chapter|Section|Step|Item|page|pages|pp?|Appendix|Supplement|Panel|Part|Scheme|Algorithm|Listing|Line|Row|Column|Criterion|Condition|Model|Experiment|Sample|Group|Phase|Trial|Block|Protocol|Hypothesis|Version|vol|no|CO|H2O|COVID|SARS|mp|km|mg|kg|Hz|kHz|MHz|GHz|dB|mm|cm|nm|pH)$/i;
 
@@ -200,7 +200,7 @@ export function detectNumericCitations(
   // are abundant (≥3), mirroring the parenthetical-numeric (~L340) and
   // standalone-number (~L408) branches that already self-suppress the same way.
   // nat_comms_2 (0 brackets, superscript paradigm) keeps the recovery untouched.
-  // (scimeto-iterate 2026-06-08 — ieee_access_2 "beta1/beta2", plos_med_1.)
+  // (the platform's hardening workflow 2026-06-08 — ieee_access_2 "beta1/beta2", plos_med_1.)
   const bracketParadigm =
     citations.filter(c => String(c.raw).startsWith('[')).length >= 3;
 
@@ -236,7 +236,7 @@ export function detectNumericCitations(
     // Skip if the digit sits inside a BARE domain / URL token (no http:// prefix),
     // e.g. "isaric4c.net" → "4" is not a citation, or "osf.io/dbn92". An academic-
     // integrity tool must never fabricate a citation from a digit inside a web
-    // address. (scimeto-iterate 2026-06-07e — nat_comms isaric4c.net FP.)
+    // address. (the platform's hardening workflow 2026-06-07e — nat_comms isaric4c.net FP.)
     let tokStart = m.index;
     while (tokStart > 0 && !/\s/.test(text[tokStart - 1])) tokStart--;
     let tokEnd = afterEnd;
@@ -274,7 +274,7 @@ export function detectNumericCitations(
     // EXCEPT when the digit immediately follows a closing paren — "(CSF)13" is a
     // superscript citation after a parenthetical acronym, not an acronym-with-an-
     // embedded-number like "BRCA1". The acronym guard was never meant for the
-    // after-paren case. (scimeto-iterate session 2026-06-07b cycle 3.)
+    // after-paren case. (the platform's hardening workflow session 2026-06-07b cycle 3.)
     if (wordMatch && m[1] !== ')' && /[A-Z]{2}/.test(wordMatch[1])) continue;
 
     // Position key: the digit portion starts at m.index + m[1].length
@@ -310,7 +310,7 @@ export function detectNumericCitations(
   // "1914,27", so a 2+-member short-number list glued to a "WORD-NN" token is a
   // citation. Restricted to [A-Za-z]{3,}-\d\d (disease-name-like) so a 1-digit
   // compound (IL-6) can't mis-split, and the mandatory list keeps a lone
-  // year-like suffix out. (scimeto-iterate session 2026-06-07b cycle 4;
+  // year-like suffix out. (the platform's hardening workflow session 2026-06-07b cycle 4;
   // surfaced on nat_comms_2 markers 14,27 / 21,22 / 40,41 / 14,52.)
   const compoundSuperscriptPattern =
     /[A-Za-z]{3,}-\d\d(\d{1,2}(?:[,–—-]\d{1,3})+)(?!\d)/g;
@@ -391,7 +391,7 @@ export function detectNumericCitations(
       // numeric citation is never preceded by ':'/';' and immediately followed by
       // a lowercase word. Keyed on the structural enumeration signature, not on any
       // paper. (sci_rep_3 inclusion-criteria enumerations mis-detected as numeric
-      // citations — scimeto-iterate 2026-06-20 cycle 5.)
+      // citations — the platform's hardening workflow 2026-06-20 cycle 5.)
       const prevNonSpace = before40.replace(/\s+$/, '').slice(-1);
       if ((prevNonSpace === ':' || prevNonSpace === ';') && /^\s*[a-zà-ÿ]/.test(after10)) {
         continue;

@@ -4,7 +4,7 @@ import { parseReferences } from '../src/referenceParser';
 /**
  * Regression: a concatenated ORG-author reference whose year-paren is NOT followed by a
  * period was mis-split, so the previous entry's editor became the new author
- * (scimeto-iterate 2026-06-25, chan_feldman — R-0177 Sonnet audit).
+ * (the platform's hardening workflow 2026-06-25, chan_feldman — R-0177 Sonnet audit).
  *
  * chan: "Olkin, I. (1967). Correlations revisited. In J. C. Stanley (Ed.), Improving
  * experimental design and statistical analysis. Open Science Collaboration. (2015)

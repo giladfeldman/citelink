@@ -4,7 +4,7 @@
  * when followed by whitespace, so "van't" (apostrophe, no space) defeated the
  * surname pattern and "(van't Veer & Giner-Sorolla, 2016)" was missed.
  *
- * scimeto-iterate cycle 25 — surfaced on chen_2021_jesp.
+ * the platform's hardening workflow cycle 25 — surfaced on chen_2021_jesp.
  */
 import { describe, it, expect } from '@jest/globals';
 import { detectCitations } from '../src/citationDetector.js';

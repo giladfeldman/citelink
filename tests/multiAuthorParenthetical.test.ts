@@ -2,7 +2,7 @@
  * Regression: 3+ author parenthetical citations like "(Hoffrage, Hertwig, &
  * Gigerenzer, 2000)" must be detected as an et al. citation.
  *
- * scimeto-iterate cycle 10 — the gate enhancement (cycle 6) surfaced
+ * the platform's hardening workflow cycle 10 — the gate enhancement (cycle 6) surfaced
  * 8+ chen_2021_jesp parentheticals of this shape that citelink missed:
  *   "(Bosco, Aguinis, Field, Pierce, & Dalton, 2016)"
  *   "(Hoffrage, Hertwig, & Gigerenzer, 2000)"

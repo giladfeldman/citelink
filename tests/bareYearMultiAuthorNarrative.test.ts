@@ -3,7 +3,7 @@ import { detectCitations } from '../src/citationDetector';
 
 /**
  * Regression: an UNPARENTHESIZED multi-author narrative citation with a bare comma-year
- * was never detected (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit,
+ * was never detected (the platform's hardening workflow 2026-08-04, annals_1 — R-0177 Sonnet audit,
  * the "Fox" finding; the last of the four handoff items).
  *
  * annals_1 prints, verbatim:

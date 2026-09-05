@@ -3,7 +3,7 @@
  * hyphenated-caps token (COVID-19, SARS-CoV-2, IL-12, N-methyl-…, GM-CSF) or a
  * ligature word (inﬂammatory) parsed the JOURNAL name as the title.
  *
- * scimeto-iterate (session 2026-06-07b) cycle 2 — surfaced on nat_comms_2
+ * the platform's hardening workflow (session 2026-06-07b) cycle 2 — surfaced on nat_comms_2
  * once its AI gold was regenerated (the prior gold's title_start had bled into
  * the journal, masking the defect). parseNatureReference's author/title boundary
  * looked for ". " followed by a `[A-Z][a-z]{2,}` word. An acronym title-start is

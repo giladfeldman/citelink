@@ -10,7 +10,7 @@
  * chen_2021_jesp ("Arkes, Wortmann, Saville, and Harkness (1981)") and
  * collabra_90203 ("Hart, Lane, and Chinn (2018)").
  *
- * scimeto-iterate cycle 15.
+ * the platform's hardening workflow cycle 15.
  */
 import { describe, it, expect } from '@jest/globals';
 import { detectCitations } from '../src/citationDetector.js';

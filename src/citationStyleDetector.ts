@@ -260,7 +260,7 @@ function hasIEEEAuthors(text: string): boolean {
   // mandatory ([A-Z]?\.), so a single-initial IEEE author was missed, the IEEE
   // signal read 0, and the numeric branch mis-detected vancouver — routing the
   // surname-first Vancouver parser at an initials-first IEEE list, which kept
-  // "W. Yang" whole instead of extracting "Yang" (scimeto-iterate cycle 6,
+  // "W. Yang" whole instead of extracting "Yang" (the platform's hardening workflow cycle 6,
   // ieee_access_2 — references F1 1.000 → 0.000 against the real pdftotext text).
   const ieeeMatches = (after.match(/(?:\[\d+\]|\d+\.)\s*[A-Z]\.\s*(?:[A-Z]\.\s*)*[A-Z][a-z]/g) || []).length;
   return ieeeMatches >= 2;

@@ -3,7 +3,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: APA-path reference TITLE extraction when the year is found via a
- * FALLBACK (not the parenthesized `(YYYY)`) — scimeto-iterate cycle 7,
+ * FALLBACK (not the parenthesized `(YYYY)`) — the platform's hardening workflow cycle 7,
  * 2026-06-30 (amp_1 Diamond + annals_2 Grand, surfaced by the R-0177 Sonnet audit).
  *
  * `parseAPAReference` gates BOTH author extraction and title extraction on

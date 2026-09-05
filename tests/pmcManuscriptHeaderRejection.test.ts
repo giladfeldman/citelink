@@ -3,7 +3,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: a PMC running page-header was harvested as a fabricated reference
- * (scimeto-iterate 2026-06-25, ieee_access_2 — R-0177 Sonnet audit).
+ * (the platform's hardening workflow 2026-06-25, ieee_access_2 — R-0177 Sonnet audit).
  *
  * PMC-hosted PDFs stamp "<Journal>. Author manuscript; available in PMC <date>." on
  * EVERY page; docpluck preserves it. The reference parser took "<Journal>" as an org

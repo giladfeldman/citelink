@@ -3,7 +3,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: the Dutch contracted tussenvoegsel "van 't" written closed-up as "van't"
- * was dropped from the first-author surname (scimeto-iterate 2026-06-25, chen —
+ * was dropped from the first-author surname (the platform's hardening workflow 2026-06-25, chen —
  * R-0177 Sonnet canary audit).
  *
  * "van't Veer, A. E., & Giner-Sorolla, R. (2016)." parsed first_author = "Veer", not

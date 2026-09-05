@@ -4,7 +4,7 @@
  * the captured first author = the surname (initial(s) consumed but
  * stripped from the key), not skipped entirely.
  *
- * scimeto-iterate cycle 16 — collabra_90203 uses "S. Lee" / "M. D. Lee"
+ * the platform's hardening workflow cycle 16 — collabra_90203 uses "S. Lee" / "M. D. Lee"
  * as disambiguators because two co-authors share the "Lee" surname.
  * Pre-fix: the patterns required `[A-Z][a-z]+` immediately after `\(`, so
  * "S." didn't match (single capital + period). Fix: an optional non-capturing

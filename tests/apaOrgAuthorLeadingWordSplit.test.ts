@@ -1,6 +1,6 @@
 /**
  * APA organizational-author reference split + full-name extraction
- * (xiao_2021_crsp / CRSP — scimeto-iterate R-0177 audit 2026-06-26)
+ * (xiao_2021_crsp / CRSP — the platform's hardening workflow R-0177 audit 2026-06-26)
  *
  * Two organizational-author reference entries in xiao_2021_crsp are concatenated
  * mid-line onto the PREVIOUS reference (docpluck academic flows them after the

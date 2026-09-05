@@ -1,6 +1,6 @@
 /**
  * Harvard reference NOT orphan-split at a title phrase that reads as "Surname, Firstname"
- * (bjps_1 — scimeto-iterate R-0177 audit 2026-06-26)
+ * (bjps_1 — the platform's hardening workflow R-0177 audit 2026-06-26)
  *
  * Two bjps_1 references carry a TITLE whose leading words form a "Word, Word, and
  * Word" phrase that the APA-oriented step-1c inline splitter mistook for a

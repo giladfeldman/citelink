@@ -3,7 +3,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression GUARD for two AOM bare-year title cases that the
- * scimeto-iterate 2026-06-30 audit filed as OPEN (TC-A, TC-C) but which
+ * the platform's hardening workflow 2026-06-30 audit filed as OPEN (TC-A, TC-C) but which
  * were found already-FIXED at citelink HEAD (v0.7.60) when reproduced in cycle 9
  * (2026-07-02). Per the iterate-loop rule "an incidentally-fixed defect gets a
  * regression test FIRST, then is struck from TRIAGE" — an unprotected incidental

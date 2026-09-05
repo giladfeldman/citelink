@@ -4,7 +4,7 @@ import { parseReferences } from '../src/referenceParser';
 /**
  * Regression: a reference whose AUTHOR LIST wraps across a line and which is
  * preceded by a BLANK line was keyed on its LAST author, silently dropping the
- * first (scimeto-iterate 2026-08-04, found by the R-0177 Sonnet canary
+ * first (the platform's hardening workflow 2026-08-04, found by the R-0177 Sonnet canary
  * audit on annals_2 = 10.5465/annals.2016.0011 — the F1 gate scored this paper
  * as passing).
  *

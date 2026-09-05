@@ -3,7 +3,7 @@
  * line start is a volume/edition number wrapped inside an entry, NOT a reference
  * marker. The step-1 numberedSplitPattern must not split there.
  *
- * scimeto-iterate 2026-06-10 (ieee_access_2). Reference [17] is a book:
+ * the platform's hardening workflow 2026-06-10 (ieee_access_2). Reference [17] is a book:
  *   "[17]. Koch I, Reisig W, and Schreiber F, Modeling in Systems Biology: The
  *    Petri Net Approach, vol.\n16. Cham, Switzerland: Springer, 2010."
  * The volume "16" wraps to a new line as "16. Cham…". The bare-"N." alternative

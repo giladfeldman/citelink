@@ -2,7 +2,7 @@
  * Regression: a numeric page/year RANGE split across a line break must not
  * fabricate a reference (HALLUCINATION class) or steal the next entry's number.
  *
- * scimeto-iterate cycle 6 — surfaced on plos_med_1 (Vancouver numbered
+ * the platform's hardening workflow cycle 6 — surfaced on plos_med_1 (Vancouver numbered
  * style). A reference ended "... BJOG. 2004; 111:243–" and the next line was
  * "248. https://doi.org/...". The numbered-reference splitter read the line-start
  * "248." as a NEW reference number, fabricating reference #248 and leaving the

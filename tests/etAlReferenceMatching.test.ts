@@ -5,7 +5,7 @@ import { matchCitationsToReferences } from '../src/citationMatcher';
 
 /**
  * Regression: et-al in-text citations failed to match an et-al REFERENCE
- * (scimeto-iterate 2026-06-25, bjps_1 — TC-5).
+ * (the platform's hardening workflow 2026-06-25, bjps_1 — TC-5).
  *
  * Harvard / Vancouver / AOM reference lists frequently abbreviate a 3+ author
  * entry as "Sides J et al. (2019)" — so `parseReferences` reports authorCount=1

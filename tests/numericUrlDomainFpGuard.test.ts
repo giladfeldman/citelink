@@ -2,7 +2,7 @@
  * Regression: plain-digit (PDF-superscript) citation detection fabricated a
  * citation from a digit sitting INSIDE a bare URL / domain token.
  *
- * scimeto-iterate (session 2026-06-07e) — surfaced on nat_comms_2, whose
+ * the platform's hardening workflow (session 2026-06-07e) — surfaced on nat_comms_2, whose
  * methods section references the consortium URL "isaric4c.net". pdftotext keeps
  * it as one token "isaric4c.net/sccp/..." and the detector's letter-then-digit
  * rule matched "c4" → emitted a bogus citation [4]. For an academic-integrity

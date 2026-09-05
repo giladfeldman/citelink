@@ -5,7 +5,7 @@ import { matchCitationsToReferences } from '../src/citationMatcher';
 
 /**
  * Guards for three defects found by a CROSS-MODEL REVIEW (codex, 2026-08-04) of the
- * v0.7.65–v0.7.68 scimeto-iterate changes, each REPRODUCED locally before being
+ * v0.7.65–v0.7.68 the platform's hardening workflow changes, each REPRODUCED locally before being
  * fixed (per the portfolio rule: a reviewer finding is a hypothesis until reproduced).
  *
  * The review examined four claims; one (a "New York, N.Y." publisher line being read as a

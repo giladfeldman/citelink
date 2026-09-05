@@ -2,7 +2,7 @@
  * Regression: a reference whose trailing field is a URL / DOI must not swallow the
  * NEXT reference when they are concatenated without a clean separator.
  *
- * scimeto-iterate 2026-06-08c — collabra_90203 (O1 root). The reference list
+ * the platform's hardening workflow 2026-06-08c — collabra_90203 (O1 root). The reference list
  * in modern APA papers ends most entries with a URL/DOI, and docpluck extracts that
  * URL verbatim WITHOUT a trailing period (often with injected spaces: "package=RoBMA",
  * ".../osf.io/75bqn", ".../osf.io/tkm pc", ".../OSF.IO/A2TGB"). So the character

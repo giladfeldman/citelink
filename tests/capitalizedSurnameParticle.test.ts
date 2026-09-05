@@ -4,7 +4,7 @@
  * APA/AOM detector, taking every PRECEDING author with it — a wrong first author,
  * which resolves to the wrong reference or to none.
  *
- * scimeto-iterate cycle 9 (2026-09-02). Measured: the SAME input parsed
+ * the platform's hardening workflow cycle 9 (2026-09-02). Measured: the SAME input parsed
  * correctly by `detectHarvardCitations` and incorrectly by `detectCitations`:
  *
  *   "while Barros and Santos Silva (2019) show that malesp"

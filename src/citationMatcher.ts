@@ -144,7 +144,7 @@ function fuzzyNameMatch(name1: string, name2: string): number {
   // of `ambiguous`. Keeping this strictly below a true normalized-exact hit means a
   // real exact match always wins, and a despaced-only hit stays visible as
   // lower-confidence/ambiguous rather than silently claiming certainty.
-  // (scimeto-iterate 2026-08-04, annals_1.)
+  // (the platform's hardening workflow 2026-08-04, annals_1.)
   const despaced1 = norm1.replace(/\s+/g, '');
   const despaced2 = norm2.replace(/\s+/g, '');
   if (despaced1 === despaced2) return 0.98;
@@ -325,7 +325,7 @@ function matchEtAl(
   // (below the 0.4 suggested threshold) and was dropped, even though first author
   // + year agree exactly. A reference is never abbreviated "et al." for 1-2
   // authors, so "et al." in the reference raw is strong evidence the true count is
-  // >=3. (scimeto-iterate 2026-06-25 — TC-5: bjps_1 matching 0.622, 49
+  // >=3. (the platform's hardening workflow 2026-06-25 — TC-5: bjps_1 matching 0.622, 49
   // correct et-al matches rejected as no_match.)
   const referenceIsEtAl = /\bet\s+al\b\.?/i.test(reference.raw || '');
   if (reference.authorCount < 3 && !referenceIsEtAl) return 0.2;

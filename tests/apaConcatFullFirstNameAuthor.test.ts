@@ -4,7 +4,7 @@ import { parseReferences, splitConcatenatedApaReferences } from '../src/referenc
 /**
  * Regression: an APA reference whose author spells the GIVEN NAME in full
  * ("Hoffman, Martin L. (1981)") was swallowed when concatenated after a
- * DOI/URL-terminated previous reference (scimeto-iterate cycle 7, 2026-06-30 —
+ * DOI/URL-terminated previous reference (the platform's hardening workflow cycle 7, 2026-06-30 —
  * chan_feldman_2025_cogemo, R-0177 Sonnet deep audit).
  *
  * `splitConcatenatedApaReferences`' author opener required `Surname, Initials.`

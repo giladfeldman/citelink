@@ -5,7 +5,7 @@
  * year", anchored on the first period-then-space — but a leading "VII." ends in
  * exactly that, so the whole title collapsed to "VII.".
  *
- * scimeto-iterate (2026-06-08) — surfaced on chan_feldman_2025_cogemo
+ * the platform's hardening workflow (2026-06-08) — surfaced on chan_feldman_2025_cogemo
  * (Pearson & Filon 1898, a multi-part old reference). The reference line is
  * verbatim from the chan docpluck-academic fixture.
  */

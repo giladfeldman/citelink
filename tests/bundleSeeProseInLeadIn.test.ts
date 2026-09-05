@@ -3,7 +3,7 @@ import { detectCitations } from '../src/citationDetector';
 
 /**
  * Regression: a "(also) see <prose> in <Citation>" lead-in on the 2nd member of a
- * ";"-bundle defeated detection (scimeto-iterate 2026-06-25, chen — R-0177
+ * ";"-bundle defeated detection (the platform's hardening workflow 2026-06-25, chen — R-0177
  * Sonnet canary audit).
  *
  * chen: "(Fischhoff, 2007, p. 11; also see interview in Klein, Hegarty, & Fischhoff,

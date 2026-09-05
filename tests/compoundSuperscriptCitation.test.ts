@@ -2,7 +2,7 @@
  * Regression: a superscript citation list glued to a disease-name compound was
  * never detected — "COVID-1914,27" (i.e. "COVID-19" + superscript "14,27").
  *
- * scimeto-iterate (session 2026-06-07b) cycle 4 — surfaced on nat_comms_2.
+ * the platform's hardening workflow (session 2026-06-07b) cycle 4 — surfaced on nat_comms_2.
  * The compound's own 2-digit number and the citation digits fuse into one run
  * ("COVID-19"+"14,27" → "COVID-1914,27"), so the plain-digit pattern (which needs
  * a [a-z.)"] separator before the digits) never matched, and the preceding-digit

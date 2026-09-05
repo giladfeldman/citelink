@@ -3,7 +3,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: a reference carrying a FULL PUBLICATION DATE ("2023, January 10.")
- * had the month-and-day taken as its title (scimeto-iterate 2026-08-04,
+ * had the month-and-day taken as its title (the platform's hardening workflow 2026-08-04,
  * surfaced on amd_1 = 10.5465/amd.2023.0106).
  *
  * APA cites magazines, blog posts, working papers, and news items with a full

@@ -2,7 +2,7 @@
  * Regression: the plain-digit "superscript" recovery fabricated in-text
  * citations from math variables in BRACKET-paradigm papers.
  *
- * scimeto-iterate (2026-06-08) — surfaced on ieee_access_2.
+ * the platform's hardening workflow (2026-06-08) — surfaced on ieee_access_2.
  *
  * The plain-digit branch of `detectNumericCitations` exists to recover
  * Nature/AMA superscript citations that PDF extraction flattened onto the

@@ -3,7 +3,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: a reference dated "n.d." (no date) lost its AUTHOR entirely
- * (scimeto-iterate 2026-08-04, surfaced on annals_3 = 10.5465/annals.2022.0049).
+ * (the platform's hardening workflow 2026-08-04, surfaced on annals_3 = 10.5465/annals.2022.0049).
  *
  * "n.d." is the standard APA/AOM marker for an undated source — typically a
  * dictionary entry, standards body, or web page — and takes a disambiguating

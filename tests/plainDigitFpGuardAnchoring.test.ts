@@ -2,7 +2,7 @@
  * Regression: plain-digit (PDF-superscript) citation detection discarded real
  * citations because two false-positive guards over-fired.
  *
- * scimeto-iterate (session 2026-06-07b) cycle 3 — surfaced on nat_comms_2.
+ * the platform's hardening workflow (session 2026-06-07b) cycle 3 — surfaced on nat_comms_2.
  *
  * 1. PLAIN_DIGIT_FP_WORD was anchored only at the END ($), so it matched any word
  *    ENDING in an FP token: "follow-up26" → "up" matched "pp?" (page), so the

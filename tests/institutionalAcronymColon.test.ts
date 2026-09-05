@@ -5,7 +5,7 @@
  * "(World Health Organization, 2020)", and "(Full Name [WHO], 2020)", but not
  * the acronym-colon-name form, which appears in semicolon bundles.
  *
- * scimeto-iterate cycle 26 — surfaced on chen_2021_jesp:
+ * the platform's hardening workflow cycle 26 — surfaced on chen_2021_jesp:
  * "(e.g., KNAW: Royal Dutch Academy of Arts and Sciences, 2018; Simons et al., 2014)".
  */
 import { describe, it, expect } from '@jest/globals';

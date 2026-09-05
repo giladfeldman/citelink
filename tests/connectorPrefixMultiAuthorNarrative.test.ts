@@ -3,7 +3,7 @@ import { detectCitations } from '../src/citationDetector';
 
 /**
  * Regression: a sentence-initial connector before a 3+-author narrative citation
- * must not collapse the citation to its LAST author (scimeto-iterate cycle 7,
+ * must not collapse the citation to its LAST author (the platform's hardening workflow cycle 7,
  * 2026-06-30 — amp_1, R-0177 Sonnet audit).
  *
  * `multiAuthorAndNarrative` matches "A, B, C, and D (year)". The 2026-05-26 fix

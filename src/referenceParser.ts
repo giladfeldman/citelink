@@ -130,7 +130,7 @@ const NAME_PARTICLES = [
 // that had drifted incomplete: they omitted "Ben"/"Bin"/"Ibn"/"Ter"/"Der", so
 // "Ben Mimoun, M. S., Poncin, I., & Garnier, M. 2012." (and every other particle-surname
 // entry) was dropped, cascading into 6+ unmatched in-text citations
-// (scimeto-iterate 2026-07-04, R-0177 Sonnet audit on annals_1). Kept in sync with
+// (the platform's hardening workflow 2026-07-04, R-0177 Sonnet audit on annals_1). Kept in sync with
 // COMPOUND_SURNAME's particle set in citationDetector.ts. Each alternative allows both
 // cases so it matches at a mid-block boundary (Ben) and a lowercased continuation (ben).
 const REF_SPLIT_PARTICLE =
@@ -149,7 +149,7 @@ const REF_SPLIT_PARTICLE =
 // is not a day. Anchored at the string start and requiring the trailing period,
 // so a genuine title merely BEGINNING with a month word ("March of the
 // machines.") is untouched.
-// (scimeto-iterate 2026-08-04, amd_1; shape corrected after a codex
+// (the platform's hardening workflow 2026-08-04, amd_1; shape corrected after a codex
 // cross-model review reproduced three defects in the first attempt.)
 const REF_LEADING_FULL_DATE =
   /^(?:Jan(?:uary|\.)?|Feb(?:ruary|\.)?|Mar(?:ch|\.)?|Apr(?:il|\.)?|May|Jun(?:e|\.)?|Jul(?:y|\.)?|Aug(?:ust|\.)?|Sep(?:t(?:ember)?|\.)?|Oct(?:ober|\.)?|Nov(?:ember|\.)?|Dec(?:ember|\.)?)\s+\d{1,2}(?:st|nd|rd|th)?\.\s*/i;
@@ -186,7 +186,7 @@ const REFERENCE_PATTERNS = {
   //       author on the tail ("Science Collaboration", dropping "Open") or — when the
   //       name ends in "(CORE)." — failed entirely and the entry was lost. The
   //       distinctive tail (suffix word, or "(ACRONYM)", immediately before the
-  //       "(year)") is what keeps a personal author from matching. (scimeto-
+  //       "(year)") is what keeps a personal author from matching. (Scimeto-
   //       iterate R-0177 audit 2026-06-26 — xiao_2021 Open Science Collaboration / CORE.)
   organizationAuthor: /^((?:World|American|National|United|International|European|Centers|Federal|British|Canadian|Australian|Royal|Institute|University|Department|Ministry|Office|Bureau|Agency|Council|Committee|Commission|Board|Foundation|Association|Organization|Society|Academy|ProFAN)[A-Za-z\s&,]+?|[A-ZÀ-Ÿ][A-Za-zÀ-ÿ&,'-]*(?:\s+[A-ZÀ-Ÿ][A-Za-zÀ-ÿ&,'-]*)*?(?:\s+(?:Collaboration|Collaborative|Research|REsearch|Consortium|Network|Initiative|Project|Team|Group)|\s+\([A-ZÀ-Ÿ]{2,}\)))(?:\.\s*\(|\s+\()/,
 
@@ -316,7 +316,7 @@ function isOrganizationName(text: string): boolean {
   // Short, common org-suffix words ("JASP Team", "R Core Team", a working "Group")
   // need a WORD boundary so a personal surname that merely CONTAINS them
   // ("Steamer", "Grouping") is not misclassified as an organization.
-  // (scimeto-iterate 2026-06-07e — O4 JASP Team org-author reference.)
+  // (the platform's hardening workflow 2026-06-07e — O4 JASP Team org-author reference.)
   return /\b(?:team|group)\b/.test(lower);
 }
 
@@ -416,7 +416,7 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   // author. Also covers Vancouver "Smith JA, et al." and APA "Smith, J., et al.".
   // "et al." is always the tail of an author list, so a trailing-only strip is
   // safe (a title is never inside the author section). The dropped co-authors
-  // don't affect first-author + year matching. (scimeto-iterate 2026-06-12
+  // don't affect first-author + year matching. (the platform's hardening workflow 2026-06-12
   // — bjps_1: 25 Harvard "et al." refs mis-keyed on the first author.)
   authorSection = authorSection.replace(/[,;]?\s*\bet\s+al\.?\s*$/i, '').trim();
 
@@ -443,7 +443,7 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   // citation (matching 0.9133 -> 0.9101). Caught by the 18-paper corpus gate, not by
   // the unit suite — the strip was correct on every string I tested in isolation.
   // Guarded by the NON-REGRESSION assertions in embeddedPreferredName.test.ts.
-  // (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit, Fox 2015.)
+  // (the platform's hardening workflow 2026-08-04, annals_1 — R-0177 Sonnet audit, Fox 2015.)
   // The role list covers the SPELLED-OUT forms too ("Editor", "Editors", "Chair",
   // "Translator"), not just the abbreviations. A cross-model review (codex, 2026-08-04)
   // pointed out that excluding only "Ed"/"Eds" leaves the exact annals_4 pseudo-author
@@ -519,7 +519,7 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   // apostrophe, and the surname parser drops the whole particle, keying the author as
   // "Veer" (chen: van't Veer 2016 matched the wrong reference). The bare "'t"/"'s"
   // alternative covers the particle written on its own ("'t Hart").
-  // (scimeto-iterate 2026-06-25, chen — R-0177 Sonnet canary audit.)
+  // (the platform's hardening workflow 2026-06-25, chen — R-0177 Sonnet canary audit.)
   // "Ben"/"Ibn"/"Ter" added 2026-07-04 (R-0177 annals_1 audit): without "Ben" here,
   // "Ben Mimoun, M. S." parses its surname as "Ben" (the 2nd-surname-word branch is
   // outrun by the lookahead), keying the author "ben" — so the reference never matches
@@ -563,7 +563,7 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
       // initials must count as initials, else the middle author is dropped and its
       // reference under-counts its authors, which then fails et-al matching:
       // "Camilleri, A. R., Cam, M.-A., & Hoffmann, R." lost "Cam" so the in-text
-      // "Camilleri, Cam, & Hoffmann (2007)" never matched (scimeto-iterate
+      // "Camilleri, Cam, & Hoffmann (2007)" never matched (the platform's hardening workflow
       // 2026-07-04, R-0177 annals_1 audit).
       const nextPart = rawParts[i + 1]?.trim();
       if (nextPart && /^[A-Z]\.?([-\s]*[A-Z]\.?)*$/.test(nextPart)) {
@@ -721,7 +721,7 @@ function looksLikeAuthorBio(raw: string): boolean {
  * emitting a fabricated reference (an academic-integrity defect — a reference that
  * does not exist). The "available in PMC … <year>" phrasing is unique to the PMC
  * boilerplate; a real reference never carries it. Keyed on that signature, never on
- * paper identity. (scimeto-iterate 2026-06-25, ieee_access_2 — R-0177 audit.)
+ * paper identity. (the platform's hardening workflow 2026-06-25, ieee_access_2 — R-0177 audit.)
  */
 function looksLikePmcManuscriptHeader(raw: string): boolean {
   return /\bauthor manuscript\b[^.]*\bavailable in pmc\b/i.test((raw ?? '').trim());
@@ -736,7 +736,7 @@ function looksLikePmcManuscriptHeader(raw: string): boolean {
  * — it BEGINS with the editor list (no leading "Author. Year. ChapterTitle.") and has
  * no chapter title of its own. citelink keys it as a phantom author+year reference.
  * Reject an entry whose author segment runs straight into "(Eds.),"/"(Ed.)," with no
- * preceding title and no DOI/URL. (scimeto-iterate cycle 7, amp_1 — the
+ * preceding title and no DOI/URL. (the platform's hardening workflow cycle 7, amp_1 — the
  * "Baruch … (Eds.), Opening the black box of editorship … 2024" phantom split off the
  * Feldman 2008 chapter by a docpluck page-footer "2024"; R-0177 Sonnet re-audit.)
  */
@@ -765,7 +765,7 @@ function looksLikeOrphanedEditorList(ref: ParsedReference): boolean {
  * it scored as title-drift against the gold (whose title is the org-name "Website."
  * text before the URL). Reconstruct the title from the raw reference text up to the
  * URL/DOI (dropping a leading list number), leaving the URL in `ref.url`. No-op
- * unless the title is URL-only. (scimeto-iterate R-0177 audit 2026-06-26 —
+ * unless the title is URL-only. (the platform's hardening workflow R-0177 audit 2026-06-26 —
  * nat_comms_2 ISARIC4C ref #47.)
  */
 function repairUrlOnlyTitle(ref: ParsedReference): ParsedReference {
@@ -1357,7 +1357,7 @@ function getAuthorYearSplitRegex(style?: CitationStyleType): RegExp {
  * newline-separated, so a few run-on lines survive intact and only the first
  * reference on the line is parsed — every later citation to the swallowed entries
  * then fails to match (chan_feldman_2025_cogemo: McCullough et al. cited 64×,
- * 0 matched, against docpluck-academic text — scimeto-iterate 2026-06-07b).
+ * 0 matched, against docpluck-academic text — the platform's hardening workflow 2026-06-07b).
  *
  * Splits ONLY on the unambiguous APA entry opener: an author list
  * (Surname, Initials[, coauthors / & coauthor / et al.]) ending in a parenthetical
@@ -1377,7 +1377,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // DOI/URL-terminated previous reference is swallowed (chan_feldman: "…309601282
   // Hoffman, Martin L. (1981). …" lost the Hoffman entry into the Hittner reference).
   // The trailing `(year).`/`(year),` closer (see `opener` below) keeps this from
-  // over-matching a mid-title "Word, Word". (scimeto-iterate cycle 7 — R-0177
+  // over-matching a mid-title "Word, Word". (the platform's hardening workflow cycle 7 — R-0177
   // chan deep audit.)
   const givenName = `(?:[A-Z]\\.(?:[-\\s]?[A-Z]\\.)*|[A-ZÀ-Ÿ][a-zà-ÿā-ž]+(?:\\s+[A-Z]\\.)*)`;
   const author =
@@ -1388,7 +1388,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // ("Munafò, M. R., Nosek, B. A., …, Ioannidis, J. P. (2017)."). Without the
   // ellipsis alternative, `personalList` stops at the "…", the opener never reaches
   // "(2017)", and the whole entry is swallowed into the previous reference
-  // (chen_2021_jesp: Munafò 2017 lost into Müller 2007; scimeto-iterate
+  // (chen_2021_jesp: Munafò 2017 lost into Müller 2007; the platform's hardening workflow
   // 2026-06-25 — TC-6).
   // The ellipsis is matched as the "…" glyph ONLY — docpluck emits the real U+2026
   // glyph for APA-7 truncation (verified across the corpus), and a literal "..."
@@ -1399,7 +1399,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // Team", "... Collaboration") — these have no "Surname, Initials" shape, so the
   // personal-author boundary misses a concatenated org entry ("…doi… JASP Team.
   // (2023).") and it gets swallowed into the previous reference.
-  // (scimeto-iterate 2026-06-07e — O4.)
+  // (the platform's hardening workflow 2026-06-07e — O4.)
   const orgAuthor =
     `[A-ZÀ-Ÿ][\\wÀ-ÿ&''.\\- ]*?\\b(?:Team|Group|Collaboration|Consortium|Network|Initiative|Project|Foundation|Association|Society|Research|REsearch)\\b\\.?`;
   // Parenthetical-acronym organizational author: "Collaborative Open-science
@@ -1408,7 +1408,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // and the entry is swallowed into the previous reference (xiao_2021: the CORE
   // (2020) entry lost into Cohen 1988, 73 refs vs 74 gold). A capitalized leading
   // run (incl. hyphen compounds "Open-science") followed by "(ACRONYM)." right
-  // before the "(year)" is a distinctive org-author opener. (scimeto-iterate
+  // before the "(year)" is a distinctive org-author opener. (the platform's hardening workflow
   // R-0177 audit 2026-06-26 — xiao_2021 CORE.)
   // The leading run is word/&/hyphen characters joined by SINGLE spaces only — it
   // must NOT cross a ". " sentence boundary, or it greedily spans the previous
@@ -1425,7 +1425,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // gets swallowed into the previous reference (chen_2021_jesp: "…443-490. KNAW: Royal
   // Dutch Academy of Arts and Sciences. (2018). Replication studies:…" lost the KNAW
   // 2018 entry into the Sowden 2018 reference). The name run is non-greedy up to the
-  // terminal period before "(year)". (scimeto-iterate 2026-06-25, chen — R-0177.)
+  // terminal period before "(year)". (the platform's hardening workflow 2026-06-25, chen — R-0177.)
   const acronymOrgAuthor = `[A-ZÀ-Ÿ]{2,}:\\s+[A-ZÀ-Ÿ][\\wÀ-ÿ&''.\\- ]*?\\.`;
   // A new reference opens with a personal / organizational author list immediately
   // followed by "(year).". Find every such opener that begins after whitespace, then
@@ -1439,7 +1439,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
   // ("…statistical analysis. Open Science Collaboration. (2015) Estimating the
   // reproducibility…": the OSC entry, concatenated onto an Olkin book chapter with no
   // period after "(2015)", was mis-split so the editor "In J. C. Stanley (Ed.)" became
-  // the next author). (scimeto-iterate 2026-06-25, chan_feldman — R-0177 audit.)
+  // the next author). (the platform's hardening workflow 2026-06-25, chan_feldman — R-0177 audit.)
   const yearClose = `\\((?:19|20)\\d{2}[a-z]?\\)`;
   const opener = new RegExp(
     `(\\s+)(?=(?:${personalList}\\s*${yearClose}[.,]` +
@@ -1467,7 +1467,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
     //     INSIDE an author list (preceded by ',' '&' or an 'and'/initial connector),
     //     which would orphan the real first author onto the previous reference.
     //     The strong opener lookahead (full author list + "(year).") is the primary
-    //     false-positive guard. (scimeto-iterate 2026-06-08c — O1 root.)
+    //     false-positive guard. (the platform's hardening workflow 2026-06-08c — O1 root.)
     const prevToken = (before.match(/(\S+)\s*$/) || [])[1] || '';
     // The reference being closed must END at this boundary with a URL/DOI — not
     // merely contain one earlier. A URL far back with author tokens between it and
@@ -1493,7 +1493,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
       // word ("Open"), surviving as a spurious "Science Collaboration" entry while the
       // 5-char "Open " head is filtered as too short. Reject any candidate that opens
       // the SAME year-paren as the previously accepted boundary — keep the leftmost
-      // (full-name) opener only. (scimeto-iterate R-0177 audit 2026-06-26 —
+      // (full-name) opener only. (the platform's hardening workflow R-0177 audit 2026-06-26 —
       // xiao_2021 Open Science Collaboration.)
       const yearAfter = block.slice(pos).search(/\((?:19|20)\d{2}[a-z]?\)/);
       const yearPos = yearAfter >= 0 ? pos + yearAfter : -1;
@@ -1527,7 +1527,7 @@ export function splitConcatenatedApaReferences(block: string): string[] {
  * (bjps_1: 9 globs of 109 refs, refs.f1 0.051). The APA splitter cannot help:
  * its opener requires `Surname, A.` (comma after surname + period initials),
  * which Harvard's `Adler D and Ansell B (2020)` / `Algan Y et al. (2017)` /
- * `Betz H-G (1993)` never have. (scimeto-iterate 2026-06-12 — bjps_1.)
+ * `Betz H-G (1993)` never have. (the platform's hardening workflow 2026-06-12 — bjps_1.)
  *
  * A new Harvard entry opens with an author list (`Surname Initials`, no comma,
  * no period after the initials, possibly hyphenated initials "H-G", joined by
@@ -1612,7 +1612,7 @@ export function splitConcatenatedHarvardReferences(block: string): string[] {
  * line ("Egghe, L. 2006. …131-152. Elsevier. 2016. CiteScore…"), neither
  * existing splitter fires and the second+ entries are swallowed into the first
  * (amp_1: Elsevier 2016/2021 lost into Egghe; van Raan 2006 lost into the
- * preceding entry). (scimeto-iterate 2026-06-25 — TC-1/TC-2.)
+ * preceding entry). (the platform's hardening workflow 2026-06-25 — TC-1/TC-2.)
  *
  * A new AOM entry opens with one of:
  *   • a personal author list (`Surname, I. I.`, particles allowed, joined by
@@ -1625,7 +1625,7 @@ export function splitConcatenatedHarvardReferences(block: string): string[] {
  * URL/DOI, and never inside an author list), so a clean one-per-line AOM section
  * is untouched. Blast radius is AOM-only: the multi-entry-per-line pattern does
  * not occur in any APA/Vancouver/IEEE/Nature/Harvard fixture (measured
- * 2026-06-25 across the full scimeto corpus).
+ * 2026-06-25 across the full Scimeto corpus).
  */
 export function splitConcatenatedAomReferences(block: string): string[] {
   if (block.length < 120) return [block];
@@ -1638,7 +1638,7 @@ export function splitConcatenatedAomReferences(block: string): string[] {
   // mid-word in the corpus (0 inline `\w\*\w` across every fixture), so it is
   // unambiguously a boundary artifact: drop a ` *`-style marker to a plain space so
   // the existing splitter sees the real `Author Year. Title` boundary.
-  // (scimeto-iterate cycle 7, annals_2 — the Aguinis & Vandenberg 2014
+  // (the platform's hardening workflow cycle 7, annals_2 — the Aguinis & Vandenberg 2014
   // "An ounce of prevention" entry and ~65 other ` *Surname,` boundaries.)
   block = block.replace(/\s\*(?=[A-ZÀ-Ÿ])/g, ' ');
   const particle = REF_SPLIT_PARTICLE;
@@ -1661,7 +1661,7 @@ export function splitConcatenatedAomReferences(block: string): string[] {
   // reference could not open an entry, so annals_3's two concatenated
   // "Merriam-Webster. n.d.a. System. …" / "n.d.b. Transaction. …" dictionary
   // entries were swallowed into the preceding Maula 2023 reference and neither
-  // was ever parsed. (scimeto-iterate 2026-08-04, annals_3.)
+  // was ever parsed. (the platform's hardening workflow 2026-08-04, annals_3.)
   const dateToken = `(?:(?:19|20)\\d{2}[a-z]?|n\\.\\s?d\\.(?:[a-z])?)\\.`;
   const opener = new RegExp(
     `(\\s+)(?=(?:${personalList}|${orgAuthor})\\s+${dateToken}\\s+[A-ZÀ-Ÿ0-9“”"'‘’#])`,
@@ -1693,7 +1693,7 @@ export function splitConcatenatedAomReferences(block: string): string[] {
     // whitespace between a particle and its surname ("van| Raan, A. F. 2006."),
     // which would orphan the particle onto the previous reference and key the
     // author as "Raan" instead of "van Raan". The correct boundary (before "van")
-    // is matched separately and kept. (scimeto-iterate 2026-06-25 — TC-2:
+    // is matched separately and kept. (the platform's hardening workflow 2026-06-25 — TC-2:
     // "van Raan" was being split to "Raan" when it followed a URL-terminated ref.)
     const orphansParticle =
       /^(?:van|von|de[lnr]?|di|du|da|dos|das|la|le|el|al|ten|bin|abd|abu|della|van't)$/i.test(prevToken);
@@ -1729,7 +1729,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
   // …Caselli M et al. (2020)…"), which then defeats the per-block Harvard
   // splitter. When the section is Harvard-family AND clearly run-on (few
   // newlines per "(year)" marker), split the whole section with the purpose-built
-  // Harvard splitter up front and use that result directly. (scimeto-iterate
+  // Harvard splitter up front and use that result directly. (the platform's hardening workflow
   // 2026-06-12 — bjps_1: 9→~107 refs, refs.f1 0.05→~0.97.)
   if (style && ['harvard', 'asa', 'chicago-ad', 'aom'].includes(style)) {
     const yearMarkers = (section.match(/\((?:19|20)\d{2}[a-z]?\)/g) || []).length;
@@ -1752,7 +1752,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
   // inside an entry — e.g. IEEE ref [17] "…The Petri Net Approach, vol.\n16. Cham,
   // Switzerland: Springer, 2010." — and the bare-"N." / digit-glued alternatives
   // would FALSE-split it at "16. Cham", spawning a phantom author-less reference
-  // and a duplicate listNumber (ieee_access_2; scimeto-iterate 2026-06-10).
+  // and a duplicate listNumber (ieee_access_2; the platform's hardening workflow 2026-06-10).
   // Only treat the list as bracket-numbered when brackets clearly dominate, so
   // bare-numbered lists with a stray "[12]" inside an entry (plos_med_1: 4
   // brackets vs 33 bare markers) keep their full splitter.
@@ -1803,7 +1803,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     //
     // Requiring a following `, Initial.` keeps this tight: an ordinary two-word
     // sentence fragment wrapping onto a continuation line does not match, so genuine
-    // continuation lines are still joined. (scimeto-iterate 2026-08-04, annals_1
+    // continuation lines are still joined. (the platform's hardening workflow 2026-08-04, annals_1
     // — R-0177 Sonnet audit, "Strohkorb Sebo".)
     const compoundSurnameNoParticle =
       `[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,\\s*[A-Z]\\.`;
@@ -1819,7 +1819,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
       // the spelled-out name), so the WHO-style "ACRONYM. (year)" alternative
       // above misses it and the entry gets merged into the previous reference.
       // An all-caps acronym + colon + a capitalized word at line start is a
-      // distinctive org-author reference opener. (scimeto-iterate session
+      // distinctive org-author reference opener. (the platform's hardening workflow session
       // 2026-06-07b cycle 5; surfaced on chen_2021_jesp "KNAW: …".)
       `|^(?:\\*\\s*)?[A-ZÀ-Ÿ]{2,}:\\s+[A-ZÀ-Ÿ]`
     );
@@ -1918,7 +1918,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     // journal name with an internal period ("Proceedings of the royal society of
     // london. Series A, …") otherwise reads as sentence-end + "Series A," →
     // "Surname A," and FALSE-split the entry at its journal name, orphaning the
-    // tail and its year (ieee_access_2 Kermack [22] 1927 — scimeto-iterate
+    // tail and its year (ieee_access_2 Kermack [22] 1927 — the platform's hardening workflow
     // cycle 6). For such blocks, only split where a "[N]" marker actually begins.
     // (Bare-numbered Vancouver run-ons with no brackets — "…J Foo. 2019. Brown KL,
     // …" — still split on the author pattern below; they have no marker to anchor.)
@@ -1959,7 +1959,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     // dropped the (yearless) author+title half, leaving the journal as an
     // author-less reference (plos Cornelissen #9, Munro #25). Requiring [,.]
     // after the initials keeps every real "Smith JA," / "Smith JA. Title" start.
-    // (scimeto-iterate 2026-06-07e — O1-residual.)
+    // (the platform's hardening workflow 2026-06-07e — O1-residual.)
     const refStartPattern = /^[A-ZÀ-Ÿ][\wà-ÿā-ž'-]+(?:,\s+[A-Z](?:\.|[a-zà-ÿā-ž]{1,20}|,)|\s+[A-Z]{1,3}[,.])/;
     // A numbered (IEEE/Vancouver) reference's conference/journal info embeds a
     // capitalized word followed by a publication month + year — e.g. the venue
@@ -1970,7 +1970,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     // also shifted every later numeric index, mis-matching [16]/[17]). A real
     // "Surname, Firstname … year" reference start never names a MONTH as the
     // first name. Reject any candidate whose word after the comma is a month
-    // (full or abbreviated). (scimeto-iterate 2026-06-10 — ieee_access_2.)
+    // (full or abbreviated). (the platform's hardening workflow 2026-06-10 — ieee_access_2.)
     // "Surname, Month <digits>" is a publication DATE ("Control, Apr. 2015"),
     // not a "Surname, Firstname" reference start. The trailing \d (a day or year
     // right after the month) is what tells a date from a real first name that
@@ -1988,7 +1988,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
     // its title, orphaning "Baccini (2021)" with an empty title and a phantom
     // "Austerity ()" entry. Requiring a parenthetical "(year)" close to the candidate
     // start (the Harvard author→year shape) rejects the title-phrase false positive
-    // while every real Harvard opener still qualifies. (scimeto-iterate R-0177
+    // while every real Harvard opener still qualifies. (the platform's hardening workflow R-0177
     // audit 2026-06-26 — bjps_1 Baccini/Sattler + Foster/Frieden.)
     const isHarvardFamily =
       style !== undefined && ['harvard', 'asa', 'chicago-ad', 'aom'].includes(style);
@@ -2094,7 +2094,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
   // mega-references. Apply the Harvard splitter for Harvard-family author-year
   // styles only — its no-comma/no-period opener would not match a clean APA
   // "Surname, A. (year)." entry, but gating keeps the blast radius minimal.
-  // (scimeto-iterate 2026-06-12 — bjps_1: 9→~105 refs, refs.f1 0.05→~0.8.)
+  // (the platform's hardening workflow 2026-06-12 — bjps_1: 9→~105 refs, refs.f1 0.05→~0.8.)
   if (style && ['harvard', 'asa', 'chicago-ad', 'aom'].includes(style)) {
     refinedRefs = refinedRefs.flatMap(splitConcatenatedHarvardReferences);
   }
@@ -2103,7 +2103,7 @@ function splitIntoReferences(refSection: string, style?: CitationStyleType): str
   // which require a parenthesized "(year)". docpluck leaves 2-3 AOM entries on
   // one line; this bare-year splitter recovers them. AOM-only gating keeps the
   // blast radius at zero for every other style (measured: the multi-entry-line
-  // pattern occurs only in AOM fixtures). (scimeto-iterate 2026-06-25 —
+  // pattern occurs only in AOM fixtures). (the platform's hardening workflow 2026-06-25 —
   // TC-1/TC-2: amp_1 Elsevier 2016/2021 + van Raan 2006.)
   if (style === 'aom') {
     refinedRefs = refinedRefs.flatMap(splitConcatenatedAomReferences);
@@ -2295,7 +2295,7 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
   // the author field (the author/title split is anchored on the year position), so
   // the reference parses with a nonsense author and an empty title. The n.d. marker
   // is the actual date token and sits before the access note.
-  // (scimeto-iterate 2026-08-04, annals_3.)
+  // (the platform's hardening workflow 2026-08-04, annals_3.)
   const ndEarly = cleanedText.match(/\bn\.\s?d\.(?:([a-z])\.)?/);
   if (ndEarly && ndEarly.index !== undefined &&
       (!yearMatch || yearMatch.index === undefined || ndEarly.index < yearMatch.index)) {
@@ -2346,7 +2346,7 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
       // and the title comes out EMPTY. Synthesize a yearMatch positioned so that
       // `index + [0].length` lands immediately AFTER the year token, so `afterYear`
       // (the title section) and `authorSection` resolve correctly.
-      // (scimeto-iterate cycle 7, amp_1 Diamond 1986 — TC-A.)
+      // (the platform's hardening workflow cycle 7, amp_1 Diamond 1986 — TC-A.)
       if (!yearMatch && bareYearMatch.index !== undefined) {
         const yearTok = bareYearMatch[1] + (bareYearMatch[2] || '');
         const yearStart = cleanedText.indexOf(yearTok, bareYearMatch.index);
@@ -2366,7 +2366,7 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
         // Same gating fix as the bare-year branch: synthesize a yearMatch anchored
         // at the END of "in press" so the title section is extracted. Without this,
         // `Grand, … in press. A systems-based approach to fostering robust science…`
-        // parses with an EMPTY title. (scimeto-iterate cycle 7, annals_2 — TC-C.)
+        // parses with an EMPTY title. (the platform's hardening workflow cycle 7, annals_2 — TC-C.)
         if (!yearMatch) {
           const synthMatch = [inPressMatch[0], 'in press'] as unknown as RegExpMatchArray;
           synthMatch.index = inPressMatch.index;
@@ -2385,7 +2385,7 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
     // The author is the ACRONYM ("KNAW") — that is how it is cited in-text
     // ("(KNAW, 2018)") and how the reference key must read to match. Parsing the
     // whole spelled-out name as the surname produces a key nothing matches.
-    // (scimeto-iterate session 2026-06-07b cycle 5.)
+    // (the platform's hardening workflow session 2026-06-07b cycle 5.)
     const acronymOrg = authorSection.match(/^([A-ZÀ-Ÿ]{2,}):\s+[A-ZÀ-Ÿ]/);
     if (acronymOrg) {
       ref.authors = [{
@@ -2469,7 +2469,7 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
     // single-word branch below, which has a prose guard, because "March." is also
     // a legitimate one-word title ("Author. 2023. March. Journal of Applied
     // Psychology.") and stripping it unconditionally promoted the journal to the
-    // title. (scimeto-iterate 2026-08-04, amd_1.)
+    // title. (the platform's hardening workflow 2026-08-04, amd_1.)
     const titleSection = afterYear
       .replace(/^[.,\s]+/, '')
       .replace(REF_LEADING_FULL_DATE, '');
@@ -2490,7 +2490,7 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
     // prefix, skip it and re-anchor on the NEXT sentence period so the real title
     // survives. Slicing still starts at 0, so the prefix stays part of the title;
     // a rare false match merely extends the title, never truncates it.
-    // (scimeto-iterate 2026-06-08.)
+    // (the platform's hardening workflow 2026-06-08.)
     if (sentenceEnd > 0) {
       const head = titleSection.slice(0, sentenceEnd + 1).trim();
       if (/^(?:[IVXLCDM]{1,6}|(?:Pt|Vol|No|Ch|Sec|Bk|Part)\.?\s*\d*)\.$/i.test(head)) {
@@ -2509,7 +2509,7 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
         // (≥3 lowercase words), so a real one-word title followed by a journal or
         // a Place: Publisher ("Leadership. New York: Harper & Row.",
         // "Forgiveness. Annual Review of Psychology, 56, 1-10.") is NOT extended
-        // into the source/publisher. (scimeto-iterate 2026-06-25, chen audit.)
+        // into the source/publisher. (the platform's hardening workflow 2026-06-25, chen audit.)
         const rest = titleSection.slice(sentenceEnd + 1);
         let nextEnd = rest.search(/\.(?:\s|$)/);
         if (nextEnd < 0) nextEnd = rest.search(/[?!](?:\s|$)/);
@@ -3195,7 +3195,7 @@ function parseNoCommaFullNameAuthors(authorSection: string): ParsedReferenceAuth
  * orphan punctuation/whitespace is stripped here.
  *
  * Handles three shapes the naive `indexOf('.')` mis-parsed on AOM references
- * (scimeto-iterate cycle 7, amp_1 + annals_2 Sonnet audit):
+ * (the platform's hardening workflow cycle 7, amp_1 + annals_2 Sonnet audit):
  *  - Quoted phrase that is only PART of the title: `"An A is an A": The new bottom
  *    line for valuing academic research.` — the quote is not the whole title, so do
  *    NOT stop at the closing quote; fall through to the sentence-period anchor.
@@ -3271,7 +3271,7 @@ function parseBareYearReference(cleanedText: string, listNumber?: number, style?
     // "Van Iddekinge" as lastName="Van" firstName="Iddekinge" (dropping the real
     // surname). `van Aken` (lowercase tussenvoegsel) already parsed correctly because
     // its first word starts lowercase and never matched `^[A-Z]…`; the capitalized
-    // "Van X" was the gap. (scimeto-iterate cycle 7, annals_2 — R-0177 Sonnet
+    // "Van X" was the gap. (the platform's hardening workflow cycle 7, annals_2 — R-0177 Sonnet
     // audit; "Van Iddekinge" → "Van".)
     // "Ben" added 2026-07-04 (R-0177 annals_1 audit): without it, "Ben Mimoun, M. S."
     // fails the has-comma test (Ben+space, not Ben+comma), so hasNoCommaFullNames fires
@@ -3307,7 +3307,7 @@ function parseBareYearReference(cleanedText: string, listNumber?: number, style?
     // Distinguishing signal: the two capitalized words are IMMEDIATELY followed by
     // a comma + initials. A real no-comma ASA list ("Anderson Kaitlin P., Allard
     // Brian") has a full given NAME there, not initials, so it still routes to the
-    // no-comma parser. (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet
+    // no-comma parser. (the platform's hardening workflow 2026-08-04, annals_1 — R-0177 Sonnet
     // audit; same class as the Van Iddekinge / Ben Mimoun particle fixes above, for
     // a compound surname with NO particle to key on.)
     const compoundSurnameThenInitials =

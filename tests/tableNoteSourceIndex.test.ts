@@ -3,7 +3,7 @@ import { detectCitations } from '../src/citationDetector';
 
 /**
  * Regression: a numbered TABLE-NOTE SOURCE CATALOGUE was harvested as in-text
- * citations (scimeto-iterate 2026-08-04, surfaced on annals_2 =
+ * citations (the platform's hardening workflow 2026-08-04, surfaced on annals_2 =
  * 10.5465/annals.2016.0011).
  *
  * Academy of Management Annals tables carry a footnote listing every source

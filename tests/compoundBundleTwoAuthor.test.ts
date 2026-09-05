@@ -3,7 +3,7 @@
  * ("Van Nuland", "De Bruin", "van der Berg") must be detected when it appears
  * as a secondary entry inside a semicolon bundle.
  *
- * scimeto-iterate cycle 22. The standalone two-author parenthetical
+ * the platform's hardening workflow cycle 22. The standalone two-author parenthetical
  * pattern already used COMPOUND_SURNAME, but the anchored bundle-fragment
  * two-author pattern (the one that scores each ';'-split fragment) used the
  * particle-less SURNAME_LASTNAME, so "(…; Hom Jr & Van Nuland, 2019; …)" lost

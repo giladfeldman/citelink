@@ -4,7 +4,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: a parenthesized PREFERRED-NAME aside inside an author list broke BOTH the
- * citation detector and the reference parser (scimeto-iterate 2026-08-04, annals_1 —
+ * citation detector and the reference parser (the platform's hardening workflow 2026-08-04, annals_1 —
  * R-0177 Sonnet canary audit; open finding #1 in the 2026-07-04 handoff).
  *
  * Some authors publish under a given name that differs from their legal first name, and

@@ -4,7 +4,7 @@
  * must detect every citation in the bundle — not just the ones that don't
  * follow a signal phrase.
  *
- * scimeto-iterate cycle 9 — the gate-enhancement (cycle 6) diagnostics
+ * the platform's hardening workflow cycle 9 — the gate-enhancement (cycle 6) diagnostics
  * surfaced ~15 missed citations in chan_feldman_2025_cogemo of the form
  * "(e.g. Enright & Coyle, 1998; ...)", "(i.e. Dunn & Clark, 1969; ...)" —
  * the first item of every signal-phrased bundle was silently dropped because
@@ -81,7 +81,7 @@ describe('multi-citation: signal-phrase prefix + CamelCase inside ()', () => {
     expect(md).toBeDefined();
   });
 
-  // scimeto-iterate 2026-06-08c (O2) — review/recency lead-in phrases.
+  // the platform's hardening workflow 2026-06-08c (O2) — review/recency lead-in phrases.
   it('detects a single parenthetical with a "most recently, in" lead-in', () => {
     // collabra_90203 L1176: "(most recently, in Mayiwar et al., 2023)" detected
     // nothing — the lead-in blocked the et-al parenthetical pattern.

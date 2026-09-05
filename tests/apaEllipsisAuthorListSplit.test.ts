@@ -6,7 +6,7 @@ import {
 
 /**
  * Regression: APA-7 ellipsis author list ("…, Last, I.") defeated the
- * concatenated-reference splitter (scimeto-iterate 2026-06-25, chen — TC-6).
+ * concatenated-reference splitter (the platform's hardening workflow 2026-06-25, chen — TC-6).
  *
  * APA 7 truncates a 21+ author reference as "first 19 authors, …, final author":
  * "Munafò, M. R., Nosek, B. A., …, Ioannidis, J. P. (2017).". The concatenation

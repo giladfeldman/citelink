@@ -2,7 +2,7 @@
  * Regression: Vancouver / IEEE "X and Y" author connector + year-range
  * validation in parseVancouverReference.
  *
- * scimeto-iterate cycle 3 — on ieee_access_2 (style detected as
+ * the platform's hardening workflow cycle 3 — on ieee_access_2 (style detected as
  * vancouver), strict refF1 was stuck at 0.676 with five gold refs
  * unrecoverable. Two distinct defect classes, both in parseVancouverReference:
  *

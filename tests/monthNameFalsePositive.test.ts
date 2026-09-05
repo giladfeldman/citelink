@@ -2,7 +2,7 @@
  * Regression: parenthetical patterns like "(January 2023)" or "(April, 2023)"
  * are date references, not author citations.
  *
- * scimeto-iterate cycle 11 — chan_feldman_2025_cogemo body has phrases
+ * the platform's hardening workflow cycle 11 — chan_feldman_2025_cogemo body has phrases
  * like "At the time of writing (January 2023)" and "(April 2023)" which
  * citelink mis-detected as `january|2023` / `april|2023` author citations.
  * Filter via isMonthName(captured-author).

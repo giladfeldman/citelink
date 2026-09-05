@@ -3,7 +3,7 @@
  * "Special dates (n.d., in press)" since it was written, and the code delivered
  * `in press` in exactly ONE of eight citation shapes.
  *
- * scimeto-iterate cycle 9 (2026-09-01). Measured with an 8 shapes x 5
+ * the platform's hardening workflow cycle 9 (2026-09-01). Measured with an 8 shapes x 5
  * year-forms matrix (`tmp/iterate-cycle9/probe-nonnumeric-year.mjs` in
  * Scimeto), before the fix:
  *

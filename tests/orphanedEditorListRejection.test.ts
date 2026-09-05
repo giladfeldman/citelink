@@ -3,7 +3,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: reject an ORPHANED EDITOR LIST emitted as a phantom reference
- * (scimeto-iterate cycle 7, 2026-06-30 — amp_1, R-0177 Sonnet re-audit).
+ * (the platform's hardening workflow cycle 7, 2026-06-30 — amp_1, R-0177 Sonnet re-audit).
  *
  * When docpluck injects a running-header page number mid reference-list, an
  * edited-book-chapter reference can split into two: the real chapter

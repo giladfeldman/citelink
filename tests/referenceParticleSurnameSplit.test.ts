@@ -16,7 +16,7 @@ import { parseReferences } from '../src/referenceParser';
  * Effect: citelink parsed 0 (or mis-keyed) "Ben Mimoun" references, so the gold's
  * two Ben Mimoun entries never matched AND the 6+ in-text "Ben Mimoun et al."
  * citations went unmatched (cascade). Surfaced by the R-0177 Sonnet canary audit on
- * annals_1 (Glikson & Woolley, "Human Trust in AI"), scimeto-iterate 2026-07-04.
+ * annals_1 (Glikson & Woolley, "Human Trust in AI"), the platform's hardening workflow 2026-07-04.
  *
  * Fix: one shared `REF_SPLIT_PARTICLE` constant + "Ben"/"Bin"/"Ibn"/"Ter" added to
  * `particleAlt` and `capParticle`, all kept in sync with COMPOUND_SURNAME. annals_1

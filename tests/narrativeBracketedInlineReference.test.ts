@@ -4,7 +4,7 @@ import { detectCitations } from '../src/citationDetector';
 /**
  * Regression: a narrative et-al citation whose FULL reference is spelled out inline
  * in square brackets — "McCullough et al. [McCullough, M. E., … (1997). … 321-336.]"
- * — must be detected, keyed to the first year inside the bracket (scimeto-iterate
+ * — must be detected, keyed to the first year inside the bracket (the platform's hardening workflow
  * cycle 8, 2026-07-02 — chan_feldman_2025_cogemo, TC-J, R-0177 Sonnet deep audit).
  *
  * An unusual form (chan's abstract spells out the two McCullough references inline).

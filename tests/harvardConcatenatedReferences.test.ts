@@ -5,7 +5,7 @@ import {
 } from '../src/referenceParser';
 
 /**
- * Regression: Harvard run-on reference lists (scimeto-iterate 2026-06-12, bjps_1).
+ * Regression: Harvard run-on reference lists (the platform's hardening workflow 2026-06-12, bjps_1).
  *
  * docpluck's academic normalization flows the reference SECTION of Harvard-style
  * papers into ONE paragraph (it keeps per-entry newlines for APA, but joins

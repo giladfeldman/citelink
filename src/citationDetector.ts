@@ -76,7 +76,7 @@ const ORGANIZATION_ABBREVIATIONS: Record<string, string[]> = {
   'IMF': ['International Monetary Fund'],
   'WTO': ['World Trade Organization'],
   // Statistical-software org authors cited as the tool acronym ("JASP Team" → cited
-  // in-text as "JASP (2023)"). (scimeto-iterate cycle 7, collabra — R-0177.)
+  // in-text as "JASP (2023)"). (the platform's hardening workflow cycle 7, collabra — R-0177.)
   'JASP': ['JASP Team'],
 };
 
@@ -104,7 +104,7 @@ const ORGANIZATION_ABBREVIATIONS: Record<string, string[]> = {
 // bare last token "Cenydd" and DROPPED the five preceding authors, so the
 // citation never matched its reference (whose positional `Lastname, Initials`
 // parse had kept "Ap Cenydd" whole all along — the asymmetry was the bug).
-// scimeto-iterate 2026-08-04, R-0177 Sonnet audit on annals_1.
+// the platform's hardening workflow 2026-08-04, R-0177 Sonnet audit on annals_1.
 const SURNAME_PARTICLE =
   "(?:[Vv]an['’]t|[Vv]an['’]s|['’]t|['’]s|[Dd]e|[Dd]el|[Dd]ella|[Dd]ello|[Dd]er|[Dd]en|[Dd]es|[Dd]i|[Dd]u|[Dd]a|[Dd]al|[Dd]alla|[Dd]ei|[Dd]egli|[Dd]elle|[Dd]os|[Dd]as|[Ee]l|[Aa]f|[Aa]v|[Ll]a|[Ll]e|[Ll]os|[Ll]as|[Tt]en|[Tt]er|[Vv]an|[Vv]on|[Yy]|[Zz]u|[Zz]ur|[Aa]l|[Aa]p|[Aa]b|[Bb]en|[Bb]in|[Ii]bn|[Aa]bu|[Ss]t|[Ss]aint)";
 // SURNAME_LASTNAME allows ONE embedded uppercase letter to admit CamelCase
@@ -153,7 +153,7 @@ const SURNAME_LASTNAME =
 // "(Ed)" otherwise reads as a preferred name. (The reference-side twin of this
 // oversight manufactured a spurious "Aguinis 2004" reference in annals_4; see
 // parseAuthorsFromSection.)
-// (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit, Fox 2015.)
+// (the platform's hardening workflow 2026-08-04, annals_1 — R-0177 Sonnet audit, Fox 2015.)
 // Spelled-out role words are listed alongside the abbreviations — excluding only
 // "Ed"/"Eds" leaves the same hazard open for any journal that writes "(Editor)".
 // (codex cross-model review 2026-08-04.)
@@ -169,7 +169,7 @@ const PREFERRED_NAME_ASIDE =
 // a first author of "As Smith", regressing every narrative citation that opens a
 // sentence. That control is asserted in tests/capitalizedSurnameParticle.test.ts.
 //
-// Why it had to be ported (scimeto-iterate cycle 9, 2026-09-02): the SAME
+// Why it had to be ported (the platform's hardening workflow cycle 9, 2026-09-02): the SAME
 // string parsed two different ways depending on which detector the style dispatch
 // had chosen -- detectHarvardCitations returned "Barros + Santos Silva" and
 // detectCitations returned "Silva", dropping the first author entirely. One
@@ -204,7 +204,7 @@ const SIGNAL_PREFIX =
   // 2017)" lost the 2nd citation: the ";"-split segment began with this prose and
   // the existing "see(also)?" branch did not consume the "interview in" tail, so
   // the author position never reached "Klein". Bounded to 30 non-comma/semicolon/
-  // paren chars. (scimeto-iterate 2026-06-25, chen — R-0177 Sonnet audit.)
+  // paren chars. (the platform's hardening workflow 2026-06-25, chen — R-0177 Sonnet audit.)
   '|(?:also\\s+)?see\\s+[^,;()]{0,30}?\\s+in)\\s+';
 // Optional initial(s) prefix on a surname: "S. Lee" / "M. D. Lee" — used to
 // disambiguate co-authors who share a surname. Period is REQUIRED after each
@@ -238,7 +238,7 @@ const ORG_CAP_TOKEN = "[A-Z][\\w.'’\\-]*";
 // singleParenthetical then matched the TRAILING token as an ordinary surname --
 // annals_2's "(Journal of Applied Psychology, 2017)" was reported as
 // "(Psychology, 2017)", a WRONG author rather than a missing one, which resolves
-// to the wrong reference or to none. (scimeto-iterate cycle 9, 2026-09-01.)
+// to the wrong reference or to none. (the platform's hardening workflow cycle 9, 2026-09-01.)
 //
 // "and" and "&" are deliberately ABSENT and must stay absent: admitting either
 // would let a two-author citation "(Smith and Jones, 2020)" be swallowed whole as
@@ -265,7 +265,7 @@ const ORG_AUTHOR = `${ORG_CAP_TOKEN}(?:\\s+(?:${ORG_FUNCTION_WORD}\\s+)?${ORG_CA
 // Every narrative pattern anchors on the closing paren immediately after the
 // year, so an untolerated qualifier does not degrade the match - it destroys it.
 //
-// Measured 2026-09-01 across the 18-paper iterate corpus (scimeto-iterate
+// Measured 2026-09-01 across the 18-paper iterate corpus (the platform's hardening workflow
 // cycle 9): the colon form was detected by NONE of the five narrative patterns,
 // and 11 of the 83 remaining in-text recall misses are exactly this shape, in
 // amj_1, annals_2 and annals_3 - 13% of all remaining recall loss from one gap.
@@ -304,7 +304,7 @@ const NARRATIVE_QUALIFIER =
 //   in press       accepted, not published yet
 //
 // This module's header has advertised "Special dates (n.d., in press)" since it
-// was written. Measured 2026-09-01 across 8 citation shapes (scimeto-iterate
+// was written. Measured 2026-09-01 across 8 citation shapes (the platform's hardening workflow
 // cycle 9): "in press" was detected in exactly ONE of them, and "n.d.a"/"n.d.b" in
 // NONE. A citation the library claims to support and silently does not detect is a
 // recall loss with a documentation claim on top of it - the header comment was not
@@ -453,7 +453,7 @@ const CITATION_PATTERNS = {
   // year — "Smith (2020, p. 12)", "Slovic and Fischhoff (1977, Experiment 3)" — is
   // optional and ignored (same `(?:,\s*[^)]+)?` tolerance the et-al narrative already
   // has; without it the closing-paren anchor fails and the citation is missed).
-  // (scimeto-iterate cycle 7, chen — R-0177 Sonnet deep audit.)
+  // (the platform's hardening workflow cycle 7, chen — R-0177 Sonnet deep audit.)
   singleNarrative: new RegExp(
     `\\b(${COMPOUND_SURNAME})\\s+\\((${YEAR_TOKEN})${NARRATIVE_QUALIFIER}\\)`,
     'g',
@@ -466,7 +466,7 @@ const CITATION_PATTERNS = {
   // narrative citations too, and the parenthetical patterns (twoAuthorParenthetical)
   // already accept `&`. Before this, only literal "and" matched, so "Wang &
   // Benbasat (2007)" fell through to singleNarrative and was mis-keyed to the LAST
-  // author ("Benbasat") instead of first-author "Wang" (scimeto-iterate cycle
+  // author ("Benbasat") instead of first-author "Wang" (the platform's hardening workflow cycle
   // 9, annals_1 — a Glikson & Woolley trust-in-AI review that uses "&" narratively
   // throughout: Möhlmann & Zalmanson, Wang & Benbasat, Komiak & Benbasat, …).
   twoAuthorNarrative: new RegExp(
@@ -480,7 +480,7 @@ const CITATION_PATTERNS = {
   // PARTICLE surname is captured whole: "de Visser et al. (2017)", "Ben Mimoun et
   // al. (2012)", "Von Der Pütten et al. (2010)". Before this, SURNAME_LASTNAME
   // dropped the particle and keyed the citation on the last name-part ("visser",
-  // "mimoun", "putten"), so it never matched its reference (scimeto-iterate
+  // "mimoun", "putten"), so it never matched its reference (the platform's hardening workflow
   // cycle 9, annals_1 — Dutch/Arabic/German particle surnames throughout).
   etAlNarrative: new RegExp(
     `\\b(${COMPOUND_SURNAME})\\s+et\\s*\\.?\\s*al\\.?\\s+\\((${YEAR_TOKEN})${NARRATIVE_QUALIFIER}\\)`,
@@ -494,7 +494,7 @@ const CITATION_PATTERNS = {
   // trailing in-paren qualifier (`(?:,\s*[^)]+)?`) that ignores "(1997, p. 12)" /
   // "(2020, Experiment 3)" — but that same tolerance SWALLOWS a genuine second
   // YEAR ("(1997, 1998)"), emitting only the first year and dropping the rest
-  // (scimeto-iterate cycle 7 TC-I, chan McCullough — R-0177 Sonnet audit).
+  // (the platform's hardening workflow cycle 7 TC-I, chan McCullough — R-0177 Sonnet audit).
   // This pattern fires FIRST on a PURE year-list (2+ comma-separated years, no
   // page/note token), emitting one citation per year at a distinct position
   // window (mirroring the parenthetical loop). group 1 = first surname; group 2 =
@@ -506,7 +506,7 @@ const CITATION_PATTERNS = {
   // group 2 = the connector: " et al." | " and/&  <LastSurname>" (with an optional
   //   Oxford comma before the connector, "…, & Gratch") | empty.
   // group 3 = the pure year list (2+ years).
-  // TC-MULTIYEAR-NARRATIVE-MULTIAUTHOR (scimeto-iterate 2026-07-04): before,
+  // TC-MULTIYEAR-NARRATIVE-MULTIAUTHOR (the platform's hardening workflow 2026-07-04): before,
   // group 1 was a SINGLE surname, so "de Melo, Marsella, & Gratch (2016, 2017)" did
   // not match at "de Melo" (the ", Marsella, &…" tail was neither an et-al nor an
   // "and <Surname>" connector) and instead matched at the LAST author "Gratch",
@@ -527,7 +527,7 @@ const CITATION_PATTERNS = {
   //
   // The year carries NO parentheses, so every narrative pattern above (which anchor
   // on `\(year\)`) misses it and the citation was never detected at all — annals_1,
-  // R-0177 Sonnet audit (the "Fox" finding), scimeto-iterate 2026-08-04.
+  // R-0177 Sonnet audit (the "Fox" finding), the platform's hardening workflow 2026-08-04.
   //
   // DELIBERATELY TIGHT, because "Surname, YYYY" in running prose is overwhelmingly
   // NOT a citation. Measured over the 18-paper corpus body text (reference lists
@@ -555,7 +555,7 @@ const CITATION_PATTERNS = {
   // "McCullough et al. [McCullough, M. E., Worthington, E. L., & Rachal, K. C.
   // (1997). Interpersonal Forgiving… 73(2), 321-336.] demonstrated…". An unusual
   // form (a narrative et-al lead-in whose bracket spells out the whole reference)
-  // seen in chan_feldman_2025_cogemo's abstract (TC-J, scimeto-iterate cycle
+  // seen in chan_feldman_2025_cogemo's abstract (TC-J, the platform's hardening workflow cycle
   // 8, R-0177 Sonnet audit). The bracket opener is TIGHTLY anchored — it must begin
   // with an author-list token `Surname, X.` (surname, comma, initial+dot) — so it
   // can never fire on an editorial bracket (`[Note: …]`, `[sic]`), a numeric
@@ -615,7 +615,7 @@ const CITATION_PATTERNS = {
   // consumer gates this on the known-org allowlist (ORGANIZATION_ABBREVIATIONS) so it
   // CANNOT fire on inline technical acronyms like "(SDE)", "(SIR)", "(ODE)" + a year,
   // which is exactly the corpus-wide false-positive risk that kept the bare all-caps
-  // narrative form deferred. (scimeto-iterate cycle 7, collabra JASP — R-0177.)
+  // narrative form deferred. (the platform's hardening workflow cycle 7, collabra JASP — R-0177.)
   narrativeAbbrev: /\b([A-Z]{2,})\s+\((\d{4}[a-z]?|n\.d\.)\)/g,
 
   // Acronym-colon institutional author: (KNAW: Royal Dutch Academy of Arts and
@@ -733,7 +733,7 @@ function parseYear(yearStr: string): { year: string; suffix?: string } {
 
 // Month names — when a parenthetical like "(January 2023)" or "(April, 2023)"
 // is a date reference rather than an author citation, the author-capture
-// patterns mis-detect the month as a single-word lastname. scimeto-
+// patterns mis-detect the month as a single-word lastname. Scimeto-
 // iterate cycle 11 — chan_feldman_2025_cogemo had "(January 2023)" and
 // "(April 2023)" surface as spurious detections after gate enhancement
 // (cycle 6). Filtering the captured first-author against this set drops the
@@ -808,7 +808,7 @@ function isSentenceConnector(str: string): boolean {
 // compound-surname first-author pattern (particle-aware) would otherwise swallow
 // the leading "As" into "As de Visser". Distinct from SENTENCE_CONNECTORS (which
 // guards a whole-string match); this set is consulted only for the FIRST WORD of a
-// multi-word compound capture. (scimeto-iterate cycle 9.)
+// multi-word compound capture. (the platform's hardening workflow cycle 9.)
 const LEADING_NON_NAME_WORDS = new Set([
   'as', 'when', 'while', 'where', 'although', 'though', 'because', 'since', 'if',
   'whereas', 'after', 'before', 'unlike', 'like', 'per', 'following', 'given',
@@ -1031,7 +1031,7 @@ const FORM_FEED_GLUED_YEAR = /\f[^\S\n]*((?:19|20)\d{2}[a-z]?)/g;
  * it is worse still: the member matchers are $-anchored after the year, so the
  * intervening running head made the whole member unmatchable and it was dropped.
  *
- * Measured 2026-09-01 (scimeto-iterate cycle 9): 57 bare-year running-head
+ * Measured 2026-09-01 (the platform's hardening workflow cycle 9): 57 bare-year running-head
  * lines survive docpluck 2.4.137's H0_header_banner_strip across the 6 AOM papers
  * in the iterate corpus, so this is systematic for that publisher, not a one-off.
  * Filed upstream too; this guard is citelink's own defence, because citelink is
@@ -1092,7 +1092,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
   // that run afterwards would otherwise re-match the same span and emit ONLY
   // the first year at the full span — a duplicate of the per-year siblings this
   // loop already emitted. Each of those three loops skips a match whose start
-  // falls inside a consumed span (TC-I, scimeto-iterate cycle 8).
+  // falls inside a consumed span (TC-I, the platform's hardening workflow cycle 8).
   const multiYearNarrativeSpans: Array<{ start: number; end: number }> = [];
   const inMultiYearNarrativeSpan = (pos: number): boolean =>
     multiYearNarrativeSpans.some(s => pos >= s.start && pos < s.end);
@@ -1352,7 +1352,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
   // (2001, 2003)". Emits one citation per year, all sharing the author(s). Runs
   // BEFORE the single/two/et-al narrative loops so the bare-year continuation
   // ("1998") isn't swallowed as an ignored trailing qualifier and dropped
-  // (TC-I, scimeto-iterate cycle 8 — R-0177 Sonnet audit, chan McCullough).
+  // (TC-I, the platform's hardening workflow cycle 8 — R-0177 Sonnet audit, chan McCullough).
   // The parenthetical analog is `sameAuthorMultiYear`; this is its narrative twin.
   CITATION_PATTERNS.sameAuthorMultiYearNarrative.lastIndex = 0;
   while ((match = CITATION_PATTERNS.sameAuthorMultiYearNarrative.exec(text)) !== null) {
@@ -1423,7 +1423,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
   // ============ ET AL. NARRATIVE WITH BRACKETED INLINE REFERENCE ============
   // "McCullough et al. [McCullough, M. E., … (1997). … 321-336.] demonstrated…"
   // The bracket spells out the whole reference; the citation is the et-al lead-in
-  // keyed to the FIRST year inside the bracket (TC-J, scimeto-iterate cycle
+  // keyed to the FIRST year inside the bracket (TC-J, the platform's hardening workflow cycle
   // 8). Register the full span so the bracket's inner "(1997)" isn't separately
   // emitted by a downstream parenthetical/narrative pattern.
   CITATION_PATTERNS.etAlBracketedInlineRef.lastIndex = 0;
@@ -1466,7 +1466,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
     // spurious solo citation with the wrong first author. So instead of discarding
     // the whole match, STRIP the leading connector token(s) and re-emit starting at
     // the first real surname — recovering "Kickul, Griffiths, Brannback, and Robb
-    // (2023)" with the correct first author. (scimeto-iterate cycle 7, amp_1
+    // (2023)" with the correct first author. (the platform's hardening workflow cycle 7, amp_1
     // — TC-D, R-0177 Sonnet audit.)
     let namedTokens = match[1].split(/\s*,\s*/).filter(t => t.length > 0);
     let leadStripped = 0;
@@ -1813,7 +1813,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
     // as a citation; "Recently, Moche and Västfjäll (2021)" should let the
     // multiAuthorAndNarrative loop find the real citation downstream.
     if (isSentenceConnector(match[1])) continue;
-    // Particle over-capture guard (scimeto-iterate cycle 9): the compound
+    // Particle over-capture guard (the platform's hardening workflow cycle 9): the compound
     // first-author now admits a leading particle, so a preceding sentence word
     // followed by a particle-surname ("As de Visser et al.") can be swallowed as
     // "As de Visser". If the FIRST word is a sentence connector / common lead-in
@@ -2019,7 +2019,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
         // Klein, Hegarty, & Fischhoff, 2017)": this 2nd ";"-fragment begins
         // "also see interview in Klein…", which the old strip left intact so the
         // $-anchored fragment matchers never reached "Klein" (R-0177 Sonnet audit,
-        // scimeto-iterate 2026-06-25). Bounded to 30 non-comma/semicolon/paren
+        // the platform's hardening workflow 2026-06-25). Bounded to 30 non-comma/semicolon/paren
         // chars after "see" so the FP surface stays small.
         .replace(/^(?:e\.g\.?|i\.e\.?|cf\.?|see(?:[\s,]+(?:also|for\s+example|e\.g\.?))?|as in|c\.f\.?|most recently,? in|for [^,;()]{0,40}?,?\s*see|(?:also\s+)?see\s+[^,;()]{0,30}?\s+in)\s*,?\s+/i, '')
         .replace(/^(?:and|in)\s+(?=[A-ZÀ-Ÿ])/i, '')
@@ -2037,7 +2037,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
         // and, because the fragment matchers below are $-anchored right after the
         // year, dropped the FIRST citation of a multi-citation parenthetical:
         // "(Bedeian, Van Fleet & Hyman, 2009a: 211; Honig et al. 2014)" detected
-        // only Honig 2014, losing Bedeian 2009a (amp_1; scimeto-iterate
+        // only Honig 2014, losing Bedeian 2009a (amp_1; the platform's hardening workflow
         // 2026-06-25 — TC-4). Only strip when a 4-digit year (optional letter
         // suffix) immediately precedes the colon, so a real "Author: Title" or an
         // institutional "ACRONYM: Name" opener is untouched.
@@ -2054,7 +2054,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
         .replace(/(,\s*\d{4}[a-z]?)\s+[a-z][\s\S]*$/, '$1');
       // Try to match individual citation patterns
 
-      // TC-MULTIYEAR-MULTIAUTHOR bundle form (scimeto-iterate 2026-07-03):
+      // TC-MULTIYEAR-MULTIAUTHOR bundle form (the platform's hardening workflow 2026-07-03):
       // a ';'-bundle MEMBER carrying a trailing YEAR LIST — "(…; de Melo,
       // Marsella, & Gratch, 2016, 2017; …)", "(Jones, 2016; Smith & Lee, 2018,
       // 2019)". Every $-anchored member matcher below captures ONE year, so a
@@ -2222,7 +2222,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
       // same citation OUTSIDE a bundle ("(e.g., de Visser et al., 2016)") detected
       // fine. That asymmetry is why it read as an occurrence-count discrepancy (1 of 2
       // found) rather than an outright parse failure.
-      // (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet audit, de Visser.)
+      // (the platform's hardening workflow 2026-08-04, annals_1 — R-0177 Sonnet audit, de Visser.)
       const etAlMatch = citeText.match(new RegExp(
         `^(${COMPOUND_SURNAME})\\s*,?\\s+et\\s*\\.?\\s*al\\.?\\s*,?\\s*(${YEAR_TOKEN})$`,
         'i',
@@ -2400,7 +2400,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
   // ';'), and the (...)-anchored single/two-author/et-al/mixed-list patterns all
   // fail because non-citation prose sits between the year and the closing ')',
   // so BOTH citations are lost (collabra_90203 L94: Hong & Reed 2021 + Bartoš
-  // et al. 2022 both missed — scimeto-iterate 2026-06-08d D3/D6). This
+  // et al. 2022 both missed — the platform's hardening workflow 2026-06-08d D3/D6). This
   // pass scans the interior of each ';'-free parenthetical for "<Surname-list>
   // [et al.], YYYY" groups and emits each at its TRUE position. It is
   // OVERLAP-AWARE: a candidate overlapping a citation an earlier pattern already
@@ -2469,7 +2469,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
         position: { start, end },
         context: extractContext(text, start, am[0].length),
       });
-      // TC-MULTIYEAR-MULTIAUTHOR (scimeto-iterate 2026-07-03): an explicit
+      // TC-MULTIYEAR-MULTIAUTHOR (the platform's hardening workflow 2026-07-03): an explicit
       // multi-author parenthetical with a trailing YEAR LIST —
       // "(de Melo, Marsella, & Gratch, 2016, 2017)", "(Wang & Benbasat, 2016,
       // 2017)" — must emit ONE citation per year, all sharing the author list
@@ -2523,7 +2523,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
   // ============ YEAR-ELIDED PAGE-ONLY BACK-REFERENCE (stateful post-pass) ============
   // A same-paragraph back-reference that omits the year because the author was
   // cited (with a year) just before: '"…quote…" (Slovic & Fischhoff, p. 549).'
-  // (valid APA — chen_2021_jesp, TC-G, scimeto-iterate cycle 8). citelink's
+  // (valid APA — chen_2021_jesp, TC-G, the platform's hardening workflow cycle 8). citelink's
   // year-anchored detectors require a 4-digit year, so this is missed.
   //
   // FP is bounded HARD by two requirements: (1) the parenthetical must carry a
@@ -2681,7 +2681,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
  * Author-year only by construction: numeric-paradigm papers are detected by
  * `detectNumericCitations` (analyze.ts), a separate path this function is not on
  * — so a numeric citation, which legitimately lives among digits, can never
- * reach this guard. (scimeto-iterate 2026-08-04.)
+ * reach this guard. (the platform's hardening workflow 2026-08-04.)
  */
 function isDigitGluedSourceIndex(text: string, c: DetectedCitation): boolean {
   let i = c.position.start;

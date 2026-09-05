@@ -2,7 +2,7 @@
  * Regression: a running page-header that lands MID-ENTRY must not truncate the
  * reference section.
  *
- * scimeto-iterate cycle 2 — surfaced (and previously mis-attributed to
+ * the platform's hardening workflow cycle 2 — surfaced (and previously mis-attributed to
  * docpluck) on chan_feldman_2025_cogemo. The PDF's all-caps running header
  * "COGNITION AND EMOTION" + page number "1247" was injected by extraction INSIDE
  * the Hareli (2006) reference, between "...forgiveness. Motivation" and the

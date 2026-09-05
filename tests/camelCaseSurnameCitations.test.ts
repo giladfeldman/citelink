@@ -3,7 +3,7 @@
  * uppercase letter (McCullough, MacDonald, DeScioli, McKendrick, O'Brien-style
  * compound caps).
  *
- * scimeto-iterate cycle 8 — chan_feldman_2025_cogemo's gold has 25+
+ * the platform's hardening workflow cycle 8 — chan_feldman_2025_cogemo's gold has 25+
  * "McCullough et al. (1997)" / "McCullough et al. (1998)" citations across
  * the body; citelink missed every one because the surname-capture regex
  * `[A-Z][a-zà-ÿā-ž'-]+` rejected the embedded "C" in "McCullough". The same

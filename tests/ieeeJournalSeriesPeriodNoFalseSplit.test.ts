@@ -2,7 +2,7 @@
  * Regression: IEEE reference truncated at an internal journal-name period
  * ("Proceedings of the royal society of london. Series A, …"), dropping the year.
  *
- * scimeto-iterate cycle 6 — ieee_access_2 ref [22] (Kermack & McKendrick,
+ * the platform's hardening workflow cycle 6 — ieee_access_2 ref [22] (Kermack & McKendrick,
  * 1927). The reference's journal is "Proceedings of the royal society of london.
  * Series A, Containing papers of a mathematical and physical character, vol. 115,
  * no. 772, pp. 700-721, 1927." — the journal name carries an INTERNAL period

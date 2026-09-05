@@ -1,6 +1,6 @@
 /**
  * Nature website reference — URL must not become the title
- * (nat_comms_2 — scimeto-iterate R-0177 audit 2026-06-26)
+ * (nat_comms_2 — the platform's hardening workflow R-0177 audit 2026-06-26)
  *
  * Reference #47 of nat_comms_2 is an organizational website entry with no separate
  * work title:

@@ -4,7 +4,7 @@
  * studies: …" — was lost (merged into the previous reference) and, once split,
  * carried the whole spelled-out name as its surname so nothing matched it.
  *
- * scimeto-iterate (session 2026-06-07b) cycle 5 — surfaced on chen_2021_jesp.
+ * the platform's hardening workflow (session 2026-06-07b) cycle 5 — surfaced on chen_2021_jesp.
  * Two parts:
  *  1. splitIntoReferences did not treat "ACRONYM: Capitalized" as a new-reference
  *     start (the year is NOT adjacent to the acronym — it follows the spelled-out

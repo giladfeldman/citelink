@@ -3,7 +3,7 @@
  * a lowercase function word, was truncated to its LAST WORD — a wrong author, not
  * a missing one.
  *
- * scimeto-iterate cycle 9 (2026-09-01), surfaced on annals_2
+ * the platform's hardening workflow cycle 9 (2026-09-01), surfaced on annals_2
  * (10.5465/annals.2016.0011), which cites an editorial policy statement as
  * "(Journal of Applied Psychology, 2017)". citelink reported
  * **"(Psychology, 2017)"** — `orgMultiWordParenthetical` admits only

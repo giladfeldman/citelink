@@ -6,7 +6,7 @@ import {
 
 /**
  * Regression: AOM (Academy of Management) bare-year run-on references
- * (scimeto-iterate 2026-06-25, amp_1 — TC-1 / TC-2).
+ * (the platform's hardening workflow 2026-06-25, amp_1 — TC-1 / TC-2).
  *
  * AOM style writes the author list with a comma + period-initials exactly like
  * APA ("Egghe, L. 2006.", "Certo, S. T., Sirmon, D. G., & Brymer, R. A. 2010.")

@@ -11,7 +11,7 @@ import { parseReferences, splitConcatenatedHarvardReferences } from '../src/refe
  * parsed 9 of 109 references (refs.f1 0.051) before the fix and 109/109 (refs.f1
  * 0.972) after. The text below is the verbatim docpluck-academic extraction of a
  * contiguous slice of that reference section — all entries on one line, exactly as
- * the production worker feeds citelink. (scimeto-iterate 2026-06-12.)
+ * the production worker feeds citelink. (the platform's hardening workflow 2026-06-12.)
  */
 const BJPS_RUNON_SECTION =
   'References\n' +

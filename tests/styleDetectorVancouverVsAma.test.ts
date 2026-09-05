@@ -1,7 +1,7 @@
 /**
  * Regression: Vancouver vs AMA discriminator in detectCitationStyle.
  *
- * scimeto-iterate cycle 4 — plos_med_1 (PLOS Medicine, bracketed
+ * the platform's hardening workflow cycle 4 — plos_med_1 (PLOS Medicine, bracketed
  * Vancouver `[N]` citations, 24+ in-text brackets, Vancouver-style refs) was
  * detected as `ama`. Root cause: the numeric-paradigm sub-branch chose
  * Nature/AMA whenever `effectiveSuperscriptCount > bracketCount`, where

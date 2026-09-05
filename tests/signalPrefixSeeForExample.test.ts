@@ -2,7 +2,7 @@
  * Regression: the multi-word signal prefix "see for example" (and "see, e.g.")
  * must be stripped so the citation after it is detected.
  *
- * scimeto-iterate cycle 24 (R1). The fragment-prefix strip recognised
+ * the platform's hardening workflow cycle 24 (R1). The fragment-prefix strip recognised
  * "see" / "see also" but not "see for example", so
  * "(see for example Arkes et al., 1981; Harley et al., 2004)" lost its first
  * entry (the leftover "for example Arkes…" defeated the matcher). Surfaced on

@@ -6,7 +6,7 @@ import { detectCitations } from '../src/citationDetector';
  * ("JASP (2023)", "WHO (2020)") must be detected — but ONLY for known-org acronyms,
  * never for inline technical acronyms ("(SDE)", "(SIR)", "(ODE)" + a year), which is
  * the corpus-wide false-positive risk that kept the bare all-caps narrative form
- * deferred. (scimeto-iterate cycle 7, 2026-06-30 — collabra_90203, R-0177 deep
+ * deferred. (the platform's hardening workflow cycle 7, 2026-06-30 — collabra_90203, R-0177 deep
  * audit; "Note. Created in JASP (2023) version 0.16.")
  *
  * The pattern is gated on the `ORGANIZATION_ABBREVIATIONS` allowlist, and the citation

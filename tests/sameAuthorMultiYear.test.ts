@@ -2,7 +2,7 @@
  * Regression: same-author multi-year parentheticals must emit one citation
  * per year.
  *
- * scimeto-iterate cycle 18 (2026-05-26 canary audit) — the Sonnet audit
+ * the platform's hardening workflow cycle 18 (2026-05-26 canary audit) — the Sonnet audit
  * surfaced bare-year continuation misses across chen_2021_jesp and
  * collabra_90203:
  *   "(e.g., Bishop, 2019, 2020a, 2020b)"  → only Bishop 2019 detected

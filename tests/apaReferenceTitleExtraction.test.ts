@@ -1,7 +1,7 @@
 /**
  * Regression: APA reference title extraction.
  *
- * scimeto-iterate cycle 1 — citelink dropped the title for ~87% of
+ * the platform's hardening workflow cycle 1 — citelink dropped the title for ~87% of
  * chen_2021_jesp's references (references F1 0.109, key_only 0.98). Root
  * cause: an APA journal reference without an issue number
  * ("Journal Name, 54, 569-579") does not match REFERENCE_PATTERNS.journalInfo

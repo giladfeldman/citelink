@@ -3,7 +3,7 @@
  * must be detected — APA 7's "first author + 2nd author + et al." disambiguator
  * for same-year-same-first-author refs.
  *
- * scimeto-iterate cycle 12 — collabra_90203 has 8+ Bartoš-prefix
+ * the platform's hardening workflow cycle 12 — collabra_90203 has 8+ Bartoš-prefix
  * citations using this disambiguator:
  *   "Bartoš, Maier, Wagenmakers, et al., 2022"
  *   "Bartoš, Maier, Quintana, et al., 2022"

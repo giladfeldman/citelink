@@ -2,18 +2,17 @@
 
 **This library is not standalone infrastructure. It is part of a product.**
 
-## Consumer: Scimeto / Scimeto
+## Consumer: Scimeto
 
-- **Repo:** `~/MetaScienceTools/Scimeto` — <https://github.com/giladfeldman/Scimeto>
+- **Consumer:** the Scimeto platform (closed source)
 - **Pinned in:** `apps/worker/package.json` and `packages/shared/package.json`, by **git tag** (`github:giladfeldman/citelink#vX.Y.Z`)
 - **Uses:** citation ↔ reference matching and in-text citation detection
 - **Reaches users through:** the citation-detection and citation-matching processors, and the reference-parsing path in the shared package, whose output is shown to researchers
   as findings about their manuscript and exported into reports they act on.
 
-Scimeto's side of this relationship is documented in
-`Scimeto/docs/SUBCOMPONENTS.md`, and the two are checked against each other
-mechanically by `Scimeto/scripts/review/subcomponent-sync-check.mjs` (grep-checks
-R24), which fails if this file goes missing or stops naming Scimeto.
+Scimeto's side of this relationship is documented on the consumer side, and the two
+are checked against each other mechanically by a sync check there, which fails if this
+file goes missing or stops naming Scimeto.
 
 ## What that means for a change here
 

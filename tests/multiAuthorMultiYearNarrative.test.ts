@@ -15,7 +15,7 @@ import { detectCitations } from '../src/citationDetector';
  * handle the "A, B, & C" list but captures only a SINGLE year, so it never fires on
  * the multi-year form.
  *
- * Fix (scimeto-iterate 2026-07-04): group 1 now admits a comma-separated
+ * Fix (the platform's hardening workflow 2026-07-04): group 1 now admits a comma-separated
  * author list; the handler splits it and prepends it to the connector's last author,
  * keying on the FIRST author. A `stripLeadingNonNameWord` guard (same as
  * etAlNarrative) prevents a preceding sentence word being swallowed

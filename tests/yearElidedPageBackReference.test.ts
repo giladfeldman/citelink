@@ -4,7 +4,7 @@ import { detectCitations } from '../src/citationDetector';
 /**
  * Regression: a same-paragraph page-only back-reference that ELIDES the year because
  * the author was just cited with a year — '"…quote…" (Slovic & Fischhoff, p. 549).'
- * — must be detected and resolved to that author's year (scimeto-iterate cycle 8,
+ * — must be detected and resolved to that author's year (the platform's hardening workflow cycle 8,
  * 2026-07-02 — chen_2021_jesp, TC-G, R-0177 Sonnet deep audit).
  *
  * citelink's detectors require a 4-digit year, so a year-less "(Author, p. N)" was

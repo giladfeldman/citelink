@@ -2,7 +2,7 @@
  * Regression: a surname containing a Latin Extended-A character (U+0100–U+017F),
  * e.g. "Bartoš" (š = U+0161), must parse as the first author.
  *
- * scimeto-iterate cycle 3 — surfaced on collabra_90203. The reference
+ * the platform's hardening workflow cycle 3 — surfaced on collabra_90203. The reference
  * author pattern's LastName body class was `[A-Za-zÀ-ÿ'-]+`, which stops at the
  * Latin-1 Supplement boundary (U+00FF) and excludes Latin Extended-A. So
  * "Bartoš, F., & Maier, M. (2020)..." parsed its FIRST author as "Maier" — the

@@ -14,7 +14,7 @@ import { detectCitations } from '../src/citationDetector';
  * generic in-paren `INPAREN_AUTHOR_YEAR` scanner, whose regex captures a single
  * year — so it emitted "(…, 2016)" and left the ", 2017" tail unparsed.
  *
- * Fix (scimeto-iterate 2026-07-03): after the in-paren scanner matches
+ * Fix (the platform's hardening workflow 2026-07-03): after the in-paren scanner matches
  * "author-list, YEAR", it now detects a "(\s*,\s*YYYY)+" continuation
  * immediately following and emits each extra year as its own citation sharing
  * the author list, with a distinct narrow position window (addCitation dedupes

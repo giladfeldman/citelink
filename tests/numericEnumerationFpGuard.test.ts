@@ -2,7 +2,7 @@
  * Regression: the parenthetical-numeric branch fabricated citations from body
  * **list enumerations** — "the exclusion criteria were as follows: (1) … ; (2) …".
  *
- * scimeto-iterate 2026-06-20 cycle 5 — surfaced on sci_rep_3
+ * the platform's hardening workflow 2026-06-20 cycle 5 — surfaced on sci_rep_3
  * (10.1038/s41598-023-50401-z, Nature/superscript style). The paper has NO
  * genuine parenthetical citations (its citations are bare superscripts), yet the
  * `(N)` branch (active because the paper has <3 bracket citations) emitted the

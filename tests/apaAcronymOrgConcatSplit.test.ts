@@ -4,7 +4,7 @@ import { parseReferences, splitConcatenatedApaReferences } from '../src/referenc
 /**
  * Regression: a concatenated acronym-colon ORG author entry ("KNAW: Royal Dutch
  * Academy of Arts and Sciences. (2018). …") was swallowed into the previous
- * reference (scimeto-iterate 2026-06-25, chen — R-0177 Sonnet re-audit).
+ * reference (the platform's hardening workflow 2026-06-25, chen — R-0177 Sonnet re-audit).
  *
  * chen line: "Sowden, W. (2018). Many labs 2: … 1(4), 443-490. KNAW: Royal Dutch
  * Academy of Arts and Sciences. (2018). Replication studies: …". The APA

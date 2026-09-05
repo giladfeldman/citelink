@@ -5,7 +5,7 @@
  * had no reference entry and any in-text "(JASP Team, 2023)" / "JASP (2023)"
  * citation could not match.
  *
- * scimeto-iterate (session 2026-06-07e) — surfaced on collabra_90203.
+ * the platform's hardening workflow (session 2026-06-07e) — surfaced on collabra_90203.
  * splitConcatenatedApaReferences only recognised a "Surname, Initials. (year)"
  * opener; an org author ("JASP Team. (2023)") has no such shape. Reference
  * string is verbatim from the collabra_90203 extraction fixture (the Isager

@@ -4,7 +4,7 @@
  *   "(Hong & Reed, 2021, reanalysis with RoBMA in Bartoš, Maier, Wagenmakers,
  *    et al., 2022)"
  *
- * scimeto-iterate 2026-06-08d (D3/D6). The semicolon-bundle splitter
+ * the platform's hardening workflow 2026-06-08d (D3/D6). The semicolon-bundle splitter
  * (multipleCitations) never fires because there is no ';'. The (...)-anchored
  * single/two-author/et-al/mixed-list patterns all fail because prose sits
  * between the open paren and the trailing ')'. Result: BOTH citations were lost

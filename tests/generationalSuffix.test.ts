@@ -2,7 +2,7 @@
  * Regression: a generational suffix (Jr / Sr / II / III / IV) on a surname
  * must not break citation detection, and must not leak into the author key.
  *
- * scimeto-iterate cycle 21 (R2 of the 2026-05-26 handoff). The chen_2021_jesp
+ * the platform's hardening workflow cycle 21 (R2 of the 2026-05-26 handoff). The chen_2021_jesp
  * canary repeatedly missed "(Hom Jr & Van Nuland, 2019; …)" — the trailing "Jr"
  * after "Hom" defeated the two-author parenthetical pattern, which expected a
  * "&" immediately after the first surname. The fix lets COMPOUND_SURNAME consume

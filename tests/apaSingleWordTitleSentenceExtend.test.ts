@@ -3,7 +3,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: a single-WORD first sentence in an APA title was truncated to the
- * lone word (scimeto-iterate 2026-06-25, chen — R-0177 Sonnet canary audit).
+ * lone word (the platform's hardening workflow 2026-06-25, chen — R-0177 Sonnet canary audit).
  *
  * The title terminator anchors on the first "period + space". When a title legitimately
  * begins with a one-word fragment that ends in a period — a product/site name with an

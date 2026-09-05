@@ -4,7 +4,7 @@ import { parseReferences } from '../src/referenceParser';
 /**
  * Regression: bare-year (AOM/ASA/Chicago) author parsing must keep a CAPITALIZED
  * two-word particle surname whole — "Van Iddekinge" must not truncate to "Van".
- * (scimeto-iterate cycle 7, 2026-06-30 — annals_2, R-0177 Sonnet audit.)
+ * (the platform's hardening workflow cycle 7, 2026-06-30 — annals_2, R-0177 Sonnet audit.)
  *
  * `parseBareYearReference` chose its author sub-parser from `hasCommaInFirstAuthor`
  * / `hasNoCommaFullNames`, both of which tested `^[A-Z][a-z]+,` against the FIRST

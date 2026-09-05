@@ -8,7 +8,7 @@ import { detectCitations } from '../src/citationDetector';
  * hard-coded the literal connector "and" and only the "and" form matched. The
  * "&" narrative fell through to `singleNarrative`, which caught the trailing
  * "<LastAuthor> (year)". The parenthetical patterns already accepted "&"; the
- * narrative one did not. (scimeto-iterate cycle 9, 2026-07-02 — surfaced
+ * narrative one did not. (the platform's hardening workflow cycle 9, 2026-07-02 — surfaced
  * on annals_1, Glikson & Woolley "Human Trust in AI", which uses "&" narratively
  * throughout: Wang & Benbasat, Komiak & Benbasat, Möhlmann & Zalmanson, ….)
  *

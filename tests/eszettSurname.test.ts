@@ -4,7 +4,7 @@
  * which starts one code point ABOVE ß (U+00DF), so "Groß" truncated to "Gro"
  * and "(Groß & Bayen, 2015)" was missed entirely.
  *
- * scimeto-iterate cycle 23 — surfaced on chen_2021_jesp.
+ * the platform's hardening workflow cycle 23 — surfaced on chen_2021_jesp.
  */
 import { describe, it, expect } from '@jest/globals';
 import { detectCitations } from '../src/citationDetector.js';

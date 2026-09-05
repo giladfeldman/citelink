@@ -1,7 +1,7 @@
 /**
  * Regression: IEEE style detection on SINGLE-INITIAL authors (`[1] W. Yang, ...`).
  *
- * scimeto-iterate cycle 6 — ieee_access_2 (IEEE Access, bracketed `[N]`
+ * the platform's hardening workflow cycle 6 — ieee_access_2 (IEEE Access, bracketed `[N]`
  * citations, reference list authors printed initials-first as `W. Yang`,
  * `S. Connolly`, ...). The R-0177 Sonnet canary audit (run against a docpluck
  * v2.4.98 fixture, whose pdftotext engine yields the IEEE text layer's

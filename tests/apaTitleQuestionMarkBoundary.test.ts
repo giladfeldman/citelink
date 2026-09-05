@@ -1,7 +1,7 @@
 /**
  * Regression: APA / Harvard title extraction must not cut at an interior `?`.
  *
- * scimeto-iterate cycle 5 — chen_2021_jesp showed a residual title-drift
+ * the platform's hardening workflow cycle 5 — chen_2021_jesp showed a residual title-drift
  * on the Kaplan & Barach (2002) reference whose actual title is
  * "Incident reporting: Science or protoscience? Ten years later."
  *

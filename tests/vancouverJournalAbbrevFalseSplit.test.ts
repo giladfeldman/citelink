@@ -8,7 +8,7 @@
  * "Surname=Eur, initial=J". The yearless author+title half was then dropped,
  * leaving the journal as an author-less reference.
  *
- * scimeto-iterate (session 2026-06-07e, O1-residual) — surfaced on
+ * the platform's hardening workflow (session 2026-06-07e, O1-residual) — surfaced on
  * plos_med_1 (Cornelissen #9, Munro #25). Fix: the Vancouver initials must be
  * followed by a comma (next author) or period (end of authors), not a space.
  * Reference strings are verbatim from the plos_med_1 extraction fixture.

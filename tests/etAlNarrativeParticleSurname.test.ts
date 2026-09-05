@@ -13,7 +13,7 @@ import { detectCitations } from '../src/citationDetector';
  *
  * Fix: the et-al narrative patterns now use `COMPOUND_SURNAME` for the first
  * author. Text is clean (no docpluck corruption) — a genuine detection defect.
- * (scimeto-iterate cycle 9, 2026-07-02 — surfaced on annals_1, Glikson &
+ * (the platform's hardening workflow cycle 9, 2026-07-02 — surfaced on annals_1, Glikson &
  * Woolley "Human Trust in AI", which cites many particle-surname authors.)
  */
 describe('et al. narrative captures a leading particle surname whole', () => {

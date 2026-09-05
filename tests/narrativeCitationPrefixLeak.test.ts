@@ -2,7 +2,7 @@
  * Regression: narrative citation regex must not accept arbitrary lowercase words
  * as the middle particle of a compound surname.
  *
- * scimeto-iterate cycle 7 — gate-enhancement (cycle 6) surfaced a defect
+ * the platform's hardening workflow cycle 7 — gate-enhancement (cycle 6) surfaced a defect
  * class hidden by the previous summary-only intext metric: citelink's narrative
  * patterns include an optional middle group `(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][...])?`
  * intended to support compound surnames like "Van der Berg" or "De La Cruz".

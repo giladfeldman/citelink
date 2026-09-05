@@ -2,7 +2,7 @@
  * Regression: MULTIPLE complete APA references concatenated onto one line (no
  * separating newline) must each be parsed as a distinct reference.
  *
- * scimeto-iterate 2026-06-07b — surfaced ONLY against the docpluck-academic
+ * the platform's hardening workflow 2026-06-07b — surfaced ONLY against the docpluck-academic
  * (pdftotext) extraction substrate (the production input), not the prior raw-pymupdf
  * fixture. On chan_feldman_2025_cogemo (DOI 10.1080/02699931.2024.2434156),
  * pdftotext joined the reference entries — including across a DOI with no trailing

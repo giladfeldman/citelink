@@ -3,7 +3,7 @@
  * citation's year, FABRICATING a citation that does not exist in the paper and
  * losing the real one.
  *
- * scimeto-iterate cycle 9 (2026-09-01) — surfaced on annals_2
+ * the platform's hardening workflow cycle 9 (2026-09-01) — surfaced on annals_2
  * (AOM Annals, 10.5465/annals.2016.0011). The extracted text reads, verbatim:
  *
  *   "(Green, Tonidandel, & Cortina,\n\n\f2018\n\n2016)."
@@ -99,7 +99,7 @@ describe('page running-head year inside a parenthetical citation', () => {
   });
 });
 
-// ─── found by the cross-model round of 2026-09-01 (scimeto-iterate cycle 9) ───
+// ─── found by the cross-model round of 2026-09-01 (the platform's hardening workflow cycle 9) ───
 //
 // The v0.7.74 guard shipped with a clean full-corpus diff and 664 green tests.
 // All three seats — anthropic, openai and xai, independently — found a way for it

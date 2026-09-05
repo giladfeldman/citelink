@@ -5,7 +5,7 @@ import { detectCitations } from '../src/citationDetector';
 
 /**
  * Regression: a PARTICLE-LESS two-word surname ("Strohkorb Sebo", "Ross Russell") broke
- * reference-entry splitting, author parsing, and matching (scimeto-iterate
+ * reference-entry splitting, author parsing, and matching (the platform's hardening workflow
  * 2026-08-04, annals_1 — R-0177 Sonnet canary audit; open finding #3 in the 2026-07-04
  * handoff, reported there as "Strohkorb Sebo (2018) matched to the wrong same-surname
  * reference 'Sebo'").

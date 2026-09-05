@@ -5,7 +5,7 @@
  * accepted a LOWERCASE particle ("van der Berg"), so the capitalized 2nd word
  * "Russell" was not absorbed and the regex re-anchored at "Russell".
  *
- * scimeto-iterate (session 2026-06-07e, O3) — surfaced on nat_comms_2
+ * the platform's hardening workflow (session 2026-06-07e, O3) — surfaced on nat_comms_2
  * reference #4 (a Nature-numbered paper). Fix: allow ONE capitalized 2nd surname
  * word, kept safe by (a) requiring a trailing ", Initials" and (b) the 2nd word
  * needing lowercase letters (so an initial like "A" in "Smith A," is NOT eaten).

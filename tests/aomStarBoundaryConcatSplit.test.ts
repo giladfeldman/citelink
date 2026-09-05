@@ -3,7 +3,7 @@ import { parseReferences, splitConcatenatedAomReferences } from '../src/referenc
 
 /**
  * Regression: AOM reference concatenation separated by a literal `*` bullet marker
- * (scimeto-iterate cycle 7, 2026-06-30 — annals_2, surfaced by the R-0177
+ * (the platform's hardening workflow cycle 7, 2026-06-30 — annals_2, surfaced by the R-0177
  * Sonnet audit + the runner's same-author-year pairing artifact).
  *
  * docpluck's two-column AOM extraction preserves a per-entry bullet as a literal

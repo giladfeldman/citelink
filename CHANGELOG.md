@@ -237,7 +237,7 @@ point that a one-sided repair can itself create a mismatch is correct and is fil
 **A bare-year PAGE RUNNING HEAD inside a parenthetical citation was taken as the citation's
 year, FABRICATING a citation that does not exist and losing the real one.**
 
-Found by scimeto-iterate cycle 9 (2026-09-01) on annals_2 = 10.5465/annals.2016.0011.
+Found by the platform's hardening workflow cycle 9 (2026-09-01) on annals_2 = 10.5465/annals.2016.0011.
 AOM Annals prints its volume year as a running head. When the page break falls between a
 citation's author list and its year, docpluck 2.4.137's `normalize_text(academic)` yields,
 verbatim:
@@ -283,7 +283,7 @@ and the 3 that passed were the controls, which is the shape a correct guard has)
 ## 0.7.73
 
 Two reference-list defects found by the **R-0177 Sonnet canary audit**, which returned FAIL on
-two papers the F1 gate had scored as passing (scimeto-iterate 2026-08-04).
+two papers the F1 gate had scored as passing (the platform's hardening workflow 2026-08-04).
 
 **1. A wrapped author list after a BLANK line dropped its first author** (annals_2 =
 10.5465/annals.2016.0011). The paper prints, with the "*" marking a reviewed study:
@@ -328,7 +328,7 @@ verified red-before-green (3 and 4 failing assertions respectively). Tests:
 ## 0.7.72
 
 A FULL PUBLICATION DATE is no longer parsed as the reference title
-(scimeto-iterate 2026-08-04, surfaced on amd_1 = 10.5465/amd.2023.0106).
+(the platform's hardening workflow 2026-08-04, surfaced on amd_1 = 10.5465/amd.2023.0106).
 
 APA cites magazines, blog posts, working papers and news with a full date rather than
 a bare year:
@@ -375,7 +375,7 @@ existing trade-off stands rather than be churned on a hunch.
 ## 0.7.71
 
 Numbered TABLE-NOTE SOURCE CATALOGUES are no longer harvested as in-text citations
-(scimeto-iterate 2026-08-04, surfaced on annals_2 = 10.5465/annals.2016.0011).
+(the platform's hardening workflow 2026-08-04, surfaced on annals_2 = 10.5465/annals.2016.0011).
 
 Academy of Management Annals tables carry a footnote listing every source behind the
 table's recommendations, each entry prefixed by the index number the table body refers
@@ -477,7 +477,7 @@ particle parses fine, asserted as an explicit control.
 
 ## 0.7.64
 
-Reference author with a HYPHENATED initial no longer dropped (scimeto-iterate
+Reference author with a HYPHENATED initial no longer dropped (the platform's hardening workflow
 2026-07-04, R-0177 Sonnet audit on annals_1). "Camilleri, A. R., Cam, M.-A., &
 Hoffmann, R. 2007." parsed only 2 authors — "Cam, M.-A." was lost because the initials
 patterns did not admit a hyphen between initials, so "M.-A." wasn't recognized as
@@ -492,7 +492,7 @@ matching 0.975→0.978; 0 regression. Test: `referenceHyphenatedInitials.test.ts
 
 Reference-parser particle-surname fix — a reference-list entry whose first author has
 a name particle was dropped or mis-keyed, so it never matched its citations
-(scimeto-iterate 2026-07-04, surfaced by the R-0177 Sonnet canary audit on
+(the platform's hardening workflow 2026-07-04, surfaced by the R-0177 Sonnet canary audit on
 annals_1, which the summary-F1 gate scored as a passing 0.980 refs). annals_1 refs.f1
 0.980→0.989, matching 0.953→0.975; 0 regression on the other 12 papers.
 
@@ -514,7 +514,7 @@ annals_1, which the summary-F1 gate scored as a passing 0.980 refs). annals_1 re
 
 Multi-year multi-author citation support — an explicit multi-author citation with a
 trailing YEAR LIST now emits one citation per year, all keyed on the FIRST author
-(scimeto-iterate 2026-07-04, surfaced on annals_1). Two distinct code paths
+(the platform's hardening workflow 2026-07-04, surfaced on annals_1). Two distinct code paths
 (parenthetical and narrative), fixed as separate defect classes. Full-corpus baseline
 diff: annals_1 intext.f1 0.975→0.978, matching 0.947→0.953; 0 regression on the other
 12 papers, 0 new false positives.
@@ -547,7 +547,7 @@ diff: annals_1 intext.f1 0.975→0.978, matching 0.947→0.953; 0 regression on 
 
 Two narrative-citation detection fixes surfaced by onboarding **annals_1** (Glikson &
 Woolley, "Human Trust in Artificial Intelligence", Academy of Management Annals 2020) —
-scimeto-iterate cycle 9 (2026-07-02). Both reproduce on CLEAN text (not docpluck
+the platform's hardening workflow cycle 9 (2026-07-02). Both reproduce on CLEAN text (not docpluck
 artifacts). Full-corpus detection-set baseline diff: only annals_1 + annals_2 moved (both
 improved), 0 regression on the other 11 papers, 0 new false positives. annals_1 intext.f1
 0.909→0.975, matching 0.891→0.947.
@@ -574,7 +574,7 @@ improved), 0 regression on the other 11 papers, 0 new false positives. annals_1 
 
 A same-paragraph page-only back-reference that ELIDES the year — '"…quote…" (Slovic &
 Fischhoff, p. 549).' where the author was cited with a year moments earlier — was not
-detected — scimeto-iterate cycle 8 (2026-07-02), chen_2021_jesp (TC-G), R-0177
+detected — the platform's hardening workflow cycle 8 (2026-07-02), chen_2021_jesp (TC-G), R-0177
 deep audit.
 
 citelink's detectors require a 4-digit year, so a year-less "(Author, p. N)" was missed.
@@ -591,7 +591,7 @@ spurious predictions across the corpus), 0 regression. +4 tests.
 
 A narrative et-al citation whose FULL reference is spelled out inline in square brackets
 — "McCullough et al. [McCullough, M. E., … (1997). … 321-336.] demonstrated…" — was not
-detected — scimeto-iterate cycle 8 (2026-07-02), chan_feldman_2025_cogemo (TC-J),
+detected — the platform's hardening workflow cycle 8 (2026-07-02), chan_feldman_2025_cogemo (TC-J),
 R-0177 deep audit.
 
 `etAlNarrative` requires "(" immediately after "et al.", so the "[" bracketed-reference
@@ -609,7 +609,7 @@ bracketed refs now resolve; chan fully citelink-DRY). Full-corpus diff: only cha
 
 A narrative citation whose parentheses hold a MULTI-YEAR LIST ("McCullough et al. (1997,
 1998)", "Bishop (2019, 2020)", "Werth and Strack (2001, 2003)") emitted only the FIRST
-year, dropping every year after it — scimeto-iterate cycle 8 (2026-07-01),
+year, dropping every year after it — the platform's hardening workflow cycle 8 (2026-07-01),
 chan_feldman_2025_cogemo (TC-I), R-0177 deep audit.
 
 The single/two/et-al narrative patterns each accept an optional trailing in-paren
@@ -629,7 +629,7 @@ moved (both improved), 0 new FP, 0 regression, 0 same-span duplicates. +8 tests.
 ## 0.7.57
 
 A narrative citation whose author is an ALL-CAPS organization acronym ("JASP (2023)",
-"WHO (2020)") was not detected — scimeto-iterate cycle 7 (2026-06-30),
+"WHO (2020)") was not detected — the platform's hardening workflow cycle 7 (2026-06-30),
 collabra_90203, R-0177 deep audit.
 
 singleNarrative's COMPOUND_SURNAME requires a lowercase letter after the first capital,
@@ -646,7 +646,7 @@ regression (only collabra moved). +5 tests.
 
 An APA reference whose author spells the GIVEN NAME in full ("Hoffman, Martin L. (1981)")
 was swallowed when concatenated after a DOI/URL-terminated previous reference —
-scimeto-iterate cycle 7 (2026-06-30), chan_feldman_2025_cogemo, R-0177 deep audit.
+the platform's hardening workflow cycle 7 (2026-06-30), chan_feldman_2025_cogemo, R-0177 deep audit.
 
 splitConcatenatedApaReferences' author opener required "Surname, Initials." A full first
 name did not match, so when docpluck flowed "…309601282 Hoffman, Martin L. (1981). …" onto
@@ -659,7 +659,7 @@ moved (improved), 0 regression. +3 tests.
 ## 0.7.55
 
 A narrative citation with a trailing in-paren qualifier after the year was dropped —
-scimeto-iterate cycle 7 (2026-06-30), chen_2021_jesp, R-0177 Sonnet deep audit.
+the platform's hardening workflow cycle 7 (2026-06-30), chen_2021_jesp, R-0177 Sonnet deep audit.
 
 `singleNarrative` and `twoAuthorNarrative` anchored on the closing paren IMMEDIATELY
 after the year ("Smith (2020)"), so a legal trailing qualifier — "Slovic and Fischhoff
@@ -672,7 +672,7 @@ false positives, 0 regression (only chen moved). +4 tests.
 ## 0.7.54
 
 A sentence-initial connector before a 3+-author narrative citation collapsed the
-citation to its LAST author — scimeto-iterate cycle 7 (2026-06-30), amp_1,
+citation to its LAST author — the platform's hardening workflow cycle 7 (2026-06-30), amp_1,
 surfaced by the R-0177 Sonnet audit.
 
 The 2026-05-26 connector guard dropped a `multiAuthorAndNarrative` match whose first
@@ -692,11 +692,11 @@ canary corpus has no CLEAN-text instance — amp_1's live occurrence is addition
 docpluck-glyph-corrupted "Brännback"→"Br€ annback", filed to docpluck, so it recovers
 only once that glyph is fixed). +5 regression tests (507 total).
 
-Surfaced by the R-0177 Sonnet canary audit (scimeto-iterate cycle 7).
+Surfaced by the R-0177 Sonnet canary audit (the platform's hardening workflow cycle 7).
 
 ## 0.7.53
 
-A phantom reference was created from an ORPHANED EDITOR LIST — scimeto-iterate
+A phantom reference was created from an ORPHANED EDITOR LIST — the platform's hardening workflow
 cycle 7 (2026-06-30), amp_1, surfaced by the R-0177 Sonnet re-audit.
 
 When docpluck injects a running-header page number mid reference-list, an edited-book
@@ -718,7 +718,7 @@ edited-book chapter was rejected.
 ## 0.7.52
 
 A capitalized two-word particle surname ("Van Iddekinge") was truncated to its particle
-("Van") in bare-year (AOM/ASA/Chicago) references — scimeto-iterate cycle 7
+("Van") in bare-year (AOM/ASA/Chicago) references — the platform's hardening workflow cycle 7
 (2026-06-30), annals_2, surfaced by the R-0177 Sonnet audit.
 
 `parseBareYearReference` chose its author sub-parser from `hasCommaInFirstAuthor` /
@@ -739,7 +739,7 @@ capitalized particle surname).
 ## 0.7.51
 
 AOM references concatenated on one line and separated by a literal `*` bullet marker
-were not split — citelink lost every entry after the first (scimeto-iterate cycle 7,
+were not split — citelink lost every entry after the first (the platform's hardening workflow cycle 7,
 2026-06-30, annals_2, surfaced by the R-0177 Sonnet audit).
 
 docpluck's two-column AOM extraction preserves each entry's leading bullet as a literal
@@ -761,7 +761,7 @@ pairing artifacts (4 Aguinis 2014 siblings) + filed gold/docpluck issues, not ci
 ## 0.7.50
 
 APA-path reference TITLE came out EMPTY when the year was resolved via a fallback
-rather than the parenthesized `(YYYY)` — scimeto-iterate cycle 7 (2026-06-30),
+rather than the parenthesized `(YYYY)` — the platform's hardening workflow cycle 7 (2026-06-30),
 amp_1 Diamond + annals_2 Grand, surfaced by the R-0177 Sonnet audit.
 
 `parseAPAReference` gates BOTH author and title extraction on `yearMatch.index`, where
@@ -784,7 +784,7 @@ protoscience? Ten years later." — so Diamond's title is asserted by prefix.)
 ## 0.7.49
 
 AOM bare-year reference TITLE truncation on amp_1 + annals_2, surfaced by the R-0177
-Sonnet canary audit (scimeto-iterate cycle 7, 2026-06-30). The bare-year parser
+Sonnet canary audit (the platform's hardening workflow cycle 7, 2026-06-30). The bare-year parser
 (`parseBareYearReference`, used for AOM / ASA / Chicago author-date) had a primitive
 title extractor that the APA path had already outgrown, truncating real titles in two
 shapes:
@@ -811,7 +811,7 @@ is untouched (the fix is a scoped addition to the bare-year parser only).
 ## 0.7.48
 
 Two IEEE reference-parsing defects on ieee_access_2, surfaced by the R-0177 Sonnet
-canary audit run against the CURRENT docpluck v2.4.98 fixture (scimeto-iterate
+canary audit run against the CURRENT docpluck v2.4.98 fixture (the platform's hardening workflow
 cycle 6, 2026-06-29). Both were hidden until the fixture was regenerated to the
 installed docpluck — the older fixture carried a pymupdf-order author string that
 masked them; production feeds docpluck/pdftotext, which exposes them.
@@ -846,7 +846,7 @@ and upstream docpluck losses (3 refs absent from the extracted text), not citeli
 ## 0.7.47
 
 Harvard reference orphan-split at a title phrase, surfaced by the R-0177 Sonnet
-canary audit of bjps_1 (scimeto-iterate 2026-06-26).
+canary audit of bjps_1 (the platform's hardening workflow 2026-06-26).
 
 **A Harvard title whose leading words read as "Surname, Firstname" was mistaken
 for a new reference start (bjps_1 Baccini/Sattler + Foster/Frieden).** The
@@ -868,7 +868,7 @@ abstract number, GLO publisher word order — filed to article-finder, not citel
 ## 0.7.46
 
 URL-as-title on an organizational website reference, surfaced by the R-0177 Sonnet
-canary audit of nat_comms_2 (scimeto-iterate 2026-06-26).
+canary audit of nat_comms_2 (the platform's hardening workflow 2026-06-26).
 
 **A website reference's URL was parsed into the `title` field (nat_comms_2 #47).**
 "ISARIC4C Comprehensive Clinical Characterisation Collaboration Website.
@@ -885,7 +885,7 @@ tests (real docpluck-v2.4.98 text). Zero corpus regression (474 tests green).
 ## 0.7.45
 
 Organizational-author reference defects surfaced by the R-0177 Sonnet canary audit
-of xiao_2021_crsp (scimeto-iterate 2026-06-26) — hidden behind a 0.980 refs
+of xiao_2021_crsp (the platform's hardening workflow 2026-06-26) — hidden behind a 0.980 refs
 F1 the gate read as clean. Two org entries were concatenated mid-line onto the
 PREVIOUS reference (docpluck academic flows them after the prior entry's
 publisher/DOI with only a space):
@@ -917,7 +917,7 @@ accuracy 0.969 → 0.988 (openscie|2015 wrong-target cleared). +5 regression tes
 ## 0.7.44
 
 Two more reference-parsing defects surfaced by the R-0177 Sonnet canary audits of
-ieee_access_2 and chan_feldman (scimeto-iterate 2026-06-25) — both hidden
+ieee_access_2 and chan_feldman (the platform's hardening workflow 2026-06-25) — both hidden
 behind high F1 (0.986 / 0.983) the gate read as clean.
 
 **PMC running-header parsed as a fabricated reference (ieee_access_2).** PMC-hosted
@@ -949,7 +949,7 @@ keeps the strict "." / "," closer.
 ## 0.7.43
 
 Concatenated acronym-colon ORG reference not split, surfaced by the R-0177 Sonnet
-RE-audit of chen (scimeto-iterate 2026-06-25) after the v0.7.41/42 fixes.
+RE-audit of chen (the platform's hardening workflow 2026-06-25) after the v0.7.41/42 fixes.
 chen: "Sowden, W. (2018). … 1(4), 443-490. KNAW: Royal Dutch Academy of Arts and
 Sciences. (2018). Replication studies: …" parsed as ONE reference (Sowden) —
 the KNAW 2018 entry was swallowed. `splitConcatenatedApaReferences` recognized
@@ -969,7 +969,7 @@ whether to split, so clean references are unaffected.
 ## 0.7.42
 
 In-text detection miss surfaced by the R-0177 Sonnet canary audit of chen
-(scimeto-iterate 2026-06-25). A "(also) see <prose> in <Citation>" lead-in
+(the platform's hardening workflow 2026-06-25). A "(also) see <prose> in <Citation>" lead-in
 on a member of a ";"-bundle defeated detection: chen
 "(Fischhoff, 2007, p. 11; also see interview in Klein, Hegarty, & Fischhoff,
 2017)" detected only Fischhoff 2007. The bundle splitter splits on ";" and the
@@ -990,7 +990,7 @@ false-positive surface small.
 ## 0.7.41
 
 Two APA reference-parsing defects surfaced by the R-0177 Sonnet canary audit of
-chen (scimeto-iterate 2026-06-25) — the F1 gate scored chen PASS (refs.f1
+chen (the platform's hardening workflow 2026-06-25) — the F1 gate scored chen PASS (refs.f1
 0.966) while these sat in the `field_mismatches` / `wrong_target` diagnostic
 arrays unread. Both are general, structural fixes; neither is keyed on a paper.
 
@@ -1024,7 +1024,7 @@ kept with the surname. Plain particles ("van Raan", "von …") are unaffected.
 ## 0.7.40
 
 APA-7 ellipsis author list defeated the concatenated-reference splitter
-(scimeto-iterate 2026-06-25, chen — TC-6). APA 7 truncates a 21+ author
+(the platform's hardening workflow 2026-06-25, chen — TC-6). APA 7 truncates a 21+ author
 reference as "first 19, …, final author": "Munafò, M. R., Nosek, B. A., …,
 Ioannidis, J. P. (2017).". The concatenation splitter's `personalList` was a
 comma-joined run of "Surname, Initials" with no ellipsis connector, so it stopped
@@ -1043,7 +1043,7 @@ three-dot form is ambiguous with sentence punctuation and would over-split.
 
 ## 0.7.39
 
-et-al in-text citations failed to match an et-al REFERENCE (scimeto-iterate
+et-al in-text citations failed to match an et-al REFERENCE (the platform's hardening workflow
 2026-06-25, bjps_1 — TC-5). Harvard / Vancouver / AOM reference lists frequently
 abbreviate a 3+ author entry as "Sides J et al. (2019)", so `parseReferences`
 reports authorCount=1 for it. The et-al matcher required
@@ -1064,7 +1064,7 @@ al.") still correctly rejects an et-al citation, so no false matches are added.
 ## 0.7.38
 
 AOM / Chicago **colon page-locator** dropped the first citation of a
-multi-citation parenthetical (scimeto-iterate 2026-06-25, amp_1 — TC-4).
+multi-citation parenthetical (the platform's hardening workflow 2026-06-25, amp_1 — TC-4).
 AOM and Chicago note-style write a page locator after the year as ": page"
 ("Bedeian, Van Fleet & Hyman, 2009a: 211"), not the APA ", p. page". The
 multi-citation bundle handler splits on ";" then runs $-anchored fragment
@@ -1088,7 +1088,7 @@ openers are untouched.
 ## 0.7.37
 
 AOM (Academy of Management) bare-year run-on references swallowed concatenated
-entries (scimeto-iterate 2026-06-25, amp_1 — TC-1 / TC-2). AOM writes the
+entries (the platform's hardening workflow 2026-06-25, amp_1 — TC-1 / TC-2). AOM writes the
 author list with a comma + period-initials exactly like APA ("Egghe, L. 2006.")
 but the year is a **bare** "2006." — never the parenthesized "(2006)." that BOTH
 the APA and Harvard concatenation splitters require. So when docpluck flows two
@@ -1105,7 +1105,7 @@ previous reference ends clean `.`/`)`/digit or in a trailing URL, never inside a
 author list) plus a particle-orphan guard so a split after a URL-terminated entry
 keeps `van Raan` intact (it was being mis-keyed to `Raan`). Blast radius is zero
 on every other style — the multi-entry-per-line pattern occurs only in AOM
-fixtures (measured across the full scimeto corpus).
+fixtures (measured across the full Scimeto corpus).
 
 - **amp_1: references F1 0.906 → 0.926, matching 0.873 → 0.900.** Zero regression
   on all 12 other corpus papers (non-AOM byte-identical). +5 regression tests on
@@ -1113,7 +1113,7 @@ fixtures (measured across the full scimeto corpus).
 
 ## 0.7.36
 
-Author-bio lines parsed as fabricated references (scimeto-iterate cycle 6, AOM
+Author-bio lines parsed as fabricated references (the platform's hardening workflow cycle 6, AOM
 journals, 2026-06-21). Journals print an "About the authors" block after the reference
 list; when a bio line carries a year, `parseReferences` harvested the author name + the
 stray year and emitted a reference that does not exist — an academic-integrity defect.
@@ -1136,7 +1136,7 @@ INITIALS form (`"Herman A. (email) is…"`); the FULL-surname form slipped throu
 
 ## 0.7.35
 
-Numeric parenthetical-`(N)` enumeration false-positives (scimeto-iterate cycle 5,
+Numeric parenthetical-`(N)` enumeration false-positives (the platform's hardening workflow cycle 5,
 sci_rep_3 `10.1038/s41598-023-50401-z`, 2026-06-20). The parenthetical-numeric branch
 (active when a paper has <3 bracket citations) treated body **list enumerations** as
 in-text citations — a Nature/superscript paper's inclusion/exclusion-criteria items
@@ -1154,7 +1154,7 @@ as 7 spurious citations (in-text F1 0.885).
 
 ## 0.7.34
 
-APA bundle member with a multi-word `for <prose> see` lead-in (scimeto-iterate
+APA bundle member with a multi-word `for <prose> see` lead-in (the platform's hardening workflow
 APA-ORG-AUTHOR cycle 6, xiao_2021, 2026-06-17). The signal-prefix strip handled only
 the narrow `for [a] review(s) see` form, so a bundle whose first member was prefixed
 by arbitrary review/criticism prose — `(for criticisms of the challenge, see Huber et
@@ -1172,7 +1172,7 @@ first cited work (Huber / Gaudeul).
 
 ## 0.7.33
 
-APA `;`-bundle member with a trailing prose note (scimeto-iterate
+APA `;`-bundle member with a trailing prose note (the platform's hardening workflow
 APA-ORG-AUTHOR cycle 5, xiao_2021, 2026-06-17). The semicolon-bundle splitter owns
 `;`-delimited parentheticals and its per-fragment matchers are `$`-anchored right after
 the year, so a bundle whose LAST member trails into prose —
@@ -1190,7 +1190,7 @@ skips `;`-bundles, so it could not recover it either).
 
 ## 0.7.32
 
-APA organizational / multi-word in-text author detection (scimeto-iterate
+APA organizational / multi-word in-text author detection (the platform's hardening workflow
 APA-ORG-AUTHOR cycle 4, tay_2020 + xiao_2021, 2026-06-17). The APA citation detector
 captured authors via `COMPOUND_SURNAME` (a single surname optionally extended by a
 WHITELISTED particle), so a run of 2+ plain capitalized tokens fell through: standalone
@@ -1214,7 +1214,7 @@ group-with-abbrev `(Collaborative Open-science REsearch [CORE], 2020)` was misse
 
 ## 0.7.31
 
-Harvard in-text possessive narrative + capitalized lead-in (scimeto-iterate H2-D
+Harvard in-text possessive narrative + capitalized lead-in (the platform's hardening workflow H2-D
 cycle 3, bjps_1, 2026-06-15) — `According to Barr's (2009, 44)` was detected as NOTHING:
 the surname infix matched ANY lowercase word, so `According to Barr's` was captured as one
 span starting at the capitalized lead-in `According`, which `COMMON_WORDS` then dropped —
@@ -1237,7 +1237,7 @@ key `barr` nor the reference.
 
 ## 0.7.30
 
-Harvard in-text surname left-boundary under-capture (scimeto-iterate H2 cycle 2,
+Harvard in-text surname left-boundary under-capture (the platform's hardening workflow H2 cycle 2,
 bjps_1, 2026-06-15) — the shared surname sub-pattern only spanned a multi-token surname
 joined by a *lowercase* particle (`Smith van Berg`), so three real surname shapes fell
 through to the LAST token and keyed the citation on the wrong author (matching neither the
@@ -1268,7 +1268,7 @@ double surname (`Santos Silva`), and a hyphen-cap compound (`Rhodes-Purdy`).
 
 ## 0.7.29
 
-Harvard in-text page-locator detection (scimeto-iterate H2 cycle 1, bjps_1,
+Harvard in-text page-locator detection (the platform's hardening workflow H2 cycle 1, bjps_1,
 2026-06-15) — every Harvard parenthetical + narrative pattern anchored the year as
 `(\d{4})\)` (closing paren immediately after the year), and the one page-aware pattern
 (`singleWithPage`) required a `p.`/`pp.` prefix AND was single-author only. So any Harvard
@@ -1305,7 +1305,7 @@ U+FB05, so an explicit ASCII map is used instead.
 
 ## 0.7.27
 
-scimeto-iterate **2026-06-12** — Harvard run-on reference-list support (REFERENCE-PARSING).
+Hardening workflow **2026-06-12** — Harvard run-on reference-list support (REFERENCE-PARSING).
 Onboarding the Harvard canary `bjps_1` (DOI 10.1017/S0007123424000024, "The Populist Backlash
 Against Globalization") surfaced a complete failure to parse Harvard reference lists from the
 production substrate: refs.f1 **0.051 → 0.972**, references parsed **9 → 109 of 109**, matching
@@ -1343,7 +1343,7 @@ Harvard-family author-year styles).
   begins with a digit/quote/hashtag (`#EleNão: …`), both of which previously aborted the boundary
   match and globbed the entry.
 
-Residual (filed to the scimeto-iterate TRIAGE, refs.f1 0.972 floor): a single idiosyncratic
+Residual (filed to the the platform's hardening workflow TRIAGE, refs.f1 0.972 floor): a single idiosyncratic
 glob (Whelan/Maître), a dataset self-citation year-format ("Replication Data for: …"), and two
 grey-literature title-bleeds past `;` ("…Populism; Unpublished Manuscript"). In-text Harvard
 detection/matching (intext.f1 0.774, match 0.594) is a separate subsystem for a future cycle.
@@ -1353,7 +1353,7 @@ citelink 389 tests pass.
 
 ## 0.7.26
 
-scimeto-iterate **2026-06-10 (cycle 1)** — REFERENCE-PARSING over-split class on
+Hardening workflow **2026-06-10 (cycle 1)** — REFERENCE-PARSING over-split class on
 numbered (IEEE/Vancouver) reference lists. Two distinct triggers false-split a single
 numbered reference into two, spawning a phantom author-less reference and shifting every
 later numeric index (so numeric citations resolved to the wrong reference). Surfaced on
@@ -1379,7 +1379,7 @@ citelink 375 tests pass.
 
 ## 0.7.25
 
-scimeto-iterate **focused sub-cycle 2026-06-08d (cycle 1)** — in-text DETECTION
+Hardening workflow **focused sub-cycle 2026-06-08d (cycle 1)** — in-text DETECTION
 miss class "D3/D6": a single parenthetical that bundles 2+ citations separated by
 **prose** rather than a semicolon, or carries a trailing prose note.
 
@@ -1413,7 +1413,7 @@ Oxford-comma first-author cases).
 
 ## 0.7.24
 
-scimeto-iterate **focused cycle 2026-06-08c (cycle 2)** — complex-parenthetical
+Hardening workflow **focused cycle 2026-06-08c (cycle 2)** — complex-parenthetical
 in-text DETECTION misses (the "O2" class) on collabra_90203. Two bundle-fragment
 robustness fixes:
 
@@ -1442,7 +1442,7 @@ the chen gold-undercount above; no metric regressed > ε.
 
 ## 0.7.23 (unreleased)
 
-scimeto-iterate **focused cycle 2026-06-08c** — URL-terminated reference
+Hardening workflow **focused cycle 2026-06-08c** — URL-terminated reference
 swallowed the next reference (REFERENCE-SEGMENTATION). Surfaced on collabra_90203 as
 the root of "O1" (3 "Bartoš, F., Maier, M., … (2022)" refs + McKenzie 2018 missing).
 
@@ -1468,7 +1468,7 @@ the root of "O1" (3 "Bartoš, F., Maier, M., … (2022)" refs + McKenzie 2018 mi
 
 ## 0.7.22 (unreleased)
 
-scimeto-iterate **session 2026-06-08** — APA reference title with a leading
+Hardening workflow **session 2026-06-08** — APA reference title with a leading
 part-number prefix truncated to the prefix (REFERENCE-PARSING). Surfaced on
 chan_feldman_2025_cogemo (Pearson & Filon 1898).
 
@@ -1487,7 +1487,7 @@ chan_feldman_2025_cogemo (Pearson & Filon 1898).
 
 ## 0.7.21 (unreleased)
 
-scimeto-iterate **session 2026-06-08** — plain-digit superscript recovery
+Hardening workflow **session 2026-06-08** — plain-digit superscript recovery
 fabricated citations from math variables in bracket-paradigm papers
 (INTEXT-DETECTION false positive). Surfaced on ieee_access_2 + plos_med_1.
 
@@ -1509,7 +1509,7 @@ fabricated citations from math variables in bracket-paradigm papers
 
 ## 0.7.20 (unreleased)
 
-scimeto-iterate **session 2026-06-07e** — two-word compound surname
+Hardening workflow **session 2026-06-07e** — two-word compound surname
 (REFERENCE-PARSING). Surfaced on nat_comms_2 (O3).
 
 - **A two-word compound surname in "Surname, Initials" form ("Ross Russell, A. L.")
@@ -1524,7 +1524,7 @@ scimeto-iterate **session 2026-06-07e** — two-word compound surname
 
 ## 0.7.19 (unreleased)
 
-scimeto-iterate **session 2026-06-07e** — Vancouver journal-abbreviation
+Hardening workflow **session 2026-06-07e** — Vancouver journal-abbreviation
 false split (REFERENCE-PARSING). Surfaced on plos_med_1 (O1-residual).
 
 - **A Vancouver reference whose title is followed by a multi-word journal
@@ -1542,7 +1542,7 @@ false split (REFERENCE-PARSING). Surfaced on plos_med_1 (O1-residual).
 
 ## 0.7.18 (unreleased)
 
-scimeto-iterate **session 2026-06-07e** — organizational-author reference
+Hardening workflow **session 2026-06-07e** — organizational-author reference
 run-on split (REFERENCE-PARSING). Surfaced on collabra_90203 (O4).
 
 - **An org author ending in an org-suffix word ("JASP Team. (2023).") concatenated
@@ -1560,7 +1560,7 @@ run-on split (REFERENCE-PARSING). Surfaced on collabra_90203 (O4).
 
 ## 0.7.17 (unreleased)
 
-scimeto-iterate **session 2026-06-07e** — numeric-citation precision
+Hardening workflow **session 2026-06-07e** — numeric-citation precision
 (INTEXT-DETECTION false-positive). For an academic-integrity tool, fabricating a
 citation is worse than missing one; this closes a fabrication path.
 
@@ -1582,7 +1582,7 @@ confirmed won't-fix (no pdftotext flag; splitting would regress detection).
 
 ## 0.7.16 (unreleased)
 
-scimeto-iterate **session 2026-06-07c** — run-on reference splitting
+Hardening workflow **session 2026-06-07c** — run-on reference splitting
 (REFERENCE-PARSING class). Surfaced only against the docpluck-academic (pdftotext)
 extraction substrate — the production input — after the iterate fixtures were
 regenerated from raw-pymupdf to docpluck `--level academic`.
@@ -1605,7 +1605,7 @@ regenerated from raw-pymupdf to docpluck `--level academic`.
 
 ## 0.7.15 (unreleased)
 
-scimeto-iterate **session 2026-06-07b, N1** — hyphenated compound split
+Hardening workflow **session 2026-06-07b, N1** — hyphenated compound split
 across a line break with a numeric tail truncated a reference (HALLUCINATION /
 CITATION-PARSING class).
 
@@ -1621,7 +1621,7 @@ CITATION-PARSING class).
 
 ## 0.7.14 (unreleased)
 
-scimeto-iterate **session 2026-06-07b, cycle 5** — acronym-colon
+Hardening workflow **session 2026-06-07b, cycle 5** — acronym-colon
 organisation reference lost / mis-keyed (CITATION-PARSING class).
 
 - **"KNAW: Royal Dutch Academy of Arts and Sciences. (2018). …" was merged into
@@ -1639,7 +1639,7 @@ citation now resolves); no corpus regression. Regression test:
 
 ## 0.7.13 (unreleased)
 
-scimeto-iterate **session 2026-06-07b, cycle 4** — superscript citation
+Hardening workflow **session 2026-06-07b, cycle 4** — superscript citation
 list glued to a disease-name compound was never detected (INTEXT-DETECTION class).
 
 - **"COVID-1914,27" (i.e. "COVID-19" + superscript "14,27") detected nothing.**
@@ -1660,7 +1660,7 @@ text-extraction losses (superscripts 28/30/41/46 dropped during PDF extraction)
 
 ## 0.7.12 (unreleased)
 
-scimeto-iterate **session 2026-06-07b, cycle 3** — plain-digit
+Hardening workflow **session 2026-06-07b, cycle 3** — plain-digit
 (PDF-superscript) citation detection discarded real citations (INTEXT-DETECTION
 class).
 
@@ -1681,7 +1681,7 @@ positives). Regression test: `tests/plainDigitFpGuardAnchoring.test.ts`.
 
 ## 0.7.11 (unreleased)
 
-scimeto-iterate **session 2026-06-07b, cycle 2** — Nature numbered
+Hardening workflow **session 2026-06-07b, cycle 2** — Nature numbered
 reference parsed the JOURNAL name as the title (CITATION-PARSING class).
 
 - **A Nature reference whose title begins with an acronym / hyphenated-caps token
@@ -1708,7 +1708,7 @@ reference parsed the JOURNAL name as the title (CITATION-PARSING class).
 
 ## 0.7.10 (unreleased)
 
-scimeto-iterate **cycle 6** (this run) — numbered reference fabricated from
+Hardening workflow **cycle 6** (this run) — numbered reference fabricated from
 a line-split page range (HALLUCINATION class).
 
 - **A page/year range split across a line break fabricated a reference.** On
@@ -1724,7 +1724,7 @@ a line-split page range (HALLUCINATION class).
 
 ## 0.7.9 (unreleased)
 
-scimeto-iterate **cycle 4** (this run) — reference-section bleed.
+Hardening workflow **cycle 4** (this run) — reference-section bleed.
 
 - **Author-year citations were detected inside the reference list itself.** A
   replication/meta-analysis paper's reference entries cite their originals in the
@@ -1739,7 +1739,7 @@ scimeto-iterate **cycle 4** (this run) — reference-section bleed.
 
 ## 0.7.8 (unreleased)
 
-scimeto-iterate **cycle 3** (this run) — Latin Extended-A surnames.
+Hardening workflow **cycle 3** (this run) — Latin Extended-A surnames.
 
 - **A surname with a Latin Extended-A character (U+0100–U+017F) was truncated,
   promoting the second author to first.** The multi-author reference
@@ -1754,7 +1754,7 @@ scimeto-iterate **cycle 3** (this run) — Latin Extended-A surnames.
 
 ## 0.7.7 (unreleased)
 
-scimeto-iterate **cycle 2** (this run) — reference section truncated by a
+Hardening workflow **cycle 2** (this run) — reference section truncated by a
 mid-entry running header.
 
 - **An all-caps running page header that lands INSIDE a reference truncated the
@@ -1775,7 +1775,7 @@ mid-entry running header.
 
 ## 0.7.6 (unreleased)
 
-scimeto-iterate **cycle 26** — institutional acronym-colon author.
+Hardening workflow **cycle 26** — institutional acronym-colon author.
 
 - **An institutional author written "ACRONYM: Full Name" was missed.** The group
   patterns covered "(WHO, 2020)", "(World Health Organization, 2020)", and
@@ -1789,7 +1789,7 @@ scimeto-iterate **cycle 26** — institutional acronym-colon author.
 
 ## 0.7.5 (unreleased)
 
-scimeto-iterate **cycle 25** — Dutch contracted-article particle ("van't").
+Hardening workflow **cycle 25** — Dutch contracted-article particle ("van't").
 
 - **A "van't Veer" / "van 't Hooft" surname was missed.** The particle whitelist
   matched "van" only when followed by whitespace, so the contracted "van't"
@@ -1801,7 +1801,7 @@ scimeto-iterate **cycle 25** — Dutch contracted-article particle ("van't").
 
 ## 0.7.4 (unreleased)
 
-scimeto-iterate **cycle 24 (R1)** — "see for example" signal prefix.
+Hardening workflow **cycle 24 (R1)** — "see for example" signal prefix.
 
 - **The multi-word signal prefix "see for example" (and "see, e.g.") was not
   stripped.** The fragment-prefix strip and `SIGNAL_PREFIX` recognised "see" /
@@ -1814,7 +1814,7 @@ scimeto-iterate **cycle 24 (R1)** — "see for example" signal prefix.
 
 ## 0.7.3 (unreleased)
 
-scimeto-iterate **cycle 23** — eszett (ß) in surnames.
+Hardening workflow **cycle 23** — eszett (ß) in surnames.
 
 - **A surname containing "ß" (U+00DF) was truncated.** The lowercase surname
   character class ran `à-ÿ` (U+00E0–U+00FF), which begins one code point above
@@ -1823,7 +1823,7 @@ scimeto-iterate **cycle 23** — eszett (ß) in surnames.
 
 ## 0.7.2 (unreleased)
 
-scimeto-iterate **cycle 22** — compound surname in two-author bundle entries.
+Hardening workflow **cycle 22** — compound surname in two-author bundle entries.
 
 - **A particle surname ("Van Nuland", "De Bruin", "van der Berg") as a
   two-author entry inside a semicolon bundle was missed.** The standalone
@@ -1837,7 +1837,7 @@ scimeto-iterate **cycle 22** — compound surname in two-author bundle entries.
 
 ## 0.7.1 (unreleased)
 
-scimeto-iterate **cycle 21 (R2)** — generational suffix on surnames.
+Hardening workflow **cycle 21 (R2)** — generational suffix on surnames.
 
 - **Generational suffix (Jr / Sr / II / III / IV) on a surname broke detection.**
   A trailing "Hom Jr" defeated every author-capture pattern that expected a
@@ -1851,7 +1851,7 @@ scimeto-iterate **cycle 21 (R2)** — generational suffix on surnames.
 
 ## 0.7.0 (unreleased)
 
-scimeto-iterate **cycle 18** — fixes driven by the 2026-05-26
+Hardening workflow **cycle 18** — fixes driven by the 2026-05-26
 Sonnet-watches-Opus canary audit (chen_2021_jesp, chan_feldman_2025_cogemo,
 collabra_90203). Aggregate Sonnet findings 60 → 39 across two re-audit rounds.
 Test suite 267 → 275.
@@ -1901,7 +1901,7 @@ Test suite 267 → 275.
   matchers. The fragment connector-strip now also removes a leading "and "/
   "in " when followed by an uppercase surname.
 
-Known limits documented in the audit ledger (`MetaScienceTools/Scimeto/
+Known limits documented in the audit ledger (`Scimeto/
 tmp/iterate/cycle-canary-smoke/`): multi-citation parenthetical SECONDARY-entry
 detection (Mazursky/Hom/Guilbault/KNAW inside long bundles), Maier/Bartoš
 multi-same-year title-swap disambiguation, and citations embedded inside
@@ -1913,7 +1913,7 @@ boundary).
 ## 0.6.0
 
 Additional citation patterns surfaced by the cycle-6 gate diagnostics
-(scimeto-iterate cycles 15-19):
+(the platform's hardening workflow cycles 15-19):
 
 - **Cycle 15 — multi-author narrative with "and"** ("Hart, Lane, and Chinn
   (2018)", "Arkes, Wortmann, Saville, and Harkness (1981)") — new
@@ -1967,7 +1967,7 @@ Tests: 22 suites / 267 tests pass (was 19 / 254). 3 new regression test files.
 
 ## 0.5.0
 
-Multi-author detection extensions (scimeto-iterate cycles 12-14):
+Multi-author detection extensions (the platform's hardening workflow cycles 12-14):
 
 - **Cycle 12 — multi-author parenthetical with trailing et al.** APA 7
   "Author1, Author2, ..., et al., YEAR" disambiguator for same-year same-first-
@@ -2016,7 +2016,7 @@ patterns, shipped as one atomic version because the sub-fixes share constants
 (`COMPOUND_SURNAME` / `SURNAME_LASTNAME` / `SURNAME_PARTICLE` /
 `MONTH_NAMES`) and are not safely revertable in isolation.
 
-Cycles shipped (scimeto-iterate cycles 7-11):
+Cycles shipped (the platform's hardening workflow cycles 7-11):
 
 - **Cycle 7 — middle-particle prefix-leak.** Narrative + parenthetical
   patterns no longer accept arbitrary lowercase words between two capitalized
@@ -2104,7 +2104,7 @@ v0.3.1.
   "SmithJonesBrown" cannot pass as a single surname. Regression test:
   `camelCaseSurnameCitations.test.ts`.
 
-  Combined impact (scimeto-iterate cycles 7 & 8):
+  Combined impact (the platform's hardening workflow cycles 7 & 8):
   - chan_feldman intext F1 0.716 → 0.908 (+0.192), unmatched_gold 57 → 15
   - chen intext F1 0.673 → 0.704 (+0.031); matching 0.549 → 0.595 (+0.046)
   - collabra intext F1 0.830 → 0.846 (+0.016); matching 0.726 → 0.747 (+0.021)
@@ -2117,7 +2117,7 @@ v0.3.1.
   question marks (e.g. "Incident reporting: Science or protoscience? Ten years
   later.") no longer prematurely end the title. chen_2021_jesp references F1
   (strict) 0.921 → 0.931; collabra_90203 0.595 → 0.622; chan_feldman 0.342 →
-  0.359; no regression elsewhere. scimeto-iterate cycle 5.
+  0.359; no regression elsewhere. the platform's hardening workflow cycle 5.
 
 ## 0.3.0
 
@@ -2129,7 +2129,7 @@ v0.3.1.
   bracketed-citation count and pushed PLOS-style Vancouver papers into AMA.
   plos_med_1 now detects as vancouver (was ama); no regression on the existing
   ama/nature style-detector tests.
-  scimeto-iterate cycle 4.
+  the platform's hardening workflow cycle 4.
 
 ## 0.2.0
 
@@ -2141,7 +2141,7 @@ v0.3.1.
   CamelCase surnames (McKendrick, MacDonald, DeScioli) are also recognised by
   `parseVancouverAuthor`. ieee_access_2 references F1 (strict) rose from
   0.676 → 0.919; no regression on covered APA / Harvard corpus papers.
-  scimeto-iterate cycle 3.
+  the platform's hardening workflow cycle 3.
 
 ## 0.1.1
 
@@ -2151,7 +2151,7 @@ v0.3.1.
   left by `(year).` — leaving the parsed title empty. A with-issue reference
   had the mirror bug: the title ran into the journal name. The title is now
   anchored on the first sentence-ending period after the year. Reference F1 on
-  the scimeto-iterate seed corpus rose from 0.109 → 0.921
+  the the platform's hardening workflow seed corpus rose from 0.109 → 0.921
   (`chen_2021_jesp`) and 0.308 → 0.431 (`chan_feldman_2025_cogemo`).
 
 ## 0.1.0

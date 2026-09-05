@@ -3,7 +3,7 @@ import { detectCitations } from '../src/citationDetector';
 
 /**
  * Regression: a PARTICLE surname with "et al." was dropped when it appeared as a member of
- * a ';'-bundle (scimeto-iterate 2026-08-04, annals_1 — R-0177 Sonnet canary audit;
+ * a ';'-bundle (the platform's hardening workflow 2026-08-04, annals_1 — R-0177 Sonnet canary audit;
  * open finding #4 in the 2026-07-04 handoff, logged there as "de Visser 2016/2017 — 1 of 2
  * occurrences missed (occurrence-count)").
  *

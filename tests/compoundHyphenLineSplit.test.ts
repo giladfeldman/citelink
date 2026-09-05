@@ -3,7 +3,7 @@
  * NUMERIC tail — "COVID-\n19", "SARS-CoV-\n2", "IL-\n6" — truncated the reference
  * and fabricated a fragment.
  *
- * scimeto-iterate (session 2026-06-07b) N1 — surfaced on nat_comms_2 ref #2.
+ * the platform's hardening workflow (session 2026-06-07b) N1 — surfaced on nat_comms_2 ref #2.
  * "… Long-term neurologic outcomes of COVID-\n19. Nat. Med. 28, … (2022)." — the
  * orphaned "19." started its own line and the numbered-reference splitter read it
  * as reference #19, so the Xu entry was cut at "COVID-" (its year/journal lost)

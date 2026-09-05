@@ -4,7 +4,7 @@ import { detectCitations } from '../src/citationDetector';
 /**
  * Regression: a narrative citation whose parentheses hold a MULTI-YEAR LIST
  * ("McCullough et al. (1997, 1998)") must emit ONE citation per year — not drop
- * every year after the first (scimeto-iterate cycle 8, 2026-07-01 —
+ * every year after the first (the platform's hardening workflow cycle 8, 2026-07-01 —
  * chan_feldman_2025_cogemo, TC-I, R-0177 Sonnet deep audit).
  *
  * Root cause: the single/two/et-al narrative patterns each accept an OPTIONAL

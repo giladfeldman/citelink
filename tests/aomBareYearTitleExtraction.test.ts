@@ -3,7 +3,7 @@ import { parseReferences } from '../src/referenceParser';
 
 /**
  * Regression: AOM (Academy of Management) bare-year reference TITLE extraction
- * (scimeto-iterate cycle 7, 2026-06-30 — amp_1 + annals_2 Sonnet audit).
+ * (the platform's hardening workflow cycle 7, 2026-06-30 — amp_1 + annals_2 Sonnet audit).
  *
  * The bare-year parser (`parseBareYearReference`, used for AOM / ASA / Chicago
  * author-date) extracted the title with a naive "first `.` wins" rule plus a

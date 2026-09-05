@@ -1,6 +1,6 @@
 /**
  * Regression: signal-phrase prefix inside a single-citation paren must not
- * block detection. scimeto-iterate cycle 14 — chen_2021_jesp had
+ * block detection. the platform's hardening workflow cycle 14 — chen_2021_jesp had
  * "(see Hoffrage & Pohl, 2003)" and collabra_90203 had "(e.g., Lakens et al.,
  * 2018)" — both single-citation parens (no `;`) so the cycle-9 split-handler
  * strip didn't apply.

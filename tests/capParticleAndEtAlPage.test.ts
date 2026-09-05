@@ -1,5 +1,5 @@
 /**
- * scimeto-iterate cycles 17 + 18.
+ * the platform's hardening workflow cycles 17 + 18.
  *
  * Cycle 17 — capitalized surname particles. Compound surnames written with a
  * capital-first-letter particle in narrative reference lists ("Van Knippenberg",
