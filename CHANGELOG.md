@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.80
+
+**No behavioural change.** A documentation and naming release, tagged so that
+consumers pinning by tag can install the current tree: one commit had accumulated
+past v0.7.79 and was therefore invisible to anyone installing by tag, which is what
+the fleet identity gate flags.
+
+The diff looks large — 105 files, 280 insertions against 281 deletions — but it is
+a rename sweep. Measured before tagging: **0 non-comment lines changed in `src/`**
+across `v0.7.79..HEAD`. Build clean, 108 suites / 715 tests passed.
+
+### Changed
+- The platform is referred to by its product name throughout, and local filesystem
+  paths are no longer named in comments or docs.
+
 ## 0.7.79
 
 **One library, two answers for one string.** A two-word surname led by a Title-cased nobiliary
