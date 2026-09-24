@@ -2523,8 +2523,15 @@ export function detectCitations(rawText: string): DetectedCitation[] {
   // ============ YEAR-ELIDED PAGE-ONLY BACK-REFERENCE (stateful post-pass) ============
   // A same-paragraph back-reference that omits the year because the author was
   // cited (with a year) just before: '"…quote…" (Slovic & Fischhoff, p. 549).'
-  // (valid APA — chen_2021_jesp, TC-G, the platform's hardening workflow cycle 8). citelink's
+  // (chen_2021_jesp, TC-G, the platform's hardening workflow cycle 8). citelink's
   // year-anchored detectors require a 4-digit year, so this is missed.
+  //
+  // NOT "valid APA", as this comment said until 2026-09-24: APA 7 lets a writer drop
+  // the year only from a REPEATED NARRATIVE citation in a paragraph; every
+  // parenthetical citation carries it (apastyle.apa.org, "Author–date citation
+  // system"). The form is a style slip in the source, and still an attribution.
+  // The `year` this pass emits is therefore INFERRED from the prior citation, not
+  // printed — `raw` keeps the year-less source text.
   //
   // FP is bounded HARD by two requirements: (1) the parenthetical must carry a
   // page locator ("p. N" / "pp. N") and NO year — a bare "(Name)" never matches;

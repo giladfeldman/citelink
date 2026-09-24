@@ -6,9 +6,44 @@
 
 import type { DetectedCitation, ParsedCitationAuthor } from './citationDetector.js';
 
-/** Prefix patterns that indicate non-citation bracket numbers */
+/**
+ * Prefix patterns that indicate non-citation bracket numbers ("Table [1]", "Eq. [3]").
+ *
+ * The label must be the WHOLE preceding word. Anchored only at its end, the pattern
+ * fired on any word that merely ENDS in a label token — "relatio[nship]" matched "p",
+ * "profi[table]", "counter[part]", "on-[line]" — and discarded the real citation after
+ * it. The lookbehind refuses a letter, digit or hyphen before the label (the same fix
+ * the plain-digit branch's PLAIN_DIGIT_FP_WORD got on 2026-06-07). Surfaced on
+ * ieee_access_2, 2026-09-24.
+ */
 const FALSE_POSITIVE_PREFIX =
-  /(?:Table|Figure|Fig|Eq|Equation|Chapter|Section|Step|Item|page|pages|pp?|Appendix|Supplement|Panel|Part|Scheme|Algorithm|Listing|Line|Row|Column|Criterion|Condition|Model|Experiment|Sample|Group|Phase|Trial|Block|Protocol|Hypothesis|H\d+)\s*\.?\s*$/i;
+  /(?<![\p{L}\p{N}-])(?:Table|Figure|Fig|Eq|Equation|Chapter|Section|Step|Item|page|pages|pp?|Appendix|Supplement|Panel|Part|Scheme|Algorithm|Listing|Line|Row|Column|Criterion|Condition|Model|Experiment|Sample|Group|Phase|Trial|Block|Protocol|Hypothesis|H\d+)\s*\.?\s*$/iu;
+
+/**
+ * Label words that are ALSO ordinary nouns a paper cites a source for. As a label they
+ * are capitalised and numbered bare ("Model 2", "Experiment 1", "Step 3"); written in
+ * lowercase straight before a bracket they are prose — "the SIR model [13]", "the
+ * Gillespie algorithm [27]", "a study protocol [23]" — and the bracket is a citation.
+ * Document-element nouns (table, figure, equation, section, page, …) are deliberately
+ * NOT here: "the following differential equation [3]" is an equation label.
+ * Case-sensitive on purpose — the capitalised form keeps its label reading.
+ */
+const LOWERCASE_PROSE_NOUN =
+  /^(?:model|sample|experiment|group|phase|trial|block|protocol|hypothesis|condition|criterion|step|item|part|algorithm)$/;
+
+/**
+ * True when the text before a bracket ends in a non-citation label. A lowercase prose
+ * noun directly before the bracket (no period between) is NOT a label; a period keeps
+ * the old reading, because "our model. [3]" ends a sentence and is not the
+ * "noun [n]" citation shape.
+ */
+function endsInLabel(before: string): boolean {
+  const m = FALSE_POSITIVE_PREFIX.exec(before);
+  if (!m) return false;
+  const word = m[0].replace(/[\s.]+$/, '');
+  if (LOWERCASE_PROSE_NOUN.test(word) && !m[0].includes('.')) return false;
+  return true;
+}
 
 /** Expand a range string like "1,3-5,7" into [1,3,4,5,7] */
 export function expandNumericRange(rangeStr: string): number[] {
@@ -62,7 +97,7 @@ export function detectNumericCitations(
 
     // Skip false positives
     const before = text.slice(Math.max(0, m.index - 40), m.index);
-    if (FALSE_POSITIVE_PREFIX.test(before)) continue;
+    if (endsInLabel(before)) continue;
 
     const posKey = `${m.index}-${m.index + m[0].length}`;
     if (processedPositions.has(posKey)) continue;
