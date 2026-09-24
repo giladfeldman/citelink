@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.7.81
+
+**A bracket citation after "model" was thrown away as a label.** `detectNumericCitations`
+skips a `[n]` whose preceding word is a document label ("Table [1]"). The label list was
+end-anchored only and treated lowercase prose nouns as labels, so real citations were dropped:
+
+```
+"... for the SIR model\n[13]. Since ..."   -> []     (was)   -> [13]  (now)
+"a strong relationship [5] between"        -> []     (was)   -> [5]   (now; "p" matched)
+"its empirical counterpart [11]"           -> []     (was)   -> [11]  (now; "part" matched)
+"As shown in Table [1]"                    -> []     (unchanged)
+"Supplementary-Table [1]"                  -> []     (unchanged)
+"the following differential equation [3]"  -> []     (unchanged)
+```
+
+Measured over 147 extracted article texts: +17 detections, 0 removed, and no change in style
+classification. 11 of the 17 are real citations. The other 6 are in 3 texts that were already
+misread as numeric-style, where the same marker was already emitted dozens of times.
+
+### Fixed
+- `endsInBracketLabel` (exported): the label must be a whole word. A hyphen, or a lowercase
+  letter before a capitalised label (a space lost in extraction), still counts as a label
+  boundary. Lowercase `model`, `sample`, `protocol` and `condition` directly before the bracket
+  are prose, not labels. Only nouns with a measured citation example are listed.
+- The style detector's bracket count now uses the same rule, so the two no longer read one
+  bracket two ways.
+- The parenthetical `(n)` and standalone-line branches keep their previous guard on purpose:
+  anchoring it there turned equation references ("the stable (2) solution") into citations.
+
+### Documented
+- The bare author-year table cell (`Slovic & Fischhoff, 1977` alone on a line) is a deliberate,
+  test-pinned limit; see README "Known limits".
+- The year-elided back-reference pass emits an inferred year. A comment calling that source form
+  "valid APA" was wrong: APA 7 requires the year in every parenthetical citation.
+
+Cross-model consult (3 seats, 2 providers) found 5 issues in the first version; all reproduced
+and are fixed or pinned above. 111 suites / 753 tests.
+
 ## 0.7.80
 
 **No behavioural change.** A documentation and naming release, tagged so that

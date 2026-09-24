@@ -7,41 +7,65 @@
 import type { DetectedCitation, ParsedCitationAuthor } from './citationDetector.js';
 
 /**
- * Prefix patterns that indicate non-citation bracket numbers ("Table [1]", "Eq. [3]").
+ * Prefix patterns that indicate non-citation numbers ("Table 1", "Eq. (3)").
  *
- * The label must be the WHOLE preceding word. Anchored only at its end, the pattern
- * fired on any word that merely ENDS in a label token — "relatio[nship]" matched "p",
- * "profi[table]", "counter[part]", "on-[line]" — and discarded the real citation after
- * it. The lookbehind refuses a letter, digit or hyphen before the label (the same fix
- * the plain-digit branch's PLAIN_DIGIT_FP_WORD got on 2026-06-07). Surfaced on
- * ieee_access_2, 2026-09-24.
+ * END-anchored only, so it also fires when a word merely ENDS in a label token. That is
+ * a known defect, and it is fixed ONLY for the bracket branch (see endsInBracketLabel).
+ * The narrative, parenthetical "(n)" and standalone-line branches still use this regex
+ * unchanged, on purpose: anchoring it there was measured to turn equation references
+ * into citations — "we derive the stable (2) solution" and "as the baseline (3) shows"
+ * go from skipped to emitted (cross-model consult, 2026-09-24). Nothing measured
+ * supports that trade, so those branches keep their old behaviour.
  */
 const FALSE_POSITIVE_PREFIX =
-  /(?<![\p{L}\p{N}-])(?:Table|Figure|Fig|Eq|Equation|Chapter|Section|Step|Item|page|pages|pp?|Appendix|Supplement|Panel|Part|Scheme|Algorithm|Listing|Line|Row|Column|Criterion|Condition|Model|Experiment|Sample|Group|Phase|Trial|Block|Protocol|Hypothesis|H\d+)\s*\.?\s*$/iu;
+  /(?:Table|Figure|Fig|Eq|Equation|Chapter|Section|Step|Item|page|pages|pp?|Appendix|Supplement|Panel|Part|Scheme|Algorithm|Listing|Line|Row|Column|Criterion|Condition|Model|Experiment|Sample|Group|Phase|Trial|Block|Protocol|Hypothesis|H\d+)\s*\.?\s*$/i;
 
 /**
- * Label words that are ALSO ordinary nouns a paper cites a source for. As a label they
- * are capitalised and numbered bare ("Model 2", "Experiment 1", "Step 3"); written in
- * lowercase straight before a bracket they are prose — "the SIR model [13]", "the
- * Gillespie algorithm [27]", "a study protocol [23]" — and the bracket is a citation.
- * Document-element nouns (table, figure, equation, section, page, …) are deliberately
- * NOT here: "the following differential equation [3]" is an equation label.
- * Case-sensitive on purpose — the capitalised form keeps its label reading.
+ * Label words that are ALSO nouns a paper cites a source FOR. As labels they are
+ * capitalised and numbered bare ("Model 2"). Written in lowercase straight before a
+ * bracket, they are prose ("the SIR model [13]") and the bracket is a citation.
+ *
+ * Only nouns with MEASURED examples are listed. Across 147 extracted texts, the
+ * bracket after a lowercase noun was a citation for model (the numeric-paper hits),
+ * sample, protocol and condition, and a label for none of them. The other label nouns
+ * (step, item, hypothesis, criterion, algorithm, group, …) produced no example either
+ * way. Reviewers named plausible label uses ("in step [3] of the algorithm",
+ * "hypothesis [2] was supported"), so those nouns stay labels until data says
+ * otherwise. Document-element nouns are never listed: "the following differential
+ * equation [3]" is an equation number. Case-sensitive on purpose.
  */
-const LOWERCASE_PROSE_NOUN =
-  /^(?:model|sample|experiment|group|phase|trial|block|protocol|hypothesis|condition|criterion|step|item|part|algorithm)$/;
+const LOWERCASE_PROSE_NOUN = /^(?:model|sample|protocol|condition)$/;
+
+/** The bracket branch's label list: the same words as FALSE_POSITIVE_PREFIX. */
+const BRACKET_LABEL_TAIL =
+  /(?:Table|Figure|Fig|Eq|Equation|Chapter|Section|Step|Item|page|pages|pp?|Appendix|Supplement|Panel|Part|Scheme|Algorithm|Listing|Line|Row|Column|Criterion|Condition|Model|Experiment|Sample|Group|Phase|Trial|Block|Protocol|Hypothesis|H\d+)\s*\.?\s*$/i;
 
 /**
- * True when the text before a bracket ends in a non-citation label. A lowercase prose
- * noun directly before the bracket (no period between) is NOT a label; a period keeps
- * the old reading, because "our model. [3]" ends a sentence and is not the
- * "noun [n]" citation shape.
+ * True when the text before a bracket citation candidate ends in a non-citation label
+ * ("Table [1]", "Eq. [3]", "Supplementary-Table [2]").
+ *
+ * 1. The label must be a WHOLE word. End-anchored matching fired on any word that merely
+ *    ends in a label token, discarding the real citation after it: "relationship [5]"
+ *    matched "p", "profitable" matched "table", "counterpart" matched "part".
+ *    (ieee_access_2, 2026-09-24; the plain-digit branch got the same fix on 2026-06-07.)
+ *    Three things may still stand before a label: a non-letter such as a space, a
+ *    HYPHEN ("Supplementary-Table [2]", "Sub-Group [3]" are compound labels), or a
+ *    lowercase letter directly before a CAPITALISED label, where extraction lost a space
+ *    ("seeTable [1]"). A letter or digit before a lowercase label, or before a capital
+ *    after a capital ("WGAN-GP", "CH4"), makes it the tail of another word.
+ * 2. A lowercase prose noun directly before the bracket is not a label. With a period
+ *    between, it keeps the old reading, because "our model. [3]" ends a sentence.
  */
-function endsInLabel(before: string): boolean {
-  const m = FALSE_POSITIVE_PREFIX.exec(before);
+export function endsInBracketLabel(before: string, tail: RegExp = BRACKET_LABEL_TAIL): boolean {
+  const m = tail.exec(before);
   if (!m) return false;
-  const word = m[0].replace(/[\s.]+$/, '');
-  if (LOWERCASE_PROSE_NOUN.test(word) && !m[0].includes('.')) return false;
+  const label = m[0].replace(/[\s.]+$/, '');
+  const prev = m.index > 0 ? before[m.index - 1] : '';
+  if (/[\p{L}\p{N}]/u.test(prev)) {
+    const lostSpace = /\p{Ll}/u.test(prev) && /^\p{Lu}/u.test(label);
+    if (!lostSpace) return false;
+  }
+  if (LOWERCASE_PROSE_NOUN.test(label) && !m[0].includes('.')) return false;
   return true;
 }
 
@@ -97,7 +121,7 @@ export function detectNumericCitations(
 
     // Skip false positives
     const before = text.slice(Math.max(0, m.index - 40), m.index);
-    if (endsInLabel(before)) continue;
+    if (endsInBracketLabel(before)) continue;
 
     const posKey = `${m.index}-${m.index + m[0].length}`;
     if (processedPositions.has(posKey)) continue;

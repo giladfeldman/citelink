@@ -10,6 +10,7 @@
  */
 
 import type { CitationStyleType, CitationParadigm } from './types.js';
+import { endsInBracketLabel } from './numericCitationDetector.js';
 
 export interface StyleDetectionResult {
   style: CitationStyleType;
@@ -26,6 +27,12 @@ const NUMERIC_FALSE_POSITIVE_PREFIX =
 /**
  * Count bracket-citation patterns [N], [N,N], [N-N] that are NOT
  * preceded by false-positive prefixes.
+ *
+ * The label test is the numeric detector's own `endsInBracketLabel` (whole-word labels,
+ * measured lowercase prose nouns), fed this detector's word list. Until 2026-09-24 it
+ * was a bare end-anchored regex, so the style signal refused to count "relationship
+ * [5]" or "the SIR model [13]" while the detector it dispatches to emits them: two
+ * readings of one string in one library (cross-model consult, Opus, 2026-09-24).
  */
 function countBracketCitations(text: string): number {
   const pattern = /\[(\d+(?:\s*[-–—]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-–—]\s*\d+)?)*)\]/g;
@@ -34,7 +41,7 @@ function countBracketCitations(text: string): number {
   while ((m = pattern.exec(text)) !== null) {
     // Check preceding text for false-positive prefix
     const before = text.slice(Math.max(0, m.index - 30), m.index);
-    if (!NUMERIC_FALSE_POSITIVE_PREFIX.test(before)) {
+    if (!endsInBracketLabel(before, NUMERIC_FALSE_POSITIVE_PREFIX)) {
       count++;
     }
   }
