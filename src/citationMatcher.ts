@@ -149,8 +149,15 @@ function fuzzyNameMatch(name1: string, name2: string): number {
   const despaced2 = norm2.replace(/\s+/g, '');
   if (despaced1 === despaced2) return 0.98;
 
-  // One contains the other (handles particles like "van der Berg" vs "Berg")
-  if (norm1.includes(norm2) || norm2.includes(norm1)) return 0.95;
+  // One contains the other (handles particles like "van der Berg" vs "Berg"). A name shorter
+  // than 4 letters must be contained as a WHOLE word: "li" sits inside "malik" and "ho" inside
+  // "choi", and plain substring containment scored those 0.95 — a production "(Li et al., 2025)"
+  // linked to "Malik & Amjad (2025)" this way (v0.7.83).
+  const shorter = norm1.length <= norm2.length ? norm1 : norm2;
+  const longer = shorter === norm1 ? norm2 : norm1;
+  if (longer.includes(shorter)) {
+    if (shorter.length >= 4 || longer.split(/[\s-]+/).includes(shorter)) return 0.95;
+  }
 
   // Hyphenated name suffix match: "Peyton" matches "Bigda-Peyton", "Muñoz" matches "Mendieta-Muñoz"
   if (norm1.includes('-') && norm1.endsWith(norm2)) return 0.9;
@@ -172,8 +179,13 @@ function fuzzyNameMatch(name1: string, name2: string): number {
   const distance = levenshteinDistance(norm1, norm2);
   const maxLen = Math.max(norm1.length, norm2.length);
   
-  if (distance === 1) return 0.9;  // 1 character difference
-  if (distance === 2) return 0.8;  // 2 character difference
+  // An absolute edit distance says nothing about a short name: "hom" -> "choi" is 2 edits and
+  // scored 0.8, enough for "(Hom et al., 2012)" to MATCH "Choi, Kim, Sung, & Sohn (2012)" at
+  // 0.83 on the year alone (v0.7.83, tests/etAlTwoAuthorReference.test.ts). One edit counts from
+  // 4 letters ("Grey"/"Gray"), two from 6; shorter names fall through to the relative rules.
+  const minLenForEdits = Math.min(norm1.length, norm2.length);
+  if (distance === 1 && minLenForEdits >= 4) return 0.9;  // 1 character difference
+  if (distance === 2 && minLenForEdits >= 6) return 0.8;  // 2 character difference
   if (distance <= maxLen * 0.2) return 0.7;  // Up to 20% different
   if (distance <= maxLen * 0.3) return 0.5;  // Up to 30% different
   
@@ -328,18 +340,29 @@ function matchEtAl(
   // >=3. (the platform's hardening workflow 2026-06-25 — TC-5: bjps_1 matching 0.622, 49
   // correct et-al matches rejected as no_match.)
   const referenceIsEtAl = /\bet\s+al\b\.?/i.test(reference.raw || '');
-  if (reference.authorCount < 3 && !referenceIsEtAl) return 0.2;
 
   // Get the first (non-et-al) author from citation
   const citationFirstAuthor = citation.authors.find(a => !a.isEtAl);
   if (!citationFirstAuthor) return 0;
-  
+
   const citationName = citationFirstAuthor.normalized || normalizeName(citationFirstAuthor.raw);
-  const referenceName = reference.firstAuthorLastNameNormalized || 
+  const referenceName = reference.firstAuthorLastNameNormalized ||
     normalizeName(reference.firstAuthorLastName);
-  
+
   const nameScore = fuzzyNameMatch(citationName, referenceName);
-  
+
+  if (reference.authorCount < 3 && !referenceIsEtAl) {
+    // "X et al." written for a TWO-author work ("Vallacher et al. (2014)" for "Vallacher &
+    // Wegner (2014)") is an author's citation error that still cites that entry. Score it into
+    // the SUGGESTED band: 0.3 x name -> (0.21 + 0.3 x yearScore) x 0.9 = 0.459 with an exact
+    // year, below the < 0.5 ceiling citationMatching.test.ts keeps for this case, and below 0.40
+    // (no_match) when the year is also off. A one-author reference keeps the 0.2 penalty.
+    // (v0.7.83; tests/etAlTwoAuthorReference.test.ts — 29 correct links lost in 11 of 62
+    // production documents once the platform passed the citation type through.)
+    if (reference.authorCount === 2 && nameScore >= 0.8) return nameScore * 0.3;
+    return 0.2;
+  }
+
   // Boost score slightly for having correct author count structure
   return nameScore * 0.95;
 }
