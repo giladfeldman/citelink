@@ -149,20 +149,22 @@ function fuzzyNameMatch(name1: string, name2: string): number {
   const despaced2 = norm2.replace(/\s+/g, '');
   if (despaced1 === despaced2) return 0.98;
 
-  // One contains the other (handles particles like "van der Berg" vs "Berg"). A name shorter
-  // than 4 letters must be contained as a WHOLE word: "li" sits inside "malik" and "ho" inside
-  // "choi", and plain substring containment scored those 0.95 — a production "(Li et al., 2025)"
-  // linked to "Malik & Amjad (2025)" this way (v0.7.83).
+  // One contains the other (handles particles like "van der Berg" vs "Berg", and hyphenated
+  // compounds like "Peyton" / "Bigda-Peyton", which normalizeName has already closed up to
+  // "bigdapeyton"). A name shorter than 4 letters must be contained as a WHOLE space-separated
+  // word: "li" sits inside "malik" and "ho" inside "choi", and plain substring containment scored
+  // those 0.95 — a production "(Li et al., 2025)" linked to "Malik & Amjad (2025)" this way
+  // (v0.7.83). Known cost: normalizeName has removed hyphens before this runs, so a short name
+  // cited from a hyphenated compound ("Ho" / "Ho-Chen") no longer matches here.
+  // (The "hyphenated name suffix" rule that followed was unreachable for the same reason —
+  // `norm.includes('-')` is never true after normalizeName — and was removed; its examples are
+  // covered by the containment rule above. Found by the 2026-09-25 cross-model review.)
   const shorter = norm1.length <= norm2.length ? norm1 : norm2;
   const longer = shorter === norm1 ? norm2 : norm1;
   if (longer.includes(shorter)) {
-    if (shorter.length >= 4 || longer.split(/[\s-]+/).includes(shorter)) return 0.95;
+    if (shorter.length >= 4 || longer.split(/\s+/).includes(shorter)) return 0.95;
   }
 
-  // Hyphenated name suffix match: "Peyton" matches "Bigda-Peyton", "Muñoz" matches "Mendieta-Muñoz"
-  if (norm1.includes('-') && norm1.endsWith(norm2)) return 0.9;
-  if (norm2.includes('-') && norm2.endsWith(norm1)) return 0.9;
-  
   // Check if they share a significant common substring
   const minLen = Math.min(norm1.length, norm2.length);
   if (minLen >= 4) {
@@ -321,8 +323,10 @@ function matchTwoAuthors(
 }
 
 /**
- * Match et al. citation to reference
- * Reference MUST have 3 or more authors
+ * Match et al. citation to reference.
+ * A 3+-author reference (or one itself written "et al.") scores on its first author. A
+ * two-author reference with the same first author scores only into the suggested band (an
+ * author's citation error); a one-author reference is penalised.
  */
 function matchEtAl(
   citation: DetectedCitation,
@@ -617,11 +621,23 @@ export function matchCitationToReferences(
   const bestAuthorKey = String(bestMatch.reference?.firstAuthorLastName ?? '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 8);
   const bestYearKey = String(bestMatch.reference?.year ?? '').match(/\d{4}/)?.[0] ?? '';
   const bestSuffixKey = String(bestMatch.reference?.yearSuffix ?? '').toLowerCase();
+  // On the et-al -> TWO-author path (v0.7.83) the SECOND author is part of the key as well
+  // (cross-model review 2026-09-25): "Smith et al. (2020)" against both "Smith & Jones (2020)" and
+  // "Smith & Brown (2020)" is a real ambiguity between two works and must not be resolved by
+  // list order. It is deliberately NOT applied everywhere: widened to every citation it turned the
+  // chen_2021_jesp "(Fischhoff, 1975)" duplicate resolution back into ambiguity and cost 30 correct
+  // gold links (234 -> 204; collabra 146 -> 140).
+  const onTwoAuthorPath = citation.type === 'et_al' && bestMatch.reference?.authorCount === 2 &&
+    !/\bet\s+al\b/i.test(bestMatch.reference?.raw || '');
+  const secondKey = (r: ParsedReference | null | undefined) => onTwoAuthorPath
+    ? String(r?.secondAuthorLastName ?? '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 8)
+    : '';
+  const bestSecondKey = secondKey(bestMatch.reference);
   const allSameKey = ambiguousMatches.length > 0 && ambiguousMatches.every(m => {
     const ak = String(m.reference?.firstAuthorLastName ?? '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 8);
     const yk = String(m.reference?.year ?? '').match(/\d{4}/)?.[0] ?? '';
     const sk = String(m.reference?.yearSuffix ?? '').toLowerCase();
-    return ak === bestAuthorKey && yk === bestYearKey && sk === bestSuffixKey;
+    return ak === bestAuthorKey && yk === bestYearKey && sk === bestSuffixKey && secondKey(m.reference) === bestSecondKey;
   });
 
   if (bestMatch.confidence >= MATCHING_CONFIG.AUTO_MATCH_THRESHOLD) {

@@ -68,10 +68,11 @@ describe('"et al." citation of a two-author reference', () => {
   });
 
   // Production replay, 3 documents: "(Hom et al., 2012)" — whose reference list has only
-  // "Hom & Xiao (2011)" — was SUGGESTED to "Choi, Kim, Sung, & Sohn (2012)" on the year alone:
-  // matchEtAl scored an unrelated first author (name score ~0.2) x 0.95, which with an exact
-  // year reaches 0.433. A different first author is not an et-al match at any year.
-  it('an et-al citation is never suggested to a 3+-author reference whose first author differs', () => {
+  // "Hom & Xiao (2011)" — was linked to "Choi, Kim, Sung, & Sohn (2012)". fuzzyNameMatch
+  // scored "hom" / "choi" (two edits apart) 0.8, so matchEtAl gave 0.76 and the total reached
+  // 0.832: a confident MATCH on the year alone. Short names now need proportionally close
+  // spellings (see the short-name tests below).
+  it('an et-al citation is not linked to a reference whose short first author merely looks similar', () => {
     const { matches } = run('As shown before (Hom et al., 2012).', [
       'References',
       'Choi, S. M., Kim, Y., Sung, Y., & Sohn, D. (2012). Bridging or bonding? Information, Communication & Society, 14(1), 107-129.',
@@ -89,5 +90,59 @@ describe('"et al." citation of a two-author reference', () => {
       const m = matches.find((x) => x.citation.raw === cite);
       expect({ cite, status: m?.status }).toEqual({ cite, status: 'no_match' });
     }
+  });
+
+  // Codex/Sol, cross-model review 2026-09-25: with TWO two-author works by the same first author
+  // and year, both score 0.459 and the same-key guard (first author + year + suffix) resolved the
+  // tie by list order. They are different works, so the verdict is ambiguous.
+  it('two different two-author works with the same first author and year are AMBIGUOUS, not picked by list order', () => {
+    const { matches } = run('As Smith et al. (2020) showed.', [
+      'References',
+      'Smith, A., & Jones, B. (2020). First paper. Journal A, 1, 1-10.',
+      'Smith, A., & Brown, C. (2020). Second paper. Journal B, 2, 11-20.',
+    ]);
+    const m = matches.find((x) => x.citation.raw === 'Smith et al. (2020)');
+    expect(m!.status).toBe('ambiguous');
+    expect(m!.alternativeMatches?.length).toBe(1);
+  });
+
+  it('a duplicated entry (same first AND second author, year) still resolves instead of reading as ambiguous', () => {
+    const { matches } = run('As Smith and Jones (2020) showed.', [
+      'References',
+      'Smith, A., & Jones, B. (2020). First paper. Journal A, 1, 1-10.',
+      'Smith, A., & Jones, B. (2020). First paper. Journal A, 1, 1-10.',
+    ]);
+    const m = matches.find((x) => /Smith and Jones/.test(x.citation.raw));
+    expect(m!.status).toBe('matched');
+  });
+});
+
+describe('short surnames: similar-looking is not the same person', () => {
+  const one = (cite: string, ref: string) => run(`As shown ${cite}.`, ['References', ref]).matches[0];
+
+  it('an exact short surname still matches', () => {
+    expect(one('(Li, 2023)', 'Li, S. (2023). The effect of teacher self-efficacy. Journal C, 3, 1-9.').status).toBe('matched');
+    expect(one('(Ng et al., 2019)', 'Ng, T., Lam, S., & Chan, K. (2019). A study. Journal D, 4, 1-9.').status).toBe('matched');
+  });
+
+  it('distinct short surnames one or two letters apart no longer link (Kim/Lim, Ho/Hu, Li/Lee)', () => {
+    expect(one('(Kim et al., 2019)', 'Lim, T., Lam, S., & Chan, K. (2019). A study. Journal D, 4, 1-9.').status).toBe('no_match');
+    expect(one('(Ho et al., 2019)', 'Hu, T., Lam, S., & Chan, K. (2019). A study. Journal D, 4, 1-9.').status).toBe('no_match');
+    expect(one('(Li et al., 2019)', 'Lee, T., Lam, S., & Chan, K. (2019). A study. Journal D, 4, 1-9.').status).toBe('no_match');
+  });
+
+  it('a surname inside a longer one is not a match below 4 letters ("Li" inside "Malik")', () => {
+    expect(one('(Li et al., 2025)', 'Malik, M. A., Amjad, A. I., & Khan, S. (2025). AI vs AI. Journal E, 5, 1-9.').status).toBe('no_match');
+  });
+
+  // Known, accepted cost (named by both reviewers): a romanization variant of a short surname is
+  // no longer tolerated. Pinned so a future change to it is deliberate, not accidental.
+  it('KNOWN COST: short romanization variants (Ng/Ong) are no longer tolerated', () => {
+    expect(one('(Ng et al., 2019)', 'Ong, T., Lam, S., & Chan, K. (2019). A study. Journal D, 4, 1-9.').status).toBe('no_match');
+  });
+
+  it('compound surnames of 4+ letters still match by containment (Peyton / Bigda-Peyton, Muñoz / Mendieta-Muñoz)', () => {
+    expect(one('(Peyton, 2018)', 'Bigda-Peyton, T. (2018). A study. Journal F, 6, 1-9.').status).not.toBe('no_match');
+    expect(one('(Muñoz, 2017)', 'Mendieta-Muñoz, I. (2017). A study. Journal G, 7, 1-9.').status).not.toBe('no_match');
   });
 });
