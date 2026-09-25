@@ -11,6 +11,7 @@
 
 import type { CitationStyleType, CitationParadigm } from './types.js';
 import { endsInBracketLabel } from './numericCitationDetector.js';
+import { findReferenceSectionStart } from './referenceParser.js';
 
 export interface StyleDetectionResult {
   style: CitationStyleType;
@@ -197,6 +198,70 @@ function countAuthorYearNoComma(text: string): number {
   return matches ? matches.length : 0;
 }
 
+/**
+ * Narrative author-year citation: "Jovanovic (1982)", "Ericson and Pakes (1995)",
+ * "Bloom et al. (2014)", "Foster, Haltiwanger, and Krizan (2001)". The name and the
+ * "(year)" may be split by ONE line break (a wrapped line), never a blank line: a running
+ * header "Park et al. BMC Medicine" + blank line + "(2023) 21:509" is not a citation.
+ * A surname may carry one inner capital (McKendrick, DeLong, MacArthur).
+ */
+const NARRATIVE_SURNAME = String.raw`[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?`;
+const NARRATIVE_AUTHOR_YEAR = new RegExp(
+  String.raw`\b${NARRATIVE_SURNAME}(?:\s+et\s+al\.?|(?:,\s+${NARRATIVE_SURNAME})*,?\s+(?:and|&)\s+${NARRATIVE_SURNAME})?` +
+    String.raw`[ \t]*(?:\r?\n[ \t]*)?\((?:1[89]|20)\d{2}[a-z]?\)`,
+  'g',
+);
+
+/** A digit, Unicode superscript or "[n" right after the "(year)": a numeric citation follows. */
+const NUMERIC_CITATION_FOLLOWS = /^[.,;:]?\s?(?:[¹²³⁰⁴-⁹]|\d|\[\d)/;
+
+/**
+ * An author mention carrying a citation NUMBER instead of a year — "Gelstein et al.2",
+ * "Falk and Szech1", "Karpicke & Blunt¹⁹" — is how a numeric paper names the authors it
+ * cites. Only the multi-author forms count; a lone "Study 2" or "Model 3" must not.
+ */
+const AUTHOR_NUMBER_MENTION = new RegExp(
+  String.raw`\b${NARRATIVE_SURNAME}(?:\s+et\s+al\.|\s+(?:and|&)\s+${NARRATIVE_SURNAME})[ \t]?(?:\d{1,3}|[¹²³⁰⁴-⁹]+)(?!\d)`,
+  'g',
+);
+
+export interface NarrativeSignals {
+  /** Narrative author-year mentions: "Jovanovic (1982)". */
+  mentions: number;
+  /** Distinct works among them — a table naming the same 20 studies 200 times counts 20. */
+  distinctWorks: number;
+  /** Author mentions followed by a citation number: "Gelstein et al.2". */
+  authorNumberMentions: number;
+}
+
+/**
+ * Narrative citation signals in the body (before the reference section).
+ *
+ * `countAuthorYearComma` / `countAuthorYearNoComma` see only the PARENTHETICAL forms, so a
+ * paper that cites narratively — economics and finance journals almost always do — had an
+ * author-year total of 0, and a few table headers "[1] [2] [3]", equation numbers or
+ * footnote digits then decided it was numeric.
+ *
+ * A mention followed directly by a numeric citation ("Treiman (1977)¹⁷", "Lee et al.
+ * (2018).³") belongs to a numeric paper that names its authors, and is not counted.
+ */
+export function countNarrativeSignals(text: string): NarrativeSignals {
+  const refStart = findReferenceSectionStart(text);
+  const body = refStart !== null ? text.slice(0, refStart) : text;
+  const pattern = new RegExp(NARRATIVE_AUTHOR_YEAR.source, 'g');
+  let mentions = 0;
+  const works = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(body)) !== null) {
+    const end = m.index + m[0].length;
+    if (NUMERIC_CITATION_FOLLOWS.test(body.slice(end, end + 4))) continue;
+    mentions++;
+    works.add(m[0].replace(/\s+/g, ' ').toLowerCase());
+  }
+  const authorNumberMentions = (body.match(new RegExp(AUTHOR_NUMBER_MENTION.source, 'g')) || []).length;
+  return { mentions, distinctWorks: works.size, authorNumberMentions };
+}
+
 /** Check if reference list starts with numbered entries */
 function hasNumberedReferenceList(text: string): boolean {
   // Find a reference-section header
@@ -359,7 +424,23 @@ export function detectCitationStyle(text: string): StyleDetectionResult {
   const effectiveAuthorYearForComparison = authorYearTotal * 2;
   const effectiveNumericForComparison = hardNumericCount + softNumericCount;
 
-  const isNumeric =
+  // Narrative author-year citations ("Jovanovic (1982)") veto the numeric paradigm when
+  //  - they EXCEED brackets + Unicode superscripts, so a numeric paper that also names a
+  //    few authors stays numeric;
+  //  - there are at least 5, so a stray "Act (2010)" cannot decide a paper; and
+  //  - the paper names more distinct works that way than it names authors followed by a
+  //    citation number ("Gelstein et al.2"). A numeric replication report whose tables list
+  //    its 22 target studies 200 times has 93 such mentions in its own prose.
+  // Not folded into authorYearTotal: the style choice below (APA/Harvard/AOM) still reads
+  // the parenthetical forms, and a numeric paper with 3+ narrative mentions would otherwise
+  // lose the `authorYearTotal < 3` clause that its brackets correctly win today.
+  const narrative = countNarrativeSignals(text);
+  const narrativeDominates =
+    narrative.mentions >= 5 &&
+    narrative.mentions > hardNumericCount &&
+    narrative.distinctWorks > narrative.authorNumberMentions;
+
+  const isNumeric = !narrativeDominates && (
     // Strong numeric signals (brackets or superscripts) dominate AND no meaningful author-year signal
     // If there are 3+ author-year citations, those are high-precision — require overwhelming numeric evidence
     (hardNumericCount >= 3 && hardNumericCount > authorYearTotal * 3 && authorYearTotal < 3) ||
@@ -370,7 +451,7 @@ export function detectCitationStyle(text: string): StyleDetectionResult {
     // AND: if there are ANY author-year citations, soft signals alone cannot win.
     (effectiveNumericForComparison >= 3 && effectiveNumericForComparison > effectiveAuthorYearForComparison && authorYearTotal === 0 && (hardNumericCount > 0 || numberedRefs)) ||
     // Numbered reference list with no author-year at all
-    (numberedRefs && authorYearTotal === 0);
+    (numberedRefs && authorYearTotal === 0));
 
   if (isNumeric && numericTotal > authorYearTotal) {
     // ── NUMERIC paradigm ──
