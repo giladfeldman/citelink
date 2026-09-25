@@ -25,7 +25,7 @@
  *    "(2023)") is not a narrative citation.
  */
 import { describe, it, expect } from '@jest/globals';
-import { detectCitationStyle } from '../src/citationStyleDetector.js';
+import { detectCitationStyle, countNarrativeSignals } from '../src/citationStyleDetector.js';
 import { analyze } from '../src/analyze.js';
 
 // Synthetic, economics-style: narrative citations only, plus the three numeric-looking
@@ -121,6 +121,30 @@ describe('narrative author-year citations are an author-year signal (2026-09-25)
       'The idea goes back to Farr (1840).';
     // 5 narrative mentions (past the floor) against 8 bracket citations.
     expect(detectCitationStyle(numeric).paradigm).toBe('numeric');
+  });
+
+  // The four cases below were raised by the Sonnet seat of the 2026-09-25 cross-model
+  // consult; each reproduced before it was fixed.
+  it('document labels before a year are not narrative citations', () => {
+    const labels = 'Table (2019). Table (2020). Phase (2018). Phase (2021). Act (2022). Survey (2017).';
+    expect(countNarrativeSignals(labels).mentions).toBe(0);
+  });
+
+  it('accented surnames count, lowercase accented words do not', () => {
+    expect(countNarrativeSignals('Özdemir (2010), Ålund (2011), Émile (2012), Øster (2013).').mentions).toBe(4);
+    expect(countNarrativeSignals('über (2010) ölçü (2011) élan (2012)').mentions).toBe(0);
+  });
+
+  it('a name-then-number mention needs the number to touch the name', () => {
+    expect(countNarrativeSignals('Miller and Cohen 5 decades ago; Smith and Jones 3 times.').authorNumberMentions).toBe(0);
+    expect(countNarrativeSignals('as Gelstein et al.2 and Falk and Szech1 showed').authorNumberMentions).toBe(2);
+  });
+
+  it('the veto needs at least 5 narrative mentions', () => {
+    const tail = ' Specification:\n\n[1]\n\n[2]\n\n[3]\n';
+    const four = 'Jovanovic (1982), Hopenhayn (1992), Melitz (2003) and Bloom (2009) agree.';
+    expect(detectCitationStyle(four + tail).paradigm).toBe('numeric');
+    expect(detectCitationStyle(four + ' So does Syverson (2004).' + tail).paradigm).toBe('author-year');
   });
 
   it('a running header split over a blank line is not a narrative citation', () => {

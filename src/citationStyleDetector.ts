@@ -204,13 +204,37 @@ function countAuthorYearNoComma(text: string): number {
  * "(year)" may be split by ONE line break (a wrapped line), never a blank line: a running
  * header "Park et al. BMC Medicine" + blank line + "(2023) 21:509" is not a citation.
  * A surname may carry one inner capital (McKendrick, DeLong, MacArthur).
+ *
+ * Unicode letter classes, not `[A-ZÀ-Ÿ]`: that code-point range also holds every lowercase
+ * à-ÿ plus × and ÷, and `\b` does not see a boundary before an accented capital, so
+ * "Özdemir (2010)" was missed while "über (2010)" matched (cross-model consult, Sonnet,
+ * 2026-09-25).
  */
-const NARRATIVE_SURNAME = String.raw`[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?`;
+const NARRATIVE_SURNAME = String.raw`\p{Lu}[\p{Ll}'’-]+(?:\p{Lu}[\p{Ll}'’-]+)?`;
+const NARRATIVE_START = String.raw`(?<![\p{L}\p{N}])`;
 const NARRATIVE_AUTHOR_YEAR = new RegExp(
-  String.raw`\b${NARRATIVE_SURNAME}(?:\s+et\s+al\.?|(?:,\s+${NARRATIVE_SURNAME})*,?\s+(?:and|&)\s+${NARRATIVE_SURNAME})?` +
+  String.raw`${NARRATIVE_START}${NARRATIVE_SURNAME}(?:\s+et\s+al\.?|(?:,\s+${NARRATIVE_SURNAME})*,?\s+(?:and|&)\s+${NARRATIVE_SURNAME})?` +
     String.raw`[ \t]*(?:\r?\n[ \t]*)?\((?:1[89]|20)\d{2}[a-z]?\)`,
-  'g',
+  'gu',
 );
+
+/**
+ * Capitalised document labels that a "(year)" can follow: "Table (2019)", "Phase (2020)",
+ * "the Act (2010)". Checked against the first word of a match. Deliberately no months or
+ * seasons: "May (1976)" and "Winter (2019)" are surnames.
+ */
+const NARRATIVE_NON_AUTHOR = new Set([
+  'table', 'tables', 'figure', 'figures', 'fig', 'eq', 'equation', 'equations', 'chapter',
+  'section', 'step', 'item', 'appendix', 'supplement', 'panel', 'part', 'hypothesis',
+  'study', 'studies', 'experiment', 'experiments', 'model', 'wave', 'phase', 'condition',
+  'group', 'sample', 'level', 'block', 'trial', 'round', 'act', 'law', 'survey', 'census',
+  'report', 'program', 'programme', 'guideline', 'guidelines', 'version', 'edition', 'volume',
+]);
+
+function firstWordIsLabel(match: string): boolean {
+  const first = match.match(/^\p{L}[\p{L}'’-]*/u);
+  return first !== null && NARRATIVE_NON_AUTHOR.has(first[0].toLowerCase());
+}
 
 /** A digit, Unicode superscript or "[n" right after the "(year)": a numeric citation follows. */
 const NUMERIC_CITATION_FOLLOWS = /^[.,;:]?\s?(?:[¹²³⁰⁴-⁹]|\d|\[\d)/;
@@ -218,11 +242,13 @@ const NUMERIC_CITATION_FOLLOWS = /^[.,;:]?\s?(?:[¹²³⁰⁴-⁹]|\d|\[\d)/;
 /**
  * An author mention carrying a citation NUMBER instead of a year — "Gelstein et al.2",
  * "Falk and Szech1", "Karpicke & Blunt¹⁹" — is how a numeric paper names the authors it
- * cites. Only the multi-author forms count; a lone "Study 2" or "Model 3" must not.
+ * cites. Only the multi-author forms count; a lone "Study 2" or "Model 3" must not. The
+ * number must touch the name: with a space allowed, "Miller and Cohen 5 decades ago"
+ * counted (cross-model consult, Sonnet, 2026-09-25).
  */
 const AUTHOR_NUMBER_MENTION = new RegExp(
-  String.raw`\b${NARRATIVE_SURNAME}(?:\s+et\s+al\.|\s+(?:and|&)\s+${NARRATIVE_SURNAME})[ \t]?(?:\d{1,3}|[¹²³⁰⁴-⁹]+)(?!\d)`,
-  'g',
+  String.raw`${NARRATIVE_START}${NARRATIVE_SURNAME}(?:\s+et\s+al\.|\s+(?:and|&)\s+${NARRATIVE_SURNAME})(?:\d{1,3}|[¹²³⁰⁴-⁹]+)(?!\d)`,
+  'gu',
 );
 
 export interface NarrativeSignals {
@@ -248,17 +274,19 @@ export interface NarrativeSignals {
 export function countNarrativeSignals(text: string): NarrativeSignals {
   const refStart = findReferenceSectionStart(text);
   const body = refStart !== null ? text.slice(0, refStart) : text;
-  const pattern = new RegExp(NARRATIVE_AUTHOR_YEAR.source, 'g');
+  const pattern = new RegExp(NARRATIVE_AUTHOR_YEAR.source, 'gu');
   let mentions = 0;
   const works = new Set<string>();
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(body)) !== null) {
     const end = m.index + m[0].length;
     if (NUMERIC_CITATION_FOLLOWS.test(body.slice(end, end + 4))) continue;
+    if (firstWordIsLabel(m[0])) continue;
     mentions++;
     works.add(m[0].replace(/\s+/g, ' ').toLowerCase());
   }
-  const authorNumberMentions = (body.match(new RegExp(AUTHOR_NUMBER_MENTION.source, 'g')) || []).length;
+  const authorNumberMentions = [...body.matchAll(new RegExp(AUTHOR_NUMBER_MENTION.source, 'gu'))]
+    .filter((a) => !firstWordIsLabel(a[0])).length;
   return { mentions, distinctWorks: works.size, authorNumberMentions };
 }
 
