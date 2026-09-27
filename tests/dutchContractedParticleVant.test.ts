@@ -13,9 +13,11 @@ import { parseReferences } from '../src/referenceParser';
  * "(van't Veer & Giner-Sorolla, 2016)" twice; both in-text citations then resolved to the
  * WRONG reference (matching.wrong_target x2), and refs.f1 carried a parse error.
  *
- * Fix (referenceParser, particleAlt + NAME_PARTICLES): admit "[Vv]an(?:'[ts])?" and a
+ * Fix (referenceParser, particleAlt): admit "[Vv]an(?:'[ts])?" and a
  * bare "'t"/"'s" so "van't" / "van's" / "'t Hart" are recognized as particles and kept
- * with the surname. Plain particles ("van Raan", "von …") are unaffected.
+ * with the surname. Plain particles ("van Raan", "von …") are unaffected. (The fix also
+ * added entries to a NAME_PARTICLES list; that list fed only a function nothing called and
+ * was removed as dead code at the v0.7.83 cleanup — the particleAlt change is the fix.)
  *
  * Tests run the real parseReferences on the verbatim chen reference string and assert the
  * surname round-trips, plus a non-regression guard on a plain "van" particle.
