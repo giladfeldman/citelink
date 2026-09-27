@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.7.83
+
+**A paper that cites narratively was read as numeric.** `detectCitationStyle` counted only the
+parenthetical author-year forms, "(Smith, 2004)" and "(Smith 2004)". A paper that cites
+narratively — "Jovanovic (1982)", "Ericson and Pakes (1995)", the norm in economics and
+finance — scored 0 author-year evidence, so a few regression-table headers "[1] [2] [3]",
+equation numbers or footnote digits made it numeric. The numeric detector then emitted those
+tokens as citations and the paper's real citations were never read:
+
+```
+AER article        vancouver -> apa   49 detections (equation numbers, table counts)
+                                      -> 58 narrative citations; references 13 -> 18
+SSRN working paper ama       -> aom   41 detections (footnote digits, equations)
+                                      -> 43 narrative citations; references 11 -> 12
+```
+
+Measured on text from the production extractor for 355 papers (116 with prior extraction
+views, 119 from numeric-citation journals (one PDF would not extract), 120 from author-year journals): 6 classifications
+change, all economics papers moving from numeric to author-year. No other paper's output
+changes. Every removed detection in the 6 was checked: equation numbers, footnote digits and
+table values.
+
+### Fixed
+- `countNarrativeSignals` (exported) counts narrative author-year mentions in the body, the
+  distinct works among them, and author mentions carrying a citation number instead
+  ("Gelstein et al.2").
+- The numeric paradigm is vetoed when there are at least 5 narrative mentions, they exceed
+  the bracket + Unicode-superscript count, and distinct narrative works exceed name-then-number
+  mentions. The last clause keeps a numeric replication report numeric: its tables name its 22
+  target studies about 200 times, and its prose has 93 "X et al.N" mentions.
+- Not counted: a mention followed directly by a numeric citation ("Treiman (1977)¹⁷"), a
+  document label before a year ("Table (2019)", "Act (2010)"), a running header split from its
+  year by a blank line. Accented surnames ("Özdemir (2010)") count.
+
+Cross-model consult (1 seat, Sonnet; 1 provider): 7 findings. Three reproduced and are fixed
+(label words, the accented-letter range, a spaced name-then-number match); one reproduced and
+is pre-existing (see README "Known limits"); one measured and rejected (labelling narrative
+economics papers `chicago-ad` rather than `apa`/`aom` helped 1 of 6 and hurt 4); a missing
+boundary test for the 5-mention floor was added; same-surname-same-year collapsing is
+documented. 112 suites / 763 tests.
+
+**Known limit found at release review (constructed, not observed):** a superscript-numbered
+paper with a plain numbered reference list and 5+ narrative mentions not followed by a marker
+is read as author-year, because the reference list's own numbering is not counted as numeric
+evidence. None of the 119 numeric-journal papers above changed. See README "Known limits".
+
 ## 0.7.82
 
 **An et-al citation of a two-author work was reported as having no reference, and short

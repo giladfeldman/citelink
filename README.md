@@ -48,6 +48,18 @@ default branch, so upstream changes land in your build silently.
   `Slovic and Fischhoff (1977)` is detected with `year: "1977"`, taken from the nearest earlier
   citation of the same first author; `raw` keeps the year-less text. APA 7 requires the year in
   every parenthetical citation, so the source form is itself a style slip.
+- **The narrative signal can impose author-year on a superscript-numbered paper.** Numeric
+  evidence counts only bracket and superscript markers in the body, not the numbering of a plain
+  "1. Author, Title" reference list. A superscript paper with at least 5 narrative mentions
+  ("Smith and Jones (2004)") that are not directly followed by a marker, outnumbering its
+  superscripts, is read as author-year. Constructed, not observed: none of 119 papers from
+  numeric-citation journals changed classification in the release measurement.
+- **The narrative author-year signal reads only the body before the reference section.** When
+  `findReferenceSectionStart` accepts an early heading as the reference list (a lone body
+  section titled "Literature" is returned without checking what follows), later narrative
+  citations are not counted and the paper keeps its previous classification. The signal also
+  collapses two different works with the same surname and year into one distinct work. Both
+  can only withhold the author-year verdict, never impose it.
 - **A bracket after a lowercase label noun is read as a label** ("in step [3]"), except for
   `model`, `sample`, `protocol` and `condition`, which measured corpus text showed to be
   citations ("the SIR model [13]"). A noun joins that list only with a measured example.
