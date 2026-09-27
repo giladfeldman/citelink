@@ -23,7 +23,8 @@
     "build": "tsc",
     "prepare": "npm run build",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "docs:check": "node scripts/check-docs-coverage.mjs"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

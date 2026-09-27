@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use citelink in your research, please cite it as below."
+type: software
+title: "citelink: Citation detection, reference parsing, and citation-reference matching for academic documents"
+version: "0.7.83"
+license: MIT
+repository-code: "https://github.com/giladfeldman/citelink"
+authors:
+  - family-names: Feldman
+    given-names: Gilad
+    affiliation: University of Innsbruck
+keywords:
+  - citations
+  - references
+  - bibliometrics
+  - APA style
+  - meta-science
+  - text mining

@@ -19,16 +19,16 @@ export interface CitationAnalysis {
 /**
  * One-shot citation analysis. Detects the style, dispatches to the
  * style-appropriate citation detector, parses references, and matches.
- * Pure: text in, structured data out. The detector dispatch mirrors the
- * Scimeto worker's coreProcessors.ts (the `isNumeric` / `isHarvardLike`
- * branch around lines 144-155).
+ * Text in, structured data out; the only side effect is parseReferences'
+ * console.warn when no reference section is found. The detector dispatch was
+ * copied from the Scimeto platform's own dispatch.
  */
 export function analyze(text: string): CitationAnalysis {
   const style = detectCitationStyle(text);
 
-  // Detector dispatch — faithful to coreProcessors.ts:
-  //   const isNumeric = citationStyle === 'vancouver' || 'ieee' || 'nature' || 'ama'
-  //   const isHarvardLike = citationStyle === 'harvard' || 'asa' || 'chicago-ad'
+  // Detector dispatch (as in the Scimeto platform):
+  //   numeric styles      -> vancouver, ieee, nature, ama
+  //   Harvard-like styles -> harvard, asa, chicago-ad
   const isNumeric =
     style.style === 'vancouver' ||
     style.style === 'ieee' ||

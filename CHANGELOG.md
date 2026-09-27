@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+**Documentation only; no change to library behaviour.**
+
+### Added
+- README rewritten to cover the whole public surface: method, install, a runnable quickstart,
+  output format, style checks, known limits and failure modes, how to cite. The full reference
+  for all 56 exports, every result field and every violation code is in `docs/API.md`.
+- `CITATION.cff` and `CONTRIBUTING.md`.
+- Documentation-drift gate `scripts/check-docs-coverage.mjs` (`npm run docs:check`). It derives
+  the public surface from `src/index.ts` with the TypeScript compiler and fails when an export,
+  field, literal value, parameter or violation code is missing from the docs, when the
+  changelog, README install pin and `CITATION.cff` disagree with `package.json`, or when the
+  README quickstart does not run against a fresh build. Pinned two-sided by
+  `tests/docsCoverageGate.test.ts`.
+
+### Documented (previously undocumented behaviour)
+- `validateForStyle` reads database-row shaped records (`citation_type`, `citation_text`,
+  `citation_number`, `raw_text`, `authors`), not `DetectedCitation` / `ParsedReference`, and
+  returns `[]` for `asa`, `chicago-ad` and `apa`.
+- `validateReferenceCitationMatch` (`YEAR_MISMATCH`) is not run by `validateReference` or
+  `validateCitation`.
+- Numeric citations carry an undeclared `citationNumbers` array; `parseReferences` writes a
+  `console.warn` when no reference section is found. The README's "no I/O" line and the
+  `analyze` comment called the library pure without that exception.
+
 ## 0.7.83
 
 **A paper that cites narratively was read as numeric.** `detectCitationStyle` counted only the
