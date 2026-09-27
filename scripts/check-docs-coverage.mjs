@@ -10,7 +10,7 @@
  * every missing item listed. Pinned two-sided by `tests/docsCoverageGate.test.ts`, which
  * runs as part of `npm test`.
  *
- * WHY THIS EXISTS (2026-09-27). The README listed 6 of the 54 names exported from
+ * WHY THIS EXISTS (2026-09-27). The README named 8 of the 56 names exported from
  * `src/index.ts`, none of the result fields, and none of the violation codes. Nothing
  * failed, because nothing compared the docs with the code. This does. The surface is
  * DERIVED with the TypeScript compiler from `src/index.ts` (every export, every field of an
@@ -96,7 +96,10 @@ export function collectSurface(root = ROOT) {
     } else if (ts.isTypeAliasDeclaration(decl)) {
       stringLiterals(checker.getDeclaredTypeOfSymbol(sym), surface.value);
     } else if (ts.isVariableDeclaration(decl)) {
-      stringLiterals(checker.getTypeOfSymbol(sym), surface.value);
+      // A union-typed constant lists its values; a single-literal constant IS its value
+      // (a URL, a contact address) and is documented by name, not by content.
+      const type = checker.getTypeOfSymbol(sym);
+      if (type.isUnion()) stringLiterals(type, surface.value);
     } else if (ts.isFunctionDeclaration(decl)) {
       const sig = checker.getSignatureFromDeclaration(decl);
       for (const p of sig.getParameters()) {
