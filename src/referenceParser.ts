@@ -11,7 +11,7 @@
  * - Various reference types (journal, book, chapter, website, report)
  */
 
-import { normalizeText, decomposeLigatures } from './citationDetector.js';
+import { decomposeLigatures } from './citationDetector.js';
 import type { CitationStyleType } from './types.js';
 
 // Common organization abbreviations for detection
@@ -114,13 +114,6 @@ export interface Author {
   firstName?: string;
   initials?: string;
 }
-
-// Name particles that should be kept with the last name
-const NAME_PARTICLES = [
-  'van', "van't", "van's", "'t", "'s", 'von', 'de', 'del', 'della', 'der', 'den',
-  'la', 'le', 'les', 'du', 'des', 'di', 'da', 'dos', 'das', 'ten', 'ter', 'bin',
-  'ben', 'ibn', 'al', 'el', 'lo', 'los', 'san', 'santa', 'st', 'mac', 'mc', "o'"
-];
 
 // Surname-particle prefix for the reference-SPLITTER boundary regexes (APA / Harvard
 // / AOM concatenation splitters + the generic splitIntoReferences opener). A reference
@@ -239,31 +232,6 @@ export function normalizeName(name: string): string {
     .replace(/\s+/g, ' ')              // Normalize spaces
     .replace(/-/g, '')                 // Remove hyphens for comparison
     .trim();
-}
-
-/**
- * Extract name particles from a name
- * Returns [particles, remainingName]
- */
-function extractNameParticles(name: string): [string, string] {
-  const words = name.split(/\s+/);
-  const particles: string[] = [];
-  let i = 0;
-
-  while (i < words.length - 1) {
-    const word = words[i].toLowerCase().replace(/['']/g, "'");
-    if (NAME_PARTICLES.includes(word) || NAME_PARTICLES.includes(word.replace(/'/g, "'"))) {
-      particles.push(words[i]);
-      i++;
-    } else {
-      break;
-    }
-  }
-
-  if (particles.length > 0) {
-    return [particles.join(' '), words.slice(i).join(' ')];
-  }
-  return ['', name];
 }
 
 /**
@@ -482,9 +450,6 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
     return authors;
   }
 
-  // Check for ellipsis (21+ authors)
-  const hasEllipsis = REFERENCE_PATTERNS.ellipsis.test(authorSection);
-
   // Split by the final "&" or "and" first
   let mainPart = authorSection;
   let lastAuthor: string | null = null;
@@ -524,7 +489,7 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   // "Ben Mimoun, M. S." parses its surname as "Ben" (the 2nd-surname-word branch is
   // outrun by the lookahead), keying the author "ben" — so the reference never matches
   // the gold's "Ben Mimoun" nor the in-text "Ben Mimoun et al." citations. Kept in sync
-  // with REF_SPLIT_PARTICLE / NAME_PARTICLES / COMPOUND_SURNAME.
+  // with REF_SPLIT_PARTICLE / COMPOUND_SURNAME.
   const particleAlt = "(?:[Vv]an(?:['’][ts])?|['’][ts]|[Vv]on|[Dd]e|[Dd]el|[Dd]er|[Dd]en|[Dd]i|[Dd]u|[Dd]a|[Dd]o|[Dd]os|[Dd]as|[Ll]a|[Ll]e|[Ee]l|[Aa]l|[Bb]en|[Bb]in|[Ii]bn|[Tt]er|[Aa]bd|[Aa]bu)";
   const authorPattern = new RegExp(
     `(?:${particleAlt}\\s+)?` +                     // Optional particle prefix
@@ -540,11 +505,9 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   );
 
   let match;
-  let lastIndex = 0;
 
   while ((match = authorPattern.exec(mainPart)) !== null) {
     authorStrings.push(match[0].trim());
-    lastIndex = match.index + match[0].length;
   }
 
   // If no matches with the sophisticated pattern, fall back to simpler approach
@@ -844,7 +807,6 @@ export function parseReferences(text: string, style?: CitationStyleType): Parsed
   // Fallback: if the declared style parser produced poor results,
   // the reference list might be in a different format (e.g., PMC reformats all refs
   // to Vancouver-like format). Try Vancouver parser as fallback.
-  const isAuthorYearStyle = !style || ['apa', 'harvard', 'aom', 'asa', 'chicago-ad'].includes(style);
   const goodRefs = deduplicated.filter(r => r.year && r.authors.length > 0).length;
 
   // Check for suspicious author names — if many authors have very short last names
@@ -1032,7 +994,7 @@ export function findReferenceSectionStart(text: string): number | null {
  * Extract the reference section from document text
  * Only extracts text that actually looks like references
  */
-function extractReferenceSection(text: string, style?: CitationStyleType): string | null {
+function extractReferenceSection(text: string, _style?: CitationStyleType): string | null {
   const startPos = findReferenceSectionStart(text);
   if (startPos === null) {
     return null;

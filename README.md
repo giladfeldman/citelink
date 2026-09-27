@@ -17,7 +17,7 @@ deliberately not published to the npm registry. Pin a tag directly:
 ```jsonc
 // package.json
 "dependencies": {
-  "citelink": "github:giladfeldman/citelink#v0.7.73"
+  "citelink": "github:giladfeldman/citelink#v0.7.81"
 }
 ```
 

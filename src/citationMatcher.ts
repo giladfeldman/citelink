@@ -19,9 +19,6 @@
 
 import {
   DetectedCitation,
-  CitationType,
-  ParsedCitationAuthor,
-  normalizeText,
   getOrganizationFullName
 } from './citationDetector.js';
 import {

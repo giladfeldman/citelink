@@ -47,7 +47,7 @@ export function validateForStyle(
 
 // ── Harvard ──────────────────────────────────────────────────────────────
 
-function validateHarvard(citations: any[], references: any[]): StyleViolation[] {
+function validateHarvard(citations: any[], _references: any[]): StyleViolation[] {
   const violations: StyleViolation[] = [];
 
   for (const c of citations) {
@@ -101,7 +101,7 @@ function validateVancouver(citations: any[], references: any[]): StyleViolation[
 
 // ── Nature ───────────────────────────────────────────────────────────────
 
-function validateNature(citations: any[], references: any[]): StyleViolation[] {
+function validateNature(_citations: any[], references: any[]): StyleViolation[] {
   const violations: StyleViolation[] = [];
 
   // Nature: max 5 authors in references, then "et al."
@@ -128,7 +128,7 @@ function validateNature(citations: any[], references: any[]): StyleViolation[] {
 
 // ── IEEE ─────────────────────────────────────────────────────────────────
 
-function validateIEEE(citations: any[], references: any[]): StyleViolation[] {
+function validateIEEE(_citations: any[], references: any[]): StyleViolation[] {
   const violations: StyleViolation[] = [];
 
   // IEEE: references should be numbered with [N]
@@ -149,7 +149,7 @@ function validateIEEE(citations: any[], references: any[]): StyleViolation[] {
 
 // ── AOM ──────────────────────────────────────────────────────────────────
 
-function validateAOM(citations: any[], references: any[]): StyleViolation[] {
+function validateAOM(_citations: any[], references: any[]): StyleViolation[] {
   const violations: StyleViolation[] = [];
 
   // AOM: year should NOT be in parentheses in references
@@ -172,7 +172,7 @@ function validateAOM(citations: any[], references: any[]): StyleViolation[] {
 
 // ── Generic author-year (ASA, Chicago) ───────────────────────────────────
 
-function validateGenericAuthorYear(citations: any[], references: any[], style: string): StyleViolation[] {
+function validateGenericAuthorYear(_citations: any[], _references: any[], _style: string): StyleViolation[] {
   // Minimal validation for ASA/Chicago — just check basic structure
   return [];
 }
