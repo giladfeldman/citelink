@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.82
+
+**An et-al citation of a two-author work was reported as having no reference, and short
+surnames fuzzy-matched unrelated names.**
+
+```
+"Vallacher et al. (2014)"  vs  Vallacher & Wegner (2014)   0.396 no reference (was) -> 0.459 suggested (now)
+"Hom (2019)"               vs  Choi (2019)                 0.83 confident link (was) -> no match (now)
+"Li (2020)"                vs  Malik (2020)                matched (was)              -> no match (now)
+```
+
+### Fixed
+- `matchEtAl`: a reference with the same first author and exactly two authors now scores into
+  the suggested band (0.459 with an exact year; below 0.40 when the year also differs). Two
+  different two-author works sharing first author and year are treated as ambiguous on this
+  path instead of being resolved by list order.
+- `fuzzyNameMatch`: one edit is tolerated from 4 letters, two from 6; a name under 4 letters
+  must appear as a whole word. The short-name trade-off is pinned by tests both ways
+  (Kim/Lim, Ho/Hu, Li/Lee rejected; exact Li/Ng kept; Ng/Ong a named, accepted cost).
+
+Measured on a 13-paper gold set: 1,970 -> 2,028 correct links, no paper worse. 765/765 tests.
+
 ## 0.7.81
 
 **A bracket citation after "model" was thrown away as a label.** `detectNumericCitations`
