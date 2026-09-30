@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.84
 
 **Documentation only; no change to library behaviour.**
 
