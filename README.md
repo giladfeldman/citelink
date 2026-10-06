@@ -69,14 +69,14 @@ citelink is distributed as a **git-tag dependency**, not through the npm registr
 ```jsonc
 // package.json
 "dependencies": {
-  "citelink": "github:giladfeldman/citelink#v0.7.84"
+  "citelink": "github:giladfeldman/citelink#v0.7.85"
 }
 ```
 
 or from the command line:
 
 ```bash
-npm install github:giladfeldman/citelink#v0.7.84
+npm install github:giladfeldman/citelink#v0.7.85
 ```
 
 npm clones the repository and runs the `prepare` script, which builds `dist/`, so a tag pin
@@ -114,7 +114,7 @@ for (const m of result.matches) {
 console.log(getMatchStatistics(result.matches));
 ```
 
-Output (v0.7.84):
+Output (v0.7.85):
 
 ```text
 { style: 'apa', paradigm: 'author-year', confidence: 0.95 }

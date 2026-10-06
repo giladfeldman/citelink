@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.85
+
+### Fixed
+- `parseReferences` returned `[]` when the PDF extraction stacked the back-matter headings
+  ("Notes", "6. References", "Funding", an author name) above the reference list. The section
+  scan began right after "References", met "Funding" (an end-of-references pattern) on its first
+  line and stopped with nothing collected. When that first scan yields no reference list, the
+  scan now resumes at the first run of at least three author-date reference starts within 120
+  lines of the header. A single reference-like line in prose does not trigger it. Found on a
+  77-page replication paper that reported 0 of its 47 references
+  (`tests/stackedBackMatterHeadings.test.ts`).
+- The resume pattern admits a combining accent (U+0300-U+036F) in a surname, as pdftotext
+  writes "Albarracín" with a combining acute; without it the list's first entry was skipped.
+  Its initials group is flat and lines over 400 characters are not tested, so a line of many
+  initials with no year cannot trigger exponential backtracking.
+
 ## 0.7.84
 
 **Documentation only; no change to library behaviour.**

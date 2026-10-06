@@ -990,6 +990,53 @@ export function findReferenceSectionStart(text: string): number | null {
   return null;
 }
 
+/** Lines after a References header searched for a list that a heading block pushed down. */
+const STACKED_HEADING_WINDOW = 120;
+/** Reference starts required before the resumed scan trusts a position. */
+const STACKED_HEADING_MIN_RUN = 3;
+/** Non-start content lines allowed between two starts of the same run (wrapped references). */
+const STACKED_HEADING_RUN_SPAN = 8;
+
+/**
+ * An author-date reference start: "Surname, I." / "Surname Name, I. I., &" with a year in parens.
+ * U+0300-U+036F admits a combining accent: pdftotext writes "Albarracín" as "Albarracı" + U+0301.
+ */
+const AUTHOR_DATE_REFERENCE_START = /^[A-ZÀ-Ÿ][A-Za-zÀ-ÿā-ž\u0300-\u036f'’-]+(?:\s+[A-Za-zÀ-ÿā-ž\u0300-\u036f'’-]+)?,\s+(?:[A-ZÀ-Ÿ]\.\s*-?)+.*\((?:\d{4}[a-z]?|n\.d\.|in press)\)/;
+/**
+ * Longer lines are not tested: a reference's first line is short, and the cap bounds the cost of
+ * the `.*` scan on long prose or OCR lines (the initials group is flat, so it cannot backtrack
+ * exponentially; a nested `(A.(-?A.)*)+` did, measured 2x per initial by the 2026-10-06 review).
+ */
+const AUTHOR_DATE_REFERENCE_START_MAX_LINE = 400;
+const isAuthorDateReferenceStart = (line: string): boolean =>
+  line.length <= AUTHOR_DATE_REFERENCE_START_MAX_LINE && AUTHOR_DATE_REFERENCE_START.test(line);
+
+/**
+ * Index of the first line in `lines` that opens a run of at least STACKED_HEADING_MIN_RUN
+ * author-date reference starts, each within STACKED_HEADING_RUN_SPAN content lines of the
+ * previous one, inside the first STACKED_HEADING_WINDOW lines. Null when there is no such run.
+ */
+function findStackedReferenceListStart(lines: string[]): number | null {
+  const limit = Math.min(lines.length, STACKED_HEADING_WINDOW);
+  for (let i = 0; i < limit; i++) {
+    if (!isAuthorDateReferenceStart(lines[i].trim())) continue;
+    let run = 1;
+    let gap = 0;
+    for (let j = i + 1; j < lines.length && run < STACKED_HEADING_MIN_RUN; j++) {
+      const t = lines[j].trim();
+      if (!t) continue;
+      if (isAuthorDateReferenceStart(t)) {
+        run++;
+        gap = 0;
+      } else if (++gap > STACKED_HEADING_RUN_SPAN) {
+        break;
+      }
+    }
+    if (run >= STACKED_HEADING_MIN_RUN) return i;
+  }
+  return null;
+}
+
 /**
  * Extract the reference section from document text
  * Only extracts text that actually looks like references
@@ -1029,202 +1076,224 @@ function extractReferenceSection(text: string, _style?: CitationStyleType): stri
 
   // Split into lines and find where references end
   const lines = remainingText.split('\n');
-  const referenceLines: string[] = [];
+  // Scans `lines` from `fromLine` and returns the reference text it collects, or null when
+  // what it collected does not look like a reference list.
+  const collectFrom = (fromLine: number): string | null => {
+    const referenceLines: string[] = [];
 
-  // Patterns that indicate we've left the references section
-  const endPatterns = [
-    /^(Figure|Table|Figure \d+|Table \d+)/i,
-    /^Appendix(?!\s+\w+\.\s*\(continued)/i,   // "Appendix" but NOT "Appendix A. (continued)"
-    /^(In Study|We extended|For Study|This study|Our study)/i,
-    /^(Note\.|See |Cf\.|e\.g\.|i\.e\.)/i,
-    /^\[-?\d+\.\d+/i, // Confidence intervals like [0.00, 0.15]
-    /^[-+]?\d+\.\d+\s*\[/i, // Numbers with CIs like 0.183 [0.04, 0.33]
-    /^To guide|^In addition|^We propose/i, // Discussion text
-    /^Supplementary\b/i, // Supplementary material section
-    /^Supporting Information/i, // Supporting information section
-    /^Online Supplement/i, // Online supplement section
-    /^Supplemental Materials?/i, // Supplemental material(s)
-    /^Author Bio/i, // Author biography section after references
-    /^Author Note/i, // Author note section after references
-    /^About the Author/i, // About the author section
-    /^\w+\s+is\s+(?:a |an |the )?(?:Senior |Associate |Assistant |Full )?(?:Professor|Researcher|Lecturer|Fellow|Director|Doctoral|PhD|Postdoc)/i, // Author bio: "John is a Professor..."
-    // Author bio: "Herman Aguinis (haguinis@gwu.edu) is the..." — name + email in parens
-    /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[A-ZÀ-Ÿ]\.?)+\s*\([^)]*@[^)]*\)\s+(?:is|was|has|holds)/i,
-    // Author bio: "HERMAN AGUINIS is the..." — ALL CAPS name + "is"
-    /^[A-Z]{2,}(?:\s+[A-Z]\.?)*(?:\s+[A-Z]{2,})+\s+(?:is|was|has|holds)\s/,
-    // Author bio: "Ravi S. Ramani PhD received..." — name + degree
-    /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[A-ZÀ-Ÿ]\.?\s*)*(?:\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?\s+(?:PhD|Ph\.D|MD|MPH|MSc|MSW|DrPH|RN|FRCPC|FRCP)\b/i,
-    // Author bio: "Name, Affiliation" or "Name is an? adjective? role at/in/for/with"
-    /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[A-ZÀ-Ÿ]\.?)+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+\s+is\s+/,
-    // Author contributions / conflict of interest sections
-    /^(Competing Interests?|Conflicts? of Interest|Declaration of Interest|Disclosure|Funding|Data Availability|Ethics|ORCID)\b/i,
-    // AOM-style author bios: "Name is at Department/School of..."
-    /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[A-ZÀ-Ÿ]\.?\s*)*(?:\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)*\s+is\s+(?:at|with|in)\s+(?:the\s+)?(?:Department|School|Faculty|College|Division|Institute|Center|Centre)\b/i,
-    // "Corresponding author:" section
-    /^Corresponding author\b/i,
-    // "Address:" or "E-mail:" or "Email:" bio contact info
-    /^(?:Address|E-?mail|Tel|Fax|Contact)\s*:/i,
-    // AOM "Accepted by Editor" or "Action Editor" lines
-    /^(?:Accepted by|Action Editor|Handling Editor|Received|Revised|Published)\s*:?\s/i,
-  ];
+    // Patterns that indicate we've left the references section
+    const endPatterns = [
+      /^(Figure|Table|Figure \d+|Table \d+)/i,
+      /^Appendix(?!\s+\w+\.\s*\(continued)/i,   // "Appendix" but NOT "Appendix A. (continued)"
+      /^(In Study|We extended|For Study|This study|Our study)/i,
+      /^(Note\.|See |Cf\.|e\.g\.|i\.e\.)/i,
+      /^\[-?\d+\.\d+/i, // Confidence intervals like [0.00, 0.15]
+      /^[-+]?\d+\.\d+\s*\[/i, // Numbers with CIs like 0.183 [0.04, 0.33]
+      /^To guide|^In addition|^We propose/i, // Discussion text
+      /^Supplementary\b/i, // Supplementary material section
+      /^Supporting Information/i, // Supporting information section
+      /^Online Supplement/i, // Online supplement section
+      /^Supplemental Materials?/i, // Supplemental material(s)
+      /^Author Bio/i, // Author biography section after references
+      /^Author Note/i, // Author note section after references
+      /^About the Author/i, // About the author section
+      /^\w+\s+is\s+(?:a |an |the )?(?:Senior |Associate |Assistant |Full )?(?:Professor|Researcher|Lecturer|Fellow|Director|Doctoral|PhD|Postdoc)/i, // Author bio: "John is a Professor..."
+      // Author bio: "Herman Aguinis (haguinis@gwu.edu) is the..." — name + email in parens
+      /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[A-ZÀ-Ÿ]\.?)+\s*\([^)]*@[^)]*\)\s+(?:is|was|has|holds)/i,
+      // Author bio: "HERMAN AGUINIS is the..." — ALL CAPS name + "is"
+      /^[A-Z]{2,}(?:\s+[A-Z]\.?)*(?:\s+[A-Z]{2,})+\s+(?:is|was|has|holds)\s/,
+      // Author bio: "Ravi S. Ramani PhD received..." — name + degree
+      /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[A-ZÀ-Ÿ]\.?\s*)*(?:\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?\s+(?:PhD|Ph\.D|MD|MPH|MSc|MSW|DrPH|RN|FRCPC|FRCP)\b/i,
+      // Author bio: "Name, Affiliation" or "Name is an? adjective? role at/in/for/with"
+      /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[A-ZÀ-Ÿ]\.?)+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+\s+is\s+/,
+      // Author contributions / conflict of interest sections
+      /^(Competing Interests?|Conflicts? of Interest|Declaration of Interest|Disclosure|Funding|Data Availability|Ethics|ORCID)\b/i,
+      // AOM-style author bios: "Name is at Department/School of..."
+      /^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[A-ZÀ-Ÿ]\.?\s*)*(?:\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)*\s+is\s+(?:at|with|in)\s+(?:the\s+)?(?:Department|School|Faculty|College|Division|Institute|Center|Centre)\b/i,
+      // "Corresponding author:" section
+      /^Corresponding author\b/i,
+      // "Address:" or "E-mail:" or "Email:" bio contact info
+      /^(?:Address|E-?mail|Tel|Fax|Contact)\s*:/i,
+      // AOM "Accepted by Editor" or "Action Editor" lines
+      /^(?:Accepted by|Action Editor|Handling Editor|Received|Revised|Published)\s*:?\s/i,
+    ];
 
-  // Running page-footer pattern — journal name + volume + year-in-parens +
-  // article-number / page-range. PDFs of journal articles repeat this footer
-  // on every page (e.g. "Journal of Experimental Social Psychology 96 (2021)
-  // — 104154"); when one slips between two references the splitter treats it
-  // as a new entry, producing a SECTION-BOUNDARY defect (cycle-1 chen canary).
-  // Filter ENTIRELY (don't push) so it doesn't disrupt the splitter.
-  // Conservative: requires journal-like prefix (no comma — real references
-  // start with "Last, F."), volume digits, year-in-parens, and a trailing
-  // number / page range. cycle 18 (2026-05-26).
-  const RUNNING_PAGE_FOOTER = /^[A-Z][A-Za-z'’&\-:.\s]{4,80}\s+\d{1,4}\s*\((19|20)\d{2}\)\s*[\s—\-–]*\s*\d{1,7}(?:[-–]\d{1,7})?\.?\s*$/;
-  // Download-watermark pattern — "Downloaded from <URL> by <institution> on
-  // <date>" appears on every page of UCPress / OUP / Wiley / etc. open-access
-  // PDFs and was parsed as 3 separate references in the cycle-1 collabra
-  // canary (HALLUCINATION class). Filter entirely, same way as the running
-  // page-footer. cycle 18 (2026-05-26).
-  const DOWNLOAD_WATERMARK = /^Downloaded\s+from\s+https?:\/\/\S+\s+by\s+.+\s+on\s+\d{1,2}\s+\w+\s+\d{4}\s*$/i;
+    // Running page-footer pattern — journal name + volume + year-in-parens +
+    // article-number / page-range. PDFs of journal articles repeat this footer
+    // on every page (e.g. "Journal of Experimental Social Psychology 96 (2021)
+    // — 104154"); when one slips between two references the splitter treats it
+    // as a new entry, producing a SECTION-BOUNDARY defect (cycle-1 chen canary).
+    // Filter ENTIRELY (don't push) so it doesn't disrupt the splitter.
+    // Conservative: requires journal-like prefix (no comma — real references
+    // start with "Last, F."), volume digits, year-in-parens, and a trailing
+    // number / page range. cycle 18 (2026-05-26).
+    const RUNNING_PAGE_FOOTER = /^[A-Z][A-Za-z'’&\-:.\s]{4,80}\s+\d{1,4}\s*\((19|20)\d{2}\)\s*[\s—\-–]*\s*\d{1,7}(?:[-–]\d{1,7})?\.?\s*$/;
+    // Download-watermark pattern — "Downloaded from <URL> by <institution> on
+    // <date>" appears on every page of UCPress / OUP / Wiley / etc. open-access
+    // PDFs and was parsed as 3 separate references in the cycle-1 collabra
+    // canary (HALLUCINATION class). Filter entirely, same way as the running
+    // page-footer. cycle 18 (2026-05-26).
+    const DOWNLOAD_WATERMARK = /^Downloaded\s+from\s+https?:\/\/\S+\s+by\s+.+\s+on\s+\d{1,2}\s+\w+\s+\d{4}\s*$/i;
 
-  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-    const trimmed = lines[lineIdx].trim();
+    for (let lineIdx = fromLine; lineIdx < lines.length; lineIdx++) {
+      const trimmed = lines[lineIdx].trim();
 
-    // Drop running page footers and download watermarks entirely so they
-    // don't disrupt the splitter.
-    if (RUNNING_PAGE_FOOTER.test(trimmed) || DOWNLOAD_WATERMARK.test(trimmed)) {
-      continue;
-    }
-
-    // Skip empty lines, page numbers, pipe separators, and PMC manuscript artifacts
-    if (/^\s*$/.test(trimmed) || /^\s*\|?\s*\d{1,4}\s*$/.test(trimmed) || trimmed === '|'
-      || /^Page\s+\d+$/i.test(trimmed)
-      || /^Author\s+Manuscript$/i.test(trimmed)
-      || /Author manuscript;\s*available in PMC/i.test(trimmed)) {
-      referenceLines.push(lines[lineIdx]);
-      continue;
-    }
-
-    // Stop if we hit a clear non-reference pattern
-    let shouldStop = false;
-    for (const pattern of endPatterns) {
-      if (pattern.test(trimmed)) {
-        shouldStop = true;
-        break;
-      }
-    }
-
-    if (shouldStop) {
-      // Before stopping, look ahead to see if references continue after this line.
-      // PMC manuscripts may have figure/table captions or other artifacts interleaved
-      // with references. If the next non-empty content line looks like a reference,
-      // skip this line instead of stopping.
-      let refsFollowAfter = false;
-      for (let ahead = 1; ahead <= 10 && lineIdx + ahead < lines.length; ahead++) {
-        const nextLine = lines[lineIdx + ahead].trim();
-        if (!nextLine || /^\s*\|?\s*\d{1,4}\s*$/.test(nextLine) || nextLine === '|'
-          || /^Page\s+\d+$/i.test(nextLine)
-          || /^Author\s+Manuscript$/i.test(nextLine)
-          || /Author manuscript;\s*available in PMC/i.test(nextLine)
-          || /^[A-Z]{2,}(?:\s+[A-Z]{2,})*\s+et\s+al\.?$/i.test(nextLine)) continue;
-        // Check if next content line looks like a reference
-        if (nextLine.match(/^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+[,\s]/) &&
-            (nextLine.match(/\(\d{4}[a-z]?\)/) || nextLine.match(/\b(19|20)\d{2}[a-z]?[;.]/))) {
-          refsFollowAfter = true;
-        }
-        break;
-      }
-      if (refsFollowAfter) {
-        // References continue — skip this line, don't stop
+      // Drop running page footers and download watermarks entirely so they
+      // don't disrupt the splitter.
+      if (RUNNING_PAGE_FOOTER.test(trimmed) || DOWNLOAD_WATERMARK.test(trimmed)) {
         continue;
       }
-      break;
-    }
 
-    // Skip "AUTHOR et al." running page headers (common in PMC manuscripts)
-    if (/^[A-Z]{2,}(?:\s+[A-Z]{2,})*\s+et\s+al\.?$/i.test(trimmed)) {
-      continue;
-    }
+      // Skip empty lines, page numbers, pipe separators, and PMC manuscript artifacts
+      if (/^\s*$/.test(trimmed) || /^\s*\|?\s*\d{1,4}\s*$/.test(trimmed) || trimmed === '|'
+        || /^Page\s+\d+$/i.test(trimmed)
+        || /^Author\s+Manuscript$/i.test(trimmed)
+        || /Author manuscript;\s*available in PMC/i.test(trimmed)) {
+        referenceLines.push(lines[lineIdx]);
+        continue;
+      }
 
-    // Stop if we hit another major section header (all caps or numbered)
-    // BUT first look ahead to see if references continue after it (running page headers)
-    if (trimmed.match(/^[A-Z][A-Z\s]{10,}$/) && !trimmed.match(/^[A-Z][a-z]+/)) {
-      // Check next 5 non-empty lines: if any look like references, this is just a page header
-      let looksLikePageHeader = false;
-      for (let ahead = 1; ahead <= 10 && lineIdx + ahead < lines.length; ahead++) {
-        const nextLine = lines[lineIdx + ahead].trim();
-        if (!nextLine || /^\s*\|?\s*\d{1,4}\s*$/.test(nextLine) || nextLine === '|'
-          || /^Page\s+\d+$/i.test(nextLine)
-          || /^Author\s+Manuscript$/i.test(nextLine)
-          || /Author manuscript;\s*available in PMC/i.test(nextLine)
-          || /^[A-Z]{2,}(?:\s+[A-Z]{2,})*\s+et\s+al\.?$/i.test(nextLine)) continue;
-        // Check if this content line looks like a reference (author pattern or numbered ref)
-        if (nextLine.match(/^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+[,\s]/) ||
-            nextLine.match(/^\[\d+\]/) ||
-            nextLine.match(/^\d+\.\s*[A-Z]/) ||
-            nextLine.match(/\(\d{4}[a-z]?\)/) ||
-            nextLine.match(/\b(19|20)\d{2}[a-z]?[;.]/)) {
-          looksLikePageHeader = true;
+      // Stop if we hit a clear non-reference pattern
+      let shouldStop = false;
+      for (const pattern of endPatterns) {
+        if (pattern.test(trimmed)) {
+          shouldStop = true;
           break;
         }
-        // Not a reference start. If it's a CONTINUATION fragment, the all-caps
-        // running header split a reference mid-entry (e.g. a "COGNITION AND
-        // EMOTION\n1247" header landed inside the Hareli entry, between
-        // "...forgiveness. Motivation" and the continuation lines "and Emotion,
-        // 30(3), 189–197." then "006-9025-x" [a DOI suffix]). Such fragments
-        // start lowercase, with a digit/page-number/volume token, with a DOI
-        // suffix, or with an opening bracket — never with capitalized prose.
-        // References DO resume a line or two later, so keep scanning the window
-        // for the next genuine reference start rather than treating the header
-        // as the end of the section. A capitalized non-reference line, by
-        // contrast, is real post-references prose, so stop there as before.
-        // (Numbered-reference starts like "1. Smith" / "[1]" already matched the
-        // reference-start patterns above, so a digit here is a fragment, not a ref.)
-        if (/^[a-zà-ÿ0-9&(\[\-–.]/.test(nextLine) || /^(?:and|der|van|de|von|et|of|the|in)\b/i.test(nextLine)) {
+      }
+
+      if (shouldStop) {
+        // Before stopping, look ahead to see if references continue after this line.
+        // PMC manuscripts may have figure/table captions or other artifacts interleaved
+        // with references. If the next non-empty content line looks like a reference,
+        // skip this line instead of stopping.
+        let refsFollowAfter = false;
+        for (let ahead = 1; ahead <= 10 && lineIdx + ahead < lines.length; ahead++) {
+          const nextLine = lines[lineIdx + ahead].trim();
+          if (!nextLine || /^\s*\|?\s*\d{1,4}\s*$/.test(nextLine) || nextLine === '|'
+            || /^Page\s+\d+$/i.test(nextLine)
+            || /^Author\s+Manuscript$/i.test(nextLine)
+            || /Author manuscript;\s*available in PMC/i.test(nextLine)
+            || /^[A-Z]{2,}(?:\s+[A-Z]{2,})*\s+et\s+al\.?$/i.test(nextLine)) continue;
+          // Check if next content line looks like a reference
+          if (nextLine.match(/^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+[,\s]/) &&
+              (nextLine.match(/\(\d{4}[a-z]?\)/) || nextLine.match(/\b(19|20)\d{2}[a-z]?[;.]/))) {
+            refsFollowAfter = true;
+          }
+          break;
+        }
+        if (refsFollowAfter) {
+          // References continue — skip this line, don't stop
           continue;
         }
-        break; // genuine capitalized post-references prose → references ended
-      }
-      if (!looksLikePageHeader) {
         break;
       }
-      // It's a running page header — skip it, don't add to referenceLines
-      continue;
-    }
 
-    // Stop if line looks like it's part of main text (too long, no reference structure)
-    // Threshold 500 chars (was 200): pdftotext produces long continuation lines for titles
-    // and journal names that are legitimate reference content, not body text.
-    if (trimmed.length > 500 && !trimmed.match(/\b(19|20)\d{2}[a-z]?\b/) && !trimmed.match(/\((\d{4}[a-z]?|n\.d\.)/)) {
-      // Very long line without a year - probably not a reference
-      // But allow it if it has author pattern at start, DOI, PMC markers, or journal info
-      if (!trimmed.match(/^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,?\s*[A-Z]/) && !trimmed.match(/^\[\d+\]/) && !trimmed.match(/^\d+\.\s/)
-        && !trimmed.match(/\b10\.\d{4,}\//) && !trimmed.match(/doi\.org/i)
-        && !trimmed.match(/\[DOI\]|\[PubMed\]|\[Google Scholar\]|\[PMC/)
-        && !trimmed.match(/\d+\(\d+\)[,:]\s*[\d–\-]/)) {
-        break;
+      // Skip "AUTHOR et al." running page headers (common in PMC manuscripts)
+      if (/^[A-Z]{2,}(?:\s+[A-Z]{2,})*\s+et\s+al\.?$/i.test(trimmed)) {
+        continue;
       }
+
+      // Stop if we hit another major section header (all caps or numbered)
+      // BUT first look ahead to see if references continue after it (running page headers)
+      if (trimmed.match(/^[A-Z][A-Z\s]{10,}$/) && !trimmed.match(/^[A-Z][a-z]+/)) {
+        // Check next 5 non-empty lines: if any look like references, this is just a page header
+        let looksLikePageHeader = false;
+        for (let ahead = 1; ahead <= 10 && lineIdx + ahead < lines.length; ahead++) {
+          const nextLine = lines[lineIdx + ahead].trim();
+          if (!nextLine || /^\s*\|?\s*\d{1,4}\s*$/.test(nextLine) || nextLine === '|'
+            || /^Page\s+\d+$/i.test(nextLine)
+            || /^Author\s+Manuscript$/i.test(nextLine)
+            || /Author manuscript;\s*available in PMC/i.test(nextLine)
+            || /^[A-Z]{2,}(?:\s+[A-Z]{2,})*\s+et\s+al\.?$/i.test(nextLine)) continue;
+          // Check if this content line looks like a reference (author pattern or numbered ref)
+          if (nextLine.match(/^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+[,\s]/) ||
+              nextLine.match(/^\[\d+\]/) ||
+              nextLine.match(/^\d+\.\s*[A-Z]/) ||
+              nextLine.match(/\(\d{4}[a-z]?\)/) ||
+              nextLine.match(/\b(19|20)\d{2}[a-z]?[;.]/)) {
+            looksLikePageHeader = true;
+            break;
+          }
+          // Not a reference start. If it's a CONTINUATION fragment, the all-caps
+          // running header split a reference mid-entry (e.g. a "COGNITION AND
+          // EMOTION\n1247" header landed inside the Hareli entry, between
+          // "...forgiveness. Motivation" and the continuation lines "and Emotion,
+          // 30(3), 189–197." then "006-9025-x" [a DOI suffix]). Such fragments
+          // start lowercase, with a digit/page-number/volume token, with a DOI
+          // suffix, or with an opening bracket — never with capitalized prose.
+          // References DO resume a line or two later, so keep scanning the window
+          // for the next genuine reference start rather than treating the header
+          // as the end of the section. A capitalized non-reference line, by
+          // contrast, is real post-references prose, so stop there as before.
+          // (Numbered-reference starts like "1. Smith" / "[1]" already matched the
+          // reference-start patterns above, so a digit here is a fragment, not a ref.)
+          if (/^[a-zà-ÿ0-9&(\[\-–.]/.test(nextLine) || /^(?:and|der|van|de|von|et|of|the|in)\b/i.test(nextLine)) {
+            continue;
+          }
+          break; // genuine capitalized post-references prose → references ended
+        }
+        if (!looksLikePageHeader) {
+          break;
+        }
+        // It's a running page header — skip it, don't add to referenceLines
+        continue;
+      }
+
+      // Stop if line looks like it's part of main text (too long, no reference structure)
+      // Threshold 500 chars (was 200): pdftotext produces long continuation lines for titles
+      // and journal names that are legitimate reference content, not body text.
+      if (trimmed.length > 500 && !trimmed.match(/\b(19|20)\d{2}[a-z]?\b/) && !trimmed.match(/\((\d{4}[a-z]?|n\.d\.)/)) {
+        // Very long line without a year - probably not a reference
+        // But allow it if it has author pattern at start, DOI, PMC markers, or journal info
+        if (!trimmed.match(/^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+,?\s*[A-Z]/) && !trimmed.match(/^\[\d+\]/) && !trimmed.match(/^\d+\.\s/)
+          && !trimmed.match(/\b10\.\d{4,}\//) && !trimmed.match(/doi\.org/i)
+          && !trimmed.match(/\[DOI\]|\[PubMed\]|\[Google Scholar\]|\[PMC/)
+          && !trimmed.match(/\d+\(\d+\)[,:]\s*[\d–\-]/)) {
+          break;
+        }
+      }
+
+      referenceLines.push(lines[lineIdx]);
     }
 
-    referenceLines.push(lines[lineIdx]);
+    const collected = referenceLines.join('\n').trim();
+
+    // Validate that we actually found references (not just empty or main text)
+    if (collected.length < 50) {
+      return null; // Too short to be a real references section
+    }
+
+    // Check if it has at least some reference-like patterns
+    const hasReferencePatterns =
+      collected.match(/\((\d{4}[a-z]?|n\.d\.|in\s+press)\)/i) ||       // APA/Harvard/Nature: year in parens
+      collected.match(/\b(19|20)\d{2}[a-z]?[;.]/i) ||                   // Vancouver/AOM: bare year
+      collected.match(/^[A-ZÀ-Ÿ][\wà-ÿā-ž'\s-]{1,40},\s*[A-Z]/m) ||     // APA author: Smith, J.
+      collected.match(/^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+\s[A-Z]{1,4}[,.]/m) ||    // Vancouver author: Smith JA,
+      collected.match(/^\[\d+\]\.?\s/m) ||                                 // IEEE/Vancouver numbered: [1] or [1].
+      collected.match(/doi\.org|https?:\/\//i);                          // DOI/URL
+
+    if (!hasReferencePatterns) {
+      return null; // Doesn't look like references
+    }
+    return collected;
+  };
+
+  let refSection = collectFrom(0);
+  if (refSection === null) {
+    // STACKED BACK-MATTER HEADINGS. Some journal layouts come out of pdftotext as a block of
+    // headings -- "Notes", "6. References", "Funding", an author name -- followed by the
+    // notes' bodies and only THEN the reference list. The scan above stops at "Funding"
+    // before reaching a single reference, so the whole list was lost and the document
+    // reported zero references (Efendic et al. 2022 replication print, 2026-10-06). Resume
+    // at the first RUN of reference starts within a bounded window after the header -- a
+    // run, not one line, so a stray sentence that opens "Surname, I. (2000)" cannot pull
+    // the scan into body text.
+    const resumeAt = findStackedReferenceListStart(lines);
+    if (resumeAt !== null) refSection = collectFrom(resumeAt);
   }
-
-  const refSection = referenceLines.join('\n').trim();
-
-  // Validate that we actually found references (not just empty or main text)
-  if (refSection.length < 50) {
-    return null; // Too short to be a real references section
-  }
-
-  // Check if it has at least some reference-like patterns
-  const hasReferencePatterns =
-    refSection.match(/\((\d{4}[a-z]?|n\.d\.|in\s+press)\)/i) ||       // APA/Harvard/Nature: year in parens
-    refSection.match(/\b(19|20)\d{2}[a-z]?[;.]/i) ||                   // Vancouver/AOM: bare year
-    refSection.match(/^[A-ZÀ-Ÿ][\wà-ÿā-ž'\s-]{1,40},\s*[A-Z]/m) ||     // APA author: Smith, J.
-    refSection.match(/^[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+\s[A-Z]{1,4}[,.]/m) ||    // Vancouver author: Smith JA,
-    refSection.match(/^\[\d+\]\.?\s/m) ||                                 // IEEE/Vancouver numbered: [1] or [1].
-    refSection.match(/doi\.org|https?:\/\//i);                          // DOI/URL
-
-  if (!hasReferencePatterns) {
-    return null; // Doesn't look like references
+  if (refSection === null) {
+    return null;
   }
 
   // Clean up hyphenation and spacing common in PDF extractions

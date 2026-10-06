@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use citelink in your research, please cite it as below."
 type: software
 title: "citelink: Citation detection, reference parsing, and citation-reference matching for academic documents"
-version: "0.7.84"
+version: "0.7.85"
 license: MIT
 repository-code: "https://github.com/giladfeldman/citelink"
 authors:
