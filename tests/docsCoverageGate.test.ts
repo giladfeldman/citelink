@@ -63,6 +63,11 @@ describe('documentation-drift gate', () => {
     expect(gate.isDocumented('detectCitations', 'detectCitationsX detectCitation')).toBe(false);
   });
 
+  it('finds the js block in a README checked out with CRLF line endings (Windows)', () => {
+    const readme = ['# x', '', '## Quickstart', '', '```js', 'console.log(1);', '```', '', '## Next', ''].join('\r\n');
+    expect(gate.quickstartBlocks(readme)).toEqual(['console.log(1);\n']);
+  });
+
   it('refuses a quickstart with no js block', () => {
     expect(() => gate.quickstartBlocks('# x\n\n## Quickstart\n\nno code here\n\n## Next\n')).toThrow();
   });

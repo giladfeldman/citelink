@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.7.86
+
+### Fixed
+- **A citation naming its co-authors** ("Klein, Hegarty, & Fischhoff, 2017") must find at least
+  half of them among the reference's authors. Without that, two references with the same first
+  author and year tied, and list order linked the citation, as `matched`, to a different paper.
+  A reference lacking the named co-authors now scores in the suggested band. An "et al." in a
+  reference's title does not count as a truncated author list
+  (`tests/namedCoAuthorDisambiguation.test.ts`).
+- **A title ending in "?" or "!" stops there** when what follows reads like a source locator
+  ("…a matter of habit? Journal of Applied Social Psychology, 28, 1355-1374."). Previously the
+  journal, volume and pages were read as title (`tests/titleQuestionMarkBeforeSource.test.ts`).
+- **Periods inside a title.** A period in "vs.", "et al.", "e.g.", "i.e.", "cf." or a Roman part
+  number after a colon (": II.") no longer ends the title, unless what follows is the source, so
+  "A reply to Smith et al. Psychological Science, 30, 1-5." still ends after "et al."
+  (`tests/titleAbbreviationPeriods.test.ts`).
+- **IEEE titles quoted with `''`, `“”` or `‘‘’’`** are recognised as well as `"`. Before, an entry
+  quoted with two straight single quotes lost a single author outright. Each opening quote is
+  closed only by its own kind. The list comma IEEE prints inside the closing quote is no longer
+  part of the title (`tests/ieeeDoubledQuoteTitle.test.ts`).
+- **Author names:** a CamelCase second surname ("A. G. McKendrick"), a two-word particle mid-list
+  ("Borsboom, D., van der Maas, H. L. J."), and an IEEE particle surname ("H. L. J. van der Maas",
+  "J. de la Cruz") are each kept as one surname without the initials
+  (`tests/twoWordParticleMidList.test.ts`).
+- **A group author's trailing period** ("Open Science Collaboration.", "R Core Team.") is not part
+  of the name. A period that belongs to an abbreviation ("Microsoft Corp.") is kept.
+
 ## 0.7.85
 
 ### Fixed

@@ -188,7 +188,8 @@ export function checkReleaseMetadata(surface, code, root = ROOT) {
 
 // --------------------------------------------------------------------------- quickstart
 export function quickstartBlocks(readme) {
-  const text = readme ?? fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+  // A Windows checkout (core.autocrlf) has CRLF line endings; the block pattern expects LF.
+  const text = (readme ?? fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8')).replace(/\r\n/g, '\n');
   const start = text.indexOf(QUICKSTART_HEADING);
   if (start < 0) throw new Error(`README.md has no '${QUICKSTART_HEADING}' section`);
   const next = text.indexOf('\n## ', start + QUICKSTART_HEADING.length);
