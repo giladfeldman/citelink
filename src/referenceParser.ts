@@ -2754,7 +2754,9 @@ function parseIEEEReference(cleanedText: string, listNumber?: number): ParsedRef
         const trimmed = sp.trim().replace(/,\s*$/, '');
         if (!trimmed) continue;
         // Try: "J. A. Smith" — initials then last name (IEEE)
-        const ieeeM = trimmed.match(/^((?:[A-ZÀ-Ÿ]\.[-–—\u00AD]*\s*)+)\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)$/);
+        // Up to two lowercase particles may lead the surname ("H. L. J. van der Maas", "J. de la
+        // Cruz"); without them the name fell through and kept its initials as the surname.
+        const ieeeM = trimmed.match(/^((?:[A-ZÀ-Ÿ]\.[-–—\u00AD]*\s*)+)\s*((?:(?:van|von|de|del|der|den|di|du|da|dos|das|la|le|ter|ten)\s+){0,2}[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)$/);
         if (ieeeM) {
           ref.authors.push({
             lastName: ieeeM[2],

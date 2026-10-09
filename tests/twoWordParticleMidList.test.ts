@@ -33,3 +33,21 @@ describe('two-word particle surnames inside an APA author list', () => {
       .toEqual(['Smith', 'Borsboom', 'van der Maas']);
   });
 });
+
+describe('IEEE "initials then surname" with a particle (cross-model review 2026-10-09)', () => {
+  // The IEEE name pattern required the surname to start with a capital, so "H. L. J. van der Maas"
+  // fell through and was keyed with its initials as the surname.
+  const ieeeAuthors = (entry: string) =>
+    parseReferences(`Body [1].\n\nREFERENCES\n[1] ${entry}\n`, 'ieee')[0].allAuthorLastNames;
+
+  it('"van der Maas" and "de la Cruz" are surnames without the initials', () => {
+    expect(ieeeAuthors('H. L. J. van der Maas and E. Wagenmakers, "A psychometric analysis," Amer. J. Psychol., vol. 118, pp. 29-60, 2005.'))
+      .toEqual(['van der Maas', 'Wagenmakers']);
+    expect(ieeeAuthors('J. de la Cruz, "Robots," IEEE Access, vol. 1, pp. 1-2, 2020.')).toEqual(['de la Cruz']);
+  });
+
+  it('ordinary and CamelCase IEEE names are unchanged', () => {
+    expect(ieeeAuthors('W. O. Kermack and A. G. McKendrick, "A contribution," Proc. Roy. Soc., vol. 115, pp. 700-721, 1927.'))
+      .toEqual(['Kermack', 'McKendrick']);
+  });
+});
