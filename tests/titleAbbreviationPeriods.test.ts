@@ -36,6 +36,17 @@ describe('periods inside a title that do not end it', () => {
       .toMatch(/^Will it replicate\? McCullough et al\. 1997 \| Study 1 poll on Twitter/);
   });
 
+  // A title that genuinely ENDS in the abbreviation: what follows is the source, so the period
+  // ends the title after all. Without this the journal, volume and pages were read as title
+  // (Sonnet cross-model review 2026-10-09).
+  it.each([
+    ['Jones, A. (2019). A reply to Smith et al. Psychological Science, 30, 1-5.', 'A reply to Smith et al.'],
+    ['Jones, A. (2019). Nature vs. Psychological Science, 30(2), 1-5.', 'Nature vs.'],
+    ['Smith, J. (2020). Forgiving: II. Journal of Y, 3, 4-5.', 'Forgiving: II.'],
+  ])('a title ending in an abbreviation stops before its source: %s', (ref, title) => {
+    expect(first(ref).title).toBe(title);
+  });
+
   it('an ordinary title still ends at its first sentence period', () => {
     expect(first('McCullough, M. E., Worthington, E. L., & Rachal, K. C. (1997). Interpersonal forgiving in close relationships. Journal of Personality and Social Psychology, 73(2), 321-336.').title)
       .toBe('Interpersonal forgiving in close relationships.');

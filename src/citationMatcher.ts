@@ -340,7 +340,11 @@ function matchEtAl(
   // authors, so "et al." in the reference raw is strong evidence the true count is
   // >=3. (the platform's hardening workflow 2026-06-25 — TC-5: bjps_1 matching 0.622, 49
   // correct et-al matches rejected as no_match.)
-  const referenceIsEtAl = /\bet\s+al\b\.?/i.test(reference.raw || '');
+  // Only the AUTHOR part counts: "A reply to Hardwicke et al." in a title says nothing about the
+  // entry's own author list (cross-model review 2026-10-09; tests/namedCoAuthorDisambiguation.test.ts).
+  const rawEntry = reference.raw || '';
+  const titleAt = reference.title ? rawEntry.indexOf(reference.title) : -1;
+  const referenceIsEtAl = /\bet\s+al\b\.?/i.test(titleAt > 0 ? rawEntry.slice(0, titleAt) : rawEntry);
 
   // Get the first (non-et-al) author from citation
   const citationFirstAuthor = citation.authors.find(a => !a.isEtAl);

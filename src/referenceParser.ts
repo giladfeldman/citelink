@@ -3279,6 +3279,12 @@ function firstTitlePeriod(titleSection: string): number {
   const re = /\.(?=\s|$)/g;
   for (let m = re.exec(titleSection); m; m = re.exec(titleSection)) {
     if (!NON_TERMINAL_PERIOD_BEFORE.test(titleSection.slice(0, m.index))) return m.index;
+    // ...unless the title ENDS in the abbreviation: when the text up to the next period ends like
+    // a source locator ("Psychological Science, 30, 1-5"), that period ends the title after all.
+    // ("A reply to Smith et al. Psychological Science, 30, 1-5." - cross-model review 2026-10-09.)
+    const next = titleSection.slice(m.index + 1).search(/\.(?=\s|$)/);
+    const segment = next < 0 ? titleSection.slice(m.index + 1) : titleSection.slice(m.index + 1, m.index + 1 + next);
+    if (SOURCE_LOCATOR_TAIL.test(segment)) return m.index;
   }
   return -1;
 }

@@ -69,6 +69,16 @@ describe('a citation naming its co-authors', () => {
     }
   });
 
+  it('"et al." in a reference TITLE does not switch the check off (cross-model review 2026-10-09)', () => {
+    // The truncated-author-list test read the whole entry, so "A reply to Hardwicke et al." made
+    // the reference look like an "et al." entry and skipped the co-author check.
+    const KLEIN_REPLY = 'Klein, O., Smith, P., & Doe, B. (2017). A reply to Hardwicke et al. Collabra: Psychology, 4(1), 21.';
+    const { matches } = run(BODY, [KLEIN_REPLY]);
+    const m = matches.find((x) => x.citation.raw === '(Klein, Hegarty, & Fischhoff, 2017)');
+    expect(m).toBeDefined();
+    expect(m!.status).not.toBe('matched');
+  });
+
   it('tolerates a co-author the reference parse lost: at least half of the named co-authors must be found', () => {
     // chen_2021_jesp: before twoWordParticleMidList.test.ts, the parsed author list of this entry
     // lacked Borsboom. Requiring EVERY named co-author demoted the correct link to suggested. The
