@@ -492,7 +492,10 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
   // with REF_SPLIT_PARTICLE / COMPOUND_SURNAME.
   const particleAlt = "(?:[Vv]an(?:['’][ts])?|['’][ts]|[Vv]on|[Dd]e|[Dd]el|[Dd]er|[Dd]en|[Dd]i|[Dd]u|[Dd]a|[Dd]o|[Dd]os|[Dd]as|[Ll]a|[Ll]e|[Ee]l|[Aa]l|[Bb]en|[Bb]in|[Ii]bn|[Tt]er|[Aa]bd|[Aa]bu)";
   const authorPattern = new RegExp(
-    `(?:${particleAlt}\\s+)?` +                     // Optional particle prefix
+    // Up to TWO particle words ("van der Maas", "de la Cruz"): with one, a mid-list
+    // "van der Maas" keyed as "der Maas" and swallowed the author before it (chen_2021_jesp
+    // Wagenmakers 2012; tests/twoWordParticleMidList.test.ts).
+    `(?:${particleAlt}\\s+){0,2}` +                // Optional particle prefix
     `(?:[A-ZÀ-Ÿ][A-Za-zÀ-ÿā-ž'-]+` +              // LastName (allows camelCase + Latin Extended-A, e.g. "Bartoš")
     `(?:\\s+[a-z]+(?:\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)` +  // Optional "van der Berg" continuation
     `|\\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?` +                // OR one capitalized 2nd surname word ("Ross Russell")
@@ -500,7 +503,7 @@ function parseAuthorsFromSection(authorSection: string): ParsedReferenceAuthor[]
     `\\s*,\\s*` +                                     // Comma separator
     `(?:[A-ZÀ-Ÿ]\\.?[-\\s]*)+` +                     // Initials (A. B. / AB / M.-A. hyphenated)
     `(?:,\\s*(?:Jr|Sr|II|III|IV)\\.?)?\\s*` +        // Optional suffix
-    `(?=,\\s*[A-ZÀ-Ÿ]|,\\s*${particleAlt}\\s+[A-ZÀ-Ÿ]|$|\\.{3}|…)`, // Lookahead
+    `(?=,\\s*[A-ZÀ-Ÿ]|,\\s*(?:${particleAlt}\\s+){1,2}[A-ZÀ-Ÿ]|$|\\.{3}|…)`, // Lookahead
     'g'
   );
 
@@ -2266,6 +2269,15 @@ function fillAuthorFields(ref: ParsedReference): void {
     ref.firstAuthorLastNameNormalized = ref.authors[0].lastNameNormalized;
     ref.isGroupAuthor = ref.authors[0].isOrganization;
     if (ref.isGroupAuthor) {
+      // "Open Science Collaboration. (2015)" keyed its author WITH the period (canary audit
+      // 2026-10-08). An abbreviation's own period ("Apple Inc.") is kept.
+      const g = ref.authors[0];
+      if (/[a-z]{3,}\.\s*$/.test(g.lastName) && !/\b(?:Inc|Ltd|Co|Corp|Bros|Assn|Dept|Univ)\.\s*$/.test(g.lastName)) {
+        g.lastName = g.lastName.replace(/\.\s*$/, '');
+        g.lastNameNormalized = normalizeName(g.lastName);
+        ref.firstAuthorLastName = g.lastName;
+        ref.firstAuthorLastNameNormalized = g.lastNameNormalized;
+      }
       ref.groupName = ref.authors[0].lastName.replace(/\.\s*$/, '');
       ref.groupAbbreviation = getOrganizationAbbreviation(ref.groupName);
     }
@@ -2509,10 +2521,11 @@ function parseAPAReference(cleanedText: string, listNumber?: number): ParsedRefe
     // the terminator so the title is not cut at an interior question mark.
     // Only fall back to `?`/`!` when no period exists in the title section
     // (rare; covers titles that genuinely end with `?` or `!`).
-    let sentenceEnd = titleSection.search(/\.(?:\s|$)/);
+    let sentenceEnd = firstTitlePeriod(titleSection);
     if (sentenceEnd < 0) {
       sentenceEnd = titleSection.search(/[?!](?:\s|$)/);
     }
+    sentenceEnd = endAtQuestionBeforeSource(titleSection, sentenceEnd);
     // A leading PART-NUMBER / volume prefix that ends in a period — a roman
     // numeral ("VII.") or "Pt. 1.", "No. 3.", "Vol. 2.", "Ch. 4." — ends in
     // exactly the "period + space" the title terminator anchors on, so the title
@@ -2719,10 +2732,15 @@ function parseIEEEReference(cleanedText: string, listNumber?: number): ParsedRef
   if (ppM) ref.pages = ppM[1];
   if (ref.volume || ref.pages) ref.type = 'journal';
 
-  // Authors: everything before first quoted title
-  const titleQuote = cleanedText.match(/^(.+?),\s*"(.+?)"/);
+  // Authors: everything before first quoted title. IEEE's curly double quotes reach us as `"`,
+  // `“”`, `‘‘’’`, or (docpluck's text layer) two straight single quotes `''`. Matching `"`
+  // alone sent every `''` entry to the no-quoted-title branch below, which loses a single author
+  // ("J. Chodak, ''Spike...") outright: 6 of 36 references in ieee_access_2
+  // (tests/ieeeDoubledQuoteTitle.test.ts).
+  const titleQuote = cleanedText.match(/^(.+?),\s*(?:"|''|“|‘‘)(.+?)(?:"|''|”|’’)/);
   if (titleQuote) {
-    ref.title = titleQuote[2];
+    // IEEE sets the list comma inside the closing quote (`"Title,"`); it is not the title's.
+    ref.title = titleQuote[2].replace(/\s*[,;]\s*$/, '');
     const authorSection = titleQuote[1].trim();
     // IEEE authors: "A. Nordstrom, P. Nordstrom" or "J. Smith and B. Jones"
     // First handle "et al." — strip it and mark count
@@ -2736,7 +2754,7 @@ function parseIEEEReference(cleanedText: string, listNumber?: number): ParsedRef
         const trimmed = sp.trim().replace(/,\s*$/, '');
         if (!trimmed) continue;
         // Try: "J. A. Smith" — initials then last name (IEEE)
-        const ieeeM = trimmed.match(/^((?:[A-ZÀ-Ÿ]\.[-–—\u00AD]*\s*)+)\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)$/);
+        const ieeeM = trimmed.match(/^((?:[A-ZÀ-Ÿ]\.[-–—\u00AD]*\s*)+)\s*([A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+(?:[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?(?:\s+[a-z]+\s+[A-ZÀ-Ÿ][a-zà-ÿā-ž'-]+)?)$/);
         if (ieeeM) {
           ref.authors.push({
             lastName: ieeeM[2],
@@ -3238,16 +3256,58 @@ function parseNoCommaFullNameAuthors(authorSection: string): ParsedReferenceAuth
  *  - PART-NUMBER / volume prefix: `VII. Mathematical contributions…`, `Pt. 1.` —
  *    re-anchor past the prefix (mirrors the APA-path guard added 2026-06-08).
  */
+/**
+ * A title that ENDS in `?`/`!` must not run on into its source. The first-period anchor
+ * keeps an interior `?` inside the title ("Science or protoscience? Ten years later."), but
+ * for "…a matter of habit? Journal of Applied Social Psychology, 28, 1355-1374." it swallowed
+ * journal, volume and pages (canary audit 2026-10-08: 26 titles over 5 papers). When the text
+ * between the last `?`/`!` before `sentenceEnd` and `sentenceEnd` itself ends like a source
+ * locator — ", 28, 1355-1374", ", 6(1), 3-5", ", 31(4), e12345", ", 28" — the title ends at
+ * the `?`/`!`. A continuation that is more title prose has no such tail and is left alone.
+ * (tests/titleQuestionMarkBeforeSource.test.ts)
+ */
+/**
+ * Index of the first period that can END a title: followed by whitespace or the end, and not the
+ * period of an abbreviation ("vs.", "et al.", "e.g.", "i.e.", "cf.") or of a roman part number
+ * after a colon ("…relationships: II. Theoretical Elaboration…"). Those cut real titles short
+ * (canary audit 2026-10-08, chan_feldman_2025_cogemo; tests/titleAbbreviationPeriods.test.ts).
+ * -1 when there is none.
+ */
+const NON_TERMINAL_PERIOD_BEFORE = /(?:\b(?:[Vv]s|[Ee]t\s+al|e\.g|i\.e|[Cc]f|viz)|:\s*[IVXLC]{1,6})$/;
+
+function firstTitlePeriod(titleSection: string): number {
+  const re = /\.(?=\s|$)/g;
+  for (let m = re.exec(titleSection); m; m = re.exec(titleSection)) {
+    if (!NON_TERMINAL_PERIOD_BEFORE.test(titleSection.slice(0, m.index))) return m.index;
+  }
+  return -1;
+}
+
+const SOURCE_LOCATOR_TAIL =
+  /,\s*\d{1,4}(?:\s*\([^)]{1,12}\))?(?:\s*[,:]\s*(?:pp?\.\s*)?[A-Za-z]?\d+(?:\s*[-–—]\s*[A-Za-z]?\d+)?)?\s*$/;
+
+function endAtQuestionBeforeSource(titleSection: string, sentenceEnd: number): number {
+  if (sentenceEnd <= 0 || titleSection[sentenceEnd] !== '.') return sentenceEnd;
+  const head = titleSection.slice(0, sentenceEnd);
+  const re = /[?!](?=\s)/g;
+  let lastMark = -1;
+  for (let m = re.exec(head); m; m = re.exec(head)) lastMark = m.index;
+  if (lastMark <= 0) return sentenceEnd;
+  const continuation = head.slice(lastMark + 1);
+  return SOURCE_LOCATOR_TAIL.test(continuation) ? lastMark : sentenceEnd;
+}
+
 function extractTitleFromAfterYear(afterYear: string): string {
   const titleSection = afterYear.replace(/^[.,\s]+/, '');
   if (!titleSection) return '';
 
   // A title can legitimately contain `?` or `!` mid-title; prefer the first `.` as
   // the terminator, fall back to `?`/`!` only when no period exists.
-  let sentenceEnd = titleSection.search(/\.(?:\s|$)/);
+  let sentenceEnd = firstTitlePeriod(titleSection);
   if (sentenceEnd < 0) {
     sentenceEnd = titleSection.search(/[?!](?:\s|$)/);
   }
+  sentenceEnd = endAtQuestionBeforeSource(titleSection, sentenceEnd);
 
   if (sentenceEnd > 0) {
     const head = titleSection.slice(0, sentenceEnd + 1).trim();

@@ -364,6 +364,25 @@ function matchEtAl(
     return 0.2;
   }
 
+  // A citation that NAMES its co-authors ("Klein, Hegarty, & Fischhoff, 2017") must find them in
+  // the reference. Scored on the first author alone, two "Klein (2017)" references tied and list
+  // order linked the citation, as `matched`, to a different paper (production qa-multi-doc
+  // 2026-09-28; tests/namedCoAuthorDisambiguation.test.ts). A reference missing a named co-author
+  // drops to the SUGGESTED band, like the two-author citation-error case above. Skipped when the
+  // reference's own author list is truncated ("et al." in the entry), which cannot list them.
+  // At least HALF must be found, not all: a reference parse can lose a co-author ("Borsboom, D.,
+  // van der Maas, H. L." in chen_2021_jesp), and requiring every one demoted that correct link.
+  // Every wrong link this rule fixed had at most 1 of its named co-authors in the wrong reference.
+  const namedCoAuthors = citation.authors.filter(a => !a.isEtAl).slice(1);
+  const refCoAuthors = (reference.allAuthorLastNamesNormalized || []).slice(1);
+  if (namedCoAuthors.length > 0 && !referenceIsEtAl && refCoAuthors.length > 0) {
+    const found = namedCoAuthors.filter(a => {
+      const n = a.normalized || normalizeName(a.raw);
+      return refCoAuthors.some(rn => fuzzyNameMatch(n, rn) >= 0.8);
+    }).length;
+    if (found * 2 < namedCoAuthors.length) return nameScore * 0.3;
+  }
+
   // Boost score slightly for having correct author count structure
   return nameScore * 0.95;
 }
