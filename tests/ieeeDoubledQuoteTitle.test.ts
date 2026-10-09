@@ -71,3 +71,17 @@ describe("IEEE titles quoted with '' keep their authors", () => {
     expect(ref!.allAuthorLastNames).toEqual(['Yang', 'Connolly', 'Smith']);
   });
 });
+
+describe('IEEE title quotes pair by kind (cross-model review 2026-10-09)', () => {
+  const titleOf = (entry: string) => parseReferences(`Body [1].\n\nREFERENCES\n[1] ${entry}\n`, 'ieee')[0].title;
+
+  it("a '' title is not closed by a later straight quote in the venue", () => {
+    expect(titleOf("J. Doe, ''Deep nets for vision,'' in Proc. \"ICML\", 2019, pp. 1-9.")).toBe('Deep nets for vision');
+  });
+
+  it("a ''-quoted title keeps an inner straight quote (an inch mark)", () => {
+    expect(titleOf("A. Smith, ''The 5\" display for VR,'' IEEE Trans., vol. 2, pp. 3-4, 2020.")).toBe('The 5" display for VR');
+  });
+  // Not covered: curly quotes are folded to straight `"` before IEEE parsing (referenceParser.ts
+  // smart-quote normalisation), so an inner `"` inside a curly-quoted title stays ambiguous.)
+});

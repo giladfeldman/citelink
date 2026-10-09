@@ -2737,10 +2737,12 @@ function parseIEEEReference(cleanedText: string, listNumber?: number): ParsedRef
   // alone sent every `''` entry to the no-quoted-title branch below, which loses a single author
   // ("J. Chodak, ''Spike...") outright: 6 of 36 references in ieee_access_2
   // (tests/ieeeDoubledQuoteTitle.test.ts).
-  const titleQuote = cleanedText.match(/^(.+?),\s*(?:"|''|“|‘‘)(.+?)(?:"|''|”|’’)/);
+  // Each opener is closed only by its OWN closer, so an inner straight quote (`“The 5" display”`)
+  // does not end a curly-quoted title (cross-model review 2026-10-09).
+  const titleQuote = cleanedText.match(/^(.+?),\s*(?:"(.+?)"|''(.+?)''|“(.+?)”|‘‘(.+?)’’)/);
   if (titleQuote) {
     // IEEE sets the list comma inside the closing quote (`"Title,"`); it is not the title's.
-    ref.title = titleQuote[2].replace(/\s*[,;]\s*$/, '');
+    ref.title = (titleQuote[2] ?? titleQuote[3] ?? titleQuote[4] ?? titleQuote[5] ?? '').trim().replace(/\s*[,;]\s*$/, '');
     const authorSection = titleQuote[1].trim();
     // IEEE authors: "A. Nordstrom, P. Nordstrom" or "J. Smith and B. Jones"
     // First handle "et al." — strip it and mark count
