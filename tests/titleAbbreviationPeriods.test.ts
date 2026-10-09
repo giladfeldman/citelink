@@ -59,4 +59,11 @@ describe('group author', () => {
     expect(r.isGroupAuthor).toBe(true);
     expect(r.firstAuthorLastName).toBe('Open Science Collaboration');
   });
+
+  it("a group name ending in an abbreviation keeps that period (cross-model review 2026-10-09)", () => {
+    for (const [name, rest] of [['American Psychological Assoc.', 'Publication manual.'], ['Statistics Natl.', 'Census tables.'], ['Microsoft Corp.', 'Annual report.']]) {
+      const r = first(`${name} (2010). ${rest} Publisher.`);
+      expect(r.firstAuthorLastName).toBe(name);
+    }
+  });
 });
