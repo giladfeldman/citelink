@@ -27,6 +27,10 @@
 - **A group author's trailing period** ("Open Science Collaboration.", "R Core Team.") is not part
   of the name. A period that belongs to an abbreviation ("Microsoft Corp.") is kept.
 
+### Internal
+- `npm run docs:check` found no quickstart code block in a README checked out with Windows line
+  endings, and stopped with an error. It now normalises line endings first.
+
 ## 0.7.85
 
 ### Fixed
