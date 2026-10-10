@@ -11,7 +11,7 @@ import { matchCitationsToReferences } from '../src/citationMatcher';
  * Klein in the list, both scored 0.965, the same-key guard resolved the tie by LIST ORDER, and
  * the citation was reported as `matched` to "Klein, O., Hardwicke, T. E., Aust, F., ... (2017)",
  * a different paper. Same for "(Aguinis, Gottfredson, & Wright, 2011)" -> "Aguinis, Boyd,
- * Pierce, & Short (2011)". (Production qa-multi-doc on platform v1.74.111, 2026-09-28.)
+ * Pierce, & Short (2011)". (Seen in a consumer-side multi-document run, 2026-09-28.)
  *
  * The rule: when the citation names co-authors and the reference's own author list is complete
  * (not itself truncated with "et al."), every named co-author must appear among the reference's

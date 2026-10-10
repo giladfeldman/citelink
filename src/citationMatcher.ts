@@ -370,7 +370,7 @@ function matchEtAl(
 
   // A citation that NAMES its co-authors ("Klein, Hegarty, & Fischhoff, 2017") must find them in
   // the reference. Scored on the first author alone, two "Klein (2017)" references tied and list
-  // order linked the citation, as `matched`, to a different paper (production qa-multi-doc
+  // order linked the citation, as `matched`, to a different paper (a consumer-side multi-document run
   // 2026-09-28; tests/namedCoAuthorDisambiguation.test.ts). A reference missing a named co-author
   // drops to the SUGGESTED band, like the two-author citation-error case above. Skipped when the
   // reference's own author list is truncated ("et al." in the entry), which cannot list them.

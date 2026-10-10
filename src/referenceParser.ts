@@ -3240,37 +3240,6 @@ function parseNoCommaFullNameAuthors(authorSection: string): ParsedReferenceAuth
 }
 
 /**
- * Extract a reference TITLE from the text that follows the year, anchoring on the
- * first sentence-ending period. Shared spelling of the APA-path title logic (the
- * inline block in `parseAPAReference`), so the bare-year parser (AOM / ASA /
- * Chicago) gets the SAME title fidelity instead of its old "first `.` wins"
- * truncation. `afterYear` is the slice immediately after the year token; leading
- * orphan punctuation/whitespace is stripped here.
- *
- * Handles three shapes the naive `indexOf('.')` mis-parsed on AOM references
- * (the platform's hardening workflow cycle 7, amp_1 + annals_2 Sonnet audit):
- *  - Quoted phrase that is only PART of the title: `"An A is an A": The new bottom
- *    line for valuing academic research.` — the quote is not the whole title, so do
- *    NOT stop at the closing quote; fall through to the sentence-period anchor.
- *  - Single-WORD first sentence: `Retraction. Externally commercializing…` — the
- *    first `.` truncates to the lone word; re-anchor to the NEXT sentence period,
- *    but ONLY when the continuation is genuine title prose (≥3 lowercase words), so
- *    a real one-word title + journal (`Leadership. New York: Harper & Row.`) is not
- *    swallowed. (Mirrors the APA-path guard added 2026-06-25.)
- *  - PART-NUMBER / volume prefix: `VII. Mathematical contributions…`, `Pt. 1.` —
- *    re-anchor past the prefix (mirrors the APA-path guard added 2026-06-08).
- */
-/**
- * A title that ENDS in `?`/`!` must not run on into its source. The first-period anchor
- * keeps an interior `?` inside the title ("Science or protoscience? Ten years later."), but
- * for "…a matter of habit? Journal of Applied Social Psychology, 28, 1355-1374." it swallowed
- * journal, volume and pages (canary audit 2026-10-08: 26 titles over 5 papers). When the text
- * between the last `?`/`!` before `sentenceEnd` and `sentenceEnd` itself ends like a source
- * locator — ", 28, 1355-1374", ", 6(1), 3-5", ", 31(4), e12345", ", 28" — the title ends at
- * the `?`/`!`. A continuation that is more title prose has no such tail and is left alone.
- * (tests/titleQuestionMarkBeforeSource.test.ts)
- */
-/**
  * Index of the first period that can END a title: followed by whitespace or the end, and not the
  * period of an abbreviation ("vs.", "et al.", "e.g.", "i.e.", "cf.") or of a roman part number
  * after a colon ("…relationships: II. Theoretical Elaboration…"). Those cut real titles short
@@ -3296,6 +3265,16 @@ function firstTitlePeriod(titleSection: string): number {
 const SOURCE_LOCATOR_TAIL =
   /,\s*\d{1,4}(?:\s*\([^)]{1,12}\))?(?:\s*[,:]\s*(?:pp?\.\s*)?[A-Za-z]?\d+(?:\s*[-–—]\s*[A-Za-z]?\d+)?)?\s*$/;
 
+/**
+ * A title that ENDS in `?`/`!` must not run on into its source. The first-period anchor
+ * keeps an interior `?` inside the title ("Science or protoscience? Ten years later."), but
+ * for "…a matter of habit? Journal of Applied Social Psychology, 28, 1355-1374." it swallowed
+ * journal, volume and pages (canary audit 2026-10-08: 26 titles over 5 papers). When the text
+ * between the last `?`/`!` before `sentenceEnd` and `sentenceEnd` itself ends like a source
+ * locator — ", 28, 1355-1374", ", 6(1), 3-5", ", 31(4), e12345", ", 28" — the title ends at
+ * the `?`/`!`. A continuation that is more title prose has no such tail and is left alone.
+ * (tests/titleQuestionMarkBeforeSource.test.ts)
+ */
 function endAtQuestionBeforeSource(titleSection: string, sentenceEnd: number): number {
   if (sentenceEnd <= 0 || titleSection[sentenceEnd] !== '.') return sentenceEnd;
   const head = titleSection.slice(0, sentenceEnd);
@@ -3307,6 +3286,27 @@ function endAtQuestionBeforeSource(titleSection: string, sentenceEnd: number): n
   return SOURCE_LOCATOR_TAIL.test(continuation) ? lastMark : sentenceEnd;
 }
 
+/**
+ * Extract a reference TITLE from the text that follows the year, anchoring on the
+ * first sentence-ending period. Shared spelling of the APA-path title logic (the
+ * inline block in `parseAPAReference`), so the bare-year parser (AOM / ASA /
+ * Chicago) gets the SAME title fidelity instead of its old "first `.` wins"
+ * truncation. `afterYear` is the slice immediately after the year token; leading
+ * orphan punctuation/whitespace is stripped here.
+ *
+ * Handles three shapes the naive `indexOf('.')` mis-parsed on AOM references
+ * (the platform's hardening workflow cycle 7, amp_1 + annals_2 Sonnet audit):
+ *  - Quoted phrase that is only PART of the title: `"An A is an A": The new bottom
+ *    line for valuing academic research.` — the quote is not the whole title, so do
+ *    NOT stop at the closing quote; fall through to the sentence-period anchor.
+ *  - Single-WORD first sentence: `Retraction. Externally commercializing…` — the
+ *    first `.` truncates to the lone word; re-anchor to the NEXT sentence period,
+ *    but ONLY when the continuation is genuine title prose (≥3 lowercase words), so
+ *    a real one-word title + journal (`Leadership. New York: Harper & Row.`) is not
+ *    swallowed. (Mirrors the APA-path guard added 2026-06-25.)
+ *  - PART-NUMBER / volume prefix: `VII. Mathematical contributions…`, `Pt. 1.` —
+ *    re-anchor past the prefix (mirrors the APA-path guard added 2026-06-08).
+ */
 function extractTitleFromAfterYear(afterYear: string): string {
   const titleSection = afterYear.replace(/^[.,\s]+/, '');
   if (!titleSection) return '';
