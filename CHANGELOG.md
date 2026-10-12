@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **`findClaimSpan(text, citeStart, citeEnd)`** returns the sentence a citation is tied to,
+  plus the sentence before it when the citing sentence opens with a continuation word
+  ("This", "However", "For example", ...) or says little besides the citation. A detection's
+  `context` is a fixed character window that starts and ends mid-claim; this gives readers and
+  downstream checks what the author actually says about the cited work. Abbreviation-safe
+  (`et al.`, `e.g.`, `p.`, `Fig.`, initials, decimals), never reaches across a paragraph break,
+  handles citation numbers printed after the period (AMA), and caps at 500 characters a side
+  with `truncated: true`. Measured on 1,061 citations in 12 real articles across APA, AOM, AMA,
+  Nature and Vancouver styles: the span contained its citation 1,061 times out of 1,061, 6 were
+  capped, 191 included the previous sentence, median length 234 characters
+  (`tests/claimSpan.test.ts`).
+
 ## 0.7.86
 
 ### Fixed

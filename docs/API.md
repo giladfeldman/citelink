@@ -144,6 +144,33 @@ reference list onwards. Skipped as non-citations: a bracket after a label word (
 `endsInBracketLabel`), `[0, …]` (a mathematical interval), and a single number that looks
 like a year (1800 or more) or is above 500.
 
+### `findClaimSpan(text: string, citeStart: number, citeEnd: number): ClaimSpan`
+
+The sentence (or two) a citation is tied to: what the author says about the cited work. A
+detection's `context` is a fixed character window; this returns sentence boundaries instead.
+Pass the same `text` the detection ran on, and the citation's `position.start` and
+`position.end` as `citeStart` and `citeEnd`. Throws `RangeError` for positions outside the text.
+
+```ts
+const text = 'Prior work was mixed. Smith (2020) found that nudges cut energy use by 2%. Later work disagreed.';
+const [c] = detectCitations(text);
+const span = findClaimSpan(text, c.position.start, c.position.end);
+text.slice(span.start, span.end); // 'Smith (2020) found that nudges cut energy use by 2%.'
+```
+
+| `ClaimSpan` field | Meaning |
+|---|---|
+| `start`, `end` | offsets of the span in `text` |
+| `citingSentenceStart` | start of the sentence containing the citation; equals `start` unless `includesPrevious` |
+| `includesPrevious` | `true` when the sentence before was added because the citing sentence opens with a continuation word (`This`, `However`, `For example`, …) or has fewer than four words besides the citation. Never across a paragraph break |
+| `truncated` | `true` when no sentence boundary was found within 500 characters on a side (tables, lists), so the span was capped there |
+
+Boundaries: `.`, `!`, `?` followed by whitespace and a capital, digit, quote or bracket, and
+blank lines. Not boundaries: abbreviations (`et al.`, `e.g.`, `p.`, `Fig.`, `vs.`, …), author
+initials (`J. A. Smith`), decimals. A citation number printed right after a word-final period
+(`kcal/d.3-5 Moreover`) ends that sentence. Known limitation: a sentence ending in a lone
+capital (`condition B.`) is read as an initial and joined to the next one.
+
 ## Reference parsing
 
 ### `parseReferences(text: string, style?: CitationStyleType): ParsedReference[]`

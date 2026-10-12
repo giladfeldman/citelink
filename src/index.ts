@@ -10,3 +10,4 @@ export * from './styleValidation/inputTypes.js';
 export * from './styleValidation/apaStyleValidator.js';
 export * from './styleValidation/styleValidators.js';
 export * from './analyze.js';
+export * from './claimSpan.js';
