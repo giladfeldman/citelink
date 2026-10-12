@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.87
 
 ### Added
 - **`findClaimSpan(text, citeStart, citeEnd)`** returns the sentence a citation is tied to,

@@ -69,14 +69,14 @@ citelink is distributed as a **git-tag dependency**, not through the npm registr
 ```jsonc
 // package.json
 "dependencies": {
-  "citelink": "github:giladfeldman/citelink#v0.7.86"
+  "citelink": "github:giladfeldman/citelink#v0.7.87"
 }
 ```
 
 or from the command line:
 
 ```bash
-npm install github:giladfeldman/citelink#v0.7.86
+npm install github:giladfeldman/citelink#v0.7.87
 ```
 
 npm clones the repository and runs the `prepare` script, which builds `dist/`, so a tag pin
@@ -114,7 +114,7 @@ for (const m of result.matches) {
 console.log(getMatchStatistics(result.matches));
 ```
 
-Output (v0.7.86):
+Output (v0.7.87):
 
 ```text
 { style: 'apa', paradigm: 'author-year', confidence: 0.95 }
@@ -280,7 +280,7 @@ Failure modes to plan for:
 If you use citelink in research, please cite the software (see [CITATION.cff](./CITATION.cff)):
 
 > Feldman, G. (2026). *citelink: Citation detection, reference parsing, and
-> citation-reference matching for academic documents* (Version 0.7.83) [Computer software].
+> citation-reference matching for academic documents* (Version 0.7.87) [Computer software].
 > https://github.com/giladfeldman/citelink
 
 ## Contributing
