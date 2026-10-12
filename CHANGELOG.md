@@ -5,14 +5,16 @@
 ### Added
 - **`findClaimSpan(text, citeStart, citeEnd)`** returns the sentence a citation is tied to,
   plus the sentence before it when the citing sentence opens with a continuation word
-  ("This", "However", "For example", ...) or says little besides the citation. A detection's
-  `context` is a fixed character window that starts and ends mid-claim; this gives readers and
-  downstream checks what the author actually says about the cited work. Abbreviation-safe
-  (`et al.`, `e.g.`, `p.`, `Fig.`, initials, decimals), never reaches across a paragraph break,
-  handles citation numbers printed after the period (AMA), and caps at 500 characters a side
-  with `truncated: true`. Measured on 1,061 citations in 12 real articles across APA, AOM, AMA,
-  Nature and Vancouver styles: the span contained its citation 1,061 times out of 1,061, 6 were
-  capped, 191 included the previous sentence, median length 234 characters
+  ("This", "However", "For example", ...), says little besides the citation, or is a bare
+  citation printed after the previous sentence's period. A detection's `context` is a fixed
+  character window that starts and ends mid-claim; this gives readers and downstream checks
+  what the author actually says about the cited work. Abbreviation-safe (`et al.`, `e.g.`,
+  `p.`, `Fig.`, evidence-based initials, decimals), never reaches across a paragraph break or a
+  heading, treats page breaks and running heads inside a sentence as part of it, handles citation
+  markers glued to the period (AMA superscripts, `[12]`), and caps at 500 characters a side with
+  `truncated: true`. Measured on 1,061 citations in 12 real articles across APA, AOM, AMA, Nature
+  and Vancouver styles: the span contained its citation 1,061 times out of 1,061, 6 were capped,
+  10 ended and 9 started mid-sentence (front-matter and column-order noise in the extracted text)
   (`tests/claimSpan.test.ts`).
 
 ## 0.7.86

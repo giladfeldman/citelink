@@ -162,14 +162,17 @@ text.slice(span.start, span.end); // 'Smith (2020) found that nudges cut energy 
 |---|---|
 | `start`, `end` | offsets of the span in `text` |
 | `citingSentenceStart` | start of the sentence containing the citation; equals `start` unless `includesPrevious` |
-| `includesPrevious` | `true` when the sentence before was added because the citing sentence opens with a continuation word (`This`, `However`, `For example`, …) or has fewer than four words besides the citation. Never across a paragraph break |
+| `includesPrevious` | `true` when the sentence before was added: the citing sentence opens with a continuation word (`This`, `However`, `For example`, `Both`, `The latter`, …; not a dummy `It is … that` or an existential `There`), has at most one word of its own outside the citation's bracket group, or is a bare citation printed after the previous sentence's period (`…replicate. [12] Next`). Never across a paragraph break or a heading |
 | `truncated` | `true` when no sentence boundary was found within 500 characters on a side (tables, lists), so the span was capped there |
 
-Boundaries: `.`, `!`, `?` followed by whitespace and a capital, digit, quote or bracket, and
-blank lines. Not boundaries: abbreviations (`et al.`, `e.g.`, `p.`, `Fig.`, `vs.`, …), author
-initials (`J. A. Smith`), decimals. A citation number printed right after a word-final period
-(`kcal/d.3-5 Moreover`) ends that sentence. Known limitation: a sentence ending in a lone
-capital (`condition B.`) is read as an initial and joined to the next one.
+Boundaries: `.`, `!`, `?` followed by whitespace and a capital, digit, quote or bracket; blank
+lines; the line breaks around a heading line. Not boundaries: abbreviations (`et al.`, `e.g.`,
+`Fig.`, `Ref.`, `vs.`, …); weak abbreviations (`no.`, `p.`, `U.S.`, `Inc.`, …) unless a capitalised
+word follows; author initials, recognised only with evidence (`Smith, J.`, `J. K.`,
+`J. Smith (2001)`), so `vitamin D.` still ends its sentence; decimals; a blank line after unfinished
+text (a page or column break), including page numbers and running heads between it and lowercase
+text. A citation marker glued to the period (`kcal/d.3-5 Moreover`, `replicate.[12] Then`,
+superscript digits) ends that sentence.
 
 ## Reference parsing
 

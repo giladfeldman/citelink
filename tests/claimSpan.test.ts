@@ -160,3 +160,136 @@ describe('findClaimSpan — bounds', () => {
     expect(() => findClaimSpan('short', 4, 2)).toThrow(RangeError);
   });
 });
+
+// Findings from a cross-model review (Sonnet, 2026-10-12). Each case was a wrong span — a
+// different claim, a glued neighbour, or half a claim — with every earlier test passing.
+describe('findClaimSpan — cross-model review cases', () => {
+  test('F1: a bare citation after the period belongs to the sentence before it, not the next one', () => {
+    const t = 'Prior. Priming fails to replicate. [12] Participants in the second study were older.';
+    const s = spanFor(t, '[12]');
+    expect(s.text).toBe('Priming fails to replicate. [12]');
+  });
+
+  test('F1: a parenthetical after a quoted sentence\'s period', () => {
+    const t = 'Prior. They wrote that "the effect is large." (Smith, 2020) Participants in the next study were older.';
+    expect(spanFor(t, '(Smith, 2020)').text).toBe('They wrote that "the effect is large." (Smith, 2020)');
+  });
+
+  test('F2: a bracket citation glued to the period ends that sentence', () => {
+    const t = 'Prior. Priming fails to replicate.[12] Then more text here.';
+    expect(spanFor(t, '[12]').text).toBe('Priming fails to replicate.[12]');
+  });
+
+  test('F2: Unicode superscript digits after the period', () => {
+    const t = 'Prior. Fasting cuts intake by 200 kcal/d.³⁻⁵ Then more text here.';
+    expect(spanFor(t, '³⁻⁵').text).toBe('Fasting cuts intake by 200 kcal/d.³⁻⁵');
+  });
+
+  test('F3: "no." at a sentence end does not glue the previous sentence on', () => {
+    const t = 'Prior. Participants answered yes or no. Smith (2020) found small effects of framing.';
+    expect(spanFor(t, 'Smith (2020)').text).toBe('Smith (2020) found small effects of framing.');
+  });
+
+  test('F3: "U.S." at a sentence end does not glue the next sentence on', () => {
+    const t = 'Prior. Samples came from the U.S. (Smith, 2020). Participants were paid. Next one.';
+    const t2 = 'Prior. Smith (2020) recruited adults from the U.S. Participants were paid well.';
+    expect(spanFor(t2, 'Smith (2020)').text).toBe('Smith (2020) recruited adults from the U.S.');
+    expect(spanFor(t, '(Smith, 2020)').text).toBe('Samples came from the U.S. (Smith, 2020).');
+  });
+
+  test('F4: "Ref. 12" is not a sentence end', () => {
+    const t = 'Prior. See Ref. 12 (Smith, 2000) for details. Next.';
+    expect(spanFor(t, '(Smith, 2000)').text).toBe('See Ref. 12 (Smith, 2000) for details.');
+  });
+
+  test('F4: dotted initials without spaces', () => {
+    const t = 'Prior. As J.A. Smith (2001) argued, framing matters. Next.';
+    expect(spanFor(t, 'Smith (2001)').text).toBe('As J.A. Smith (2001) argued, framing matters.');
+  });
+
+  test('F5: a sentence ending in a lone capital ("vitamin D.") is a sentence end', () => {
+    const t = 'Prior. Low intake of vitamin D. Calcium supplementation reduces fracture risk (Lee, 2010). Next.';
+    expect(spanFor(t, '(Lee, 2010)').text).toBe('Calcium supplementation reduces fracture risk (Lee, 2010).');
+  });
+
+  test('F5: initials are still initials (control)', () => {
+    const t = 'Prior. As argued by Smith, J. (2001), framing matters. Next.';
+    expect(spanFor(t, '(2001)').text).toBe('As argued by Smith, J. (2001), framing matters.');
+  });
+
+  test('F6: a short but complete claim does not take an unrelated previous sentence', () => {
+    const t = 'Opener. Framing is robust. Women earn less (Lee, 2019). Next.';
+    const s = spanFor(t, '(Lee, 2019)');
+    expect(s.includesPrevious).toBe(false);
+    expect(s.text).toBe('Women earn less (Lee, 2019).');
+  });
+
+  test('F6: a citation-only parenthetical with several sources takes the previous sentence', () => {
+    const t = 'Opener. Defaults raise donation. (Smith, 2001; Jones, 2002; Lee, 2003; Park, 2004; Kim, 2005). Next.';
+    const s = spanFor(t, 'Smith, 2001');
+    expect(s.includesPrevious).toBe(true);
+    expect(s.text).toBe('Defaults raise donation. (Smith, 2001; Jones, 2002; Lee, 2003; Park, 2004; Kim, 2005).');
+  });
+
+  test('F7: a heading line above the sentence is not part of it', () => {
+    const t = 'Prior sentence.\n2.1 Participants\nWe recruited 120 adults online (Smith, 2020). Next.';
+    expect(spanFor(t, '(Smith, 2020)').text).toBe('We recruited 120 adults online (Smith, 2020).');
+  });
+
+  test('F8: a blank line holding a no-break space is still a paragraph break', () => {
+    const t = 'Old paragraph ends here.\n \nThis was replicated (Smith, 2020). Next.';
+    const s = spanFor(t, '(Smith, 2020)');
+    expect(s.includesPrevious).toBe(false);
+    expect(s.text).toBe('This was replicated (Smith, 2020).');
+  });
+
+  test('F9: "Exp.2" without a space is not a superscript citation', () => {
+    const t = 'Prior. Results in Exp.2 Participants were faster (Smith, 2020). Next.';
+    expect(spanFor(t, '(Smith, 2020)').text).toBe('Results in Exp.2 Participants were faster (Smith, 2020).');
+  });
+
+  test.each([
+    'It is well known that framing matters (Smith, 2020).',
+    'There is evidence that framing matters (Smith, 2020).',
+    'Here we show that framing matters (Smith, 2020).',
+  ])('openers: expletive "%s" does not take the previous sentence', (citing) => {
+    const t = `Opener. Defaults raise donation. ${citing} Next.`;
+    expect(spanFor(t, '(Smith, 2020)').includesPrevious).toBe(false);
+  });
+
+  test.each([
+    'It was replicated in adults (Smith, 2020).',
+    'Both effects replicated in adults (Smith, 2020).',
+    'The latter effect replicated in adults (Smith, 2020).',
+  ])('openers: anaphoric "%s" takes the previous sentence', (citing) => {
+    const t = `Opener. Defaults raise donation. ${citing} Next.`;
+    expect(spanFor(t, '(Smith, 2020)').includesPrevious).toBe(true);
+  });
+});
+
+describe('findClaimSpan — page and column breaks inside a sentence', () => {
+  // Measured on real extracted text: 23 of 1,061 spans ended mid-sentence ("…explicitly compared
+  // the") because a page break inside a sentence reads as a blank line.
+  test('a blank line after unfinished text does not end the sentence', () => {
+    const t = 'Prior. In the mid-1970s, Fischhoff (1975) published a study that explicitly compared the\n\nForesight and Hindsight conditions. Next.';
+    expect(spanFor(t, 'Fischhoff (1975)').text).toBe(
+      'In the mid-1970s, Fischhoff (1975) published a study that explicitly compared the\n\nForesight and Hindsight conditions.',
+    );
+  });
+
+  test('a blank line after a short heading still ends it (control)', () => {
+    const t = 'Method\n\nParticipants were recruited online (Prolific, 2021). Next.';
+    expect(spanFor(t, '(Prolific, 2021)').text).toBe('Participants were recruited online (Prolific, 2021).');
+  });
+});
+
+describe('findClaimSpan — page furniture inside a sentence', () => {
+  // Measured: a page number or running head between blank lines ("…psychological\n\n585\n\nmindsets")
+  // read as a heading, so the span started at the lowercase "mindsets".
+  test('a page number and running head inside a sentence do not split it', () => {
+    const t = 'Prior. Power creates completely different psychological\n\n585\n\nAcademy of Management Journal\n\nmindsets (Keltner, 2003). Next.';
+    const s = spanFor(t, '(Keltner, 2003)');
+    expect(s.text.startsWith('Power creates completely different psychological')).toBe(true);
+    expect(s.text.endsWith('mindsets (Keltner, 2003).')).toBe(true);
+  });
+});
