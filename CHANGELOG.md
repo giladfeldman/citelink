@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.88
+
+### Fixed
+- **A numbered reference list whose numbers were separated from their entries in text
+  extraction** (a two-column layout read as a line `9. 10. 11. … 39.` followed by unnumbered
+  entries) no longer links numeric citations by POSITION, which picked the wrong work with no
+  signal, and no longer reports "Citation [45] found but only 35 references listed" for a
+  complete list. New `reconcileListNumbering(refs, refSection, style)`, run by
+  `parseReferences` for numeric styles only: drops number-only entries, recovers a number only
+  when a run of unnumbered entries exactly fills a gap (`listNumberRecovered`), and otherwise
+  marks the entry `listNumberLost`. A numeric citation to a lost number is
+  `status: 'unverifiable'` (`matchMethod: 'numeric_numbering_lost'`; counted in
+  `getMatchStatistics().unverifiable`), and `validateForStyle('vancouver' | 'ama')` reports
+  `VANCOUVER_NUMBERING_UNREADABLE` (info) instead of `VANCOUVER_MISSING_REFS`, also for host rows
+  that store only `list_number` (`tests/lostListNumbering.test.ts`). On a real Royal Society
+  Open Science article: 30 citations linked to printed numbers, 55 unverifiable, none guessed.
+  Author-year lists are never touched, whatever stray number lines they contain.
+
 ## 0.7.87
 
 ### Added

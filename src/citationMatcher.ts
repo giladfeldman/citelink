@@ -44,7 +44,11 @@ export interface MatchResult {
   citation: DetectedCitation;
   reference: ParsedReference | null;
   confidence: number;
-  status: 'matched' | 'suggested' | 'ambiguous' | 'no_match';
+  /**
+   * 'unverifiable': a numeric citation whose number belongs to a list entry that lost its
+   * number in text extraction (`ParsedReference.listNumberLost`). Neither linked nor missing.
+   */
+  status: 'matched' | 'suggested' | 'ambiguous' | 'no_match' | 'unverifiable';
   matchMethod?: string;
   matchDetails?: {
     authorScore: number;
@@ -711,16 +715,21 @@ function matchNumericCitation(
     return [{ citation, reference: null, confidence: 0, status: 'no_match' }];
   }
 
-  // Build map: reference list number → reference
+  // Build map: reference list number → reference. Position stands in for a number only in a
+  // list that printed none; once `reconcileListNumbering` marked an entry's number as lost, a
+  // position would link to the wrong work, so those numbers are 'unverifiable' instead.
+  const numberingLost = references.some((ref) => ref.listNumberLost);
   const refByNumber = new Map<number, ParsedReference>();
   references.forEach((ref, idx) => {
+    if (ref.listNumberLost) return;
     const num = ref.listNumber ?? (idx + 1);
     refByNumber.set(num, ref);
   });
 
   // Cap to the maximum reference number to avoid inflated no_match counts
   // from range citations like [64-102] when only 39 refs exist
-  const maxRefNum = Math.max(...Array.from(refByNumber.keys()), 0);
+  // With lost numbers the list is longer than its known keys: cap at the entry count instead.
+  const maxRefNum = Math.max(...Array.from(refByNumber.keys()), numberingLost ? references.length : 0, 0);
 
   const results: MatchResult[] = [];
   for (const num of numbers) {
@@ -743,8 +752,8 @@ function matchNumericCitation(
         citation,
         reference: null,
         confidence: 0,
-        status: 'no_match',
-        matchMethod: 'numeric_position',
+        status: numberingLost ? 'unverifiable' : 'no_match',
+        matchMethod: numberingLost ? 'numeric_numbering_lost' : 'numeric_position',
       });
     }
   }
@@ -800,6 +809,8 @@ export function getMatchStatistics(results: MatchResult[]): {
   suggested: number;
   ambiguous: number;
   noMatch: number;
+  /** Numeric citations to entries whose list number was lost in extraction; in `total`. */
+  unverifiable: number;
   matchRate: number;
 } {
   const stats = {
@@ -808,6 +819,7 @@ export function getMatchStatistics(results: MatchResult[]): {
     suggested: 0,
     ambiguous: 0,
     noMatch: 0,
+    unverifiable: 0,
     matchRate: 0
   };
   
@@ -824,6 +836,9 @@ export function getMatchStatistics(results: MatchResult[]): {
         break;
       case 'no_match':
         stats.noMatch++;
+        break;
+      case 'unverifiable':
+        stats.unverifiable++;
         break;
     }
   }

@@ -184,7 +184,24 @@ parses each entry into a `ParsedReference`. `style` selects the splitting and pa
 only if it has authors and a year, a DOI or URL, or (numeric styles) a list number.
 
 Returns `[]` and writes `No reference section found in document` to `console.warn` when no
-heading is found.
+heading is found. The result has been through `reconcileListNumbering`.
+
+### `reconcileListNumbering(refs: ParsedReference[], refSection: string, style?: CitationStyleType): ParsedReference[]`
+
+Repairs a numbered list whose numbers text extraction separated from their entries (a
+two-column layout printed as a line `9. 10. 11. … 39.` followed by unnumbered entries).
+`refs` are the parsed entries, `refSection` the reference-section text and `style` the
+document's citation style. Applies only when `style` is numeric (`vancouver`, `ieee`, `nature`,
+`ama`; otherwise, or with no `style`, `refs` is returned unchanged) and the list has a
+number-only line or any numbered entry beside an unnumbered one. Then:
+
+- entries that are nothing but numbers are dropped (they are the separated number column);
+- a run of unnumbered entries between two known numbers gets the numbers in between, only
+  when the run is exactly as long as the gap; the end of the list is known only from a
+  number-only line. These entries carry `listNumberRecovered: true`;
+- every other unnumbered entry carries `listNumberLost: true`. Nothing is guessed.
+
+Any other list is returned unchanged. `parseReferences` calls it itself.
 
 ### `findReferenceSectionStart(text: string): number | null`
 
@@ -209,9 +226,13 @@ them itself; they are exported for callers who split reference lists on their ow
 ### `matchCitationsToReferences(citations: DetectedCitation[], references: ParsedReference[], citationStyle?: CitationStyleType): MatchResult[]`
 
 Matches every citation. Numeric citations (or any citation when `citationStyle` is in
-`NUMERIC_STYLES`) are matched by list position: one `MatchResult` per cited number, with
-`matchMethod: 'numeric_position'` and confidence `1` when the numbered entry exists. A number
-above the highest reference number is skipped. Author-year citations go through
+`NUMERIC_STYLES`) are matched by list number: one `MatchResult` per cited number, with
+`matchMethod: 'numeric_position'` and confidence `1` when the numbered entry exists. An entry
+with no `listNumber` stands for its position only when no entry carries `listNumberLost`.
+When one does, a cited number with no entry is `status: 'unverifiable'`
+(`matchMethod: 'numeric_numbering_lost'`, `reference: null`), never a position guess. A number
+above the highest reference number (in that case, above the higher of that and the entry
+count) is skipped. Author-year citations go through
 `matchCitationToReferences`. With no references, every citation is returned as `no_match`.
 
 ### `matchCitationToReferences(citation: DetectedCitation, references: ParsedReference[]): MatchResult[]`
@@ -232,7 +253,8 @@ one-element array; `status: 'no_match'` and `reference: null` when nothing score
 
 ### `getMatchStatistics(results: MatchResult[])`
 
-Returns `{ total, matched, suggested, ambiguous, noMatch, matchRate }`.
+Returns `{ total, matched, suggested, ambiguous, noMatch, unverifiable, matchRate }`.
+`unverifiable` counts `status: 'unverifiable'` results; they are in `total`.
 `matchRate = (matched + suggested + ambiguous) / total` (0 when `total` is 0).
 
 ## APA 7 validation
@@ -311,7 +333,8 @@ The inputs are database-row shaped records, **not** `DetectedCitation` / `Parsed
 | `style` | Code | Fires when |
 |---|---|---|
 | `harvard` | `HARVARD_COMMA_BEFORE_YEAR` | a `parenthetical` citation has a comma before the year |
-| `vancouver`, `ama` | `VANCOUVER_MISSING_REFS` | the highest `citation_number` of the `numeric` citations exceeds the number of references |
+| `vancouver`, `ama` | `VANCOUVER_MISSING_REFS` | the highest `citation_number` of the `numeric` citations exceeds the number of references, and no reference lost its number |
+| `vancouver`, `ama` | `VANCOUVER_NUMBERING_UNREADABLE` | instead of the above, when any reference has `listNumberLost`, or (host rows) has no `listNumber`/`list_number` while another reference has one: the count cannot be checked |
 | `nature` | `NATURE_AUTHOR_LIMIT` | a reference has more than 5 `authors` and no "et al" in `raw_text` |
 | `ieee` | `IEEE_NUMBERED_REFS` | a reference's `raw_text` does not start with a number |
 | `aom` | `AOM_YEAR_NOT_PARENS` | a reference's `raw_text` has a `(YYYY)` year |
@@ -389,6 +412,8 @@ The inputs are database-row shaped records, **not** `DetectedCitation` / `Parsed
 | `isGroupAuthor` | `boolean` | an organisation is the author |
 | `groupName`, `groupAbbreviation` | `string?` | the organisation's name and abbreviation |
 | `listNumber` | `number?` | the entry's number in a numbered list |
+| `listNumberRecovered` | `true?` | `listNumber` was not printed on the entry; `reconcileListNumbering` recovered it |
+| `listNumberLost` | `true?` | the entry is in a numbered list but its number was lost in text extraction and not recovered |
 | `type` | `'journal' \| 'book' \| 'chapter' \| 'website' \| 'report' \| 'unknown'` | inferred reference type |
 
 ### `ParsedReferenceAuthor`
@@ -408,8 +433,8 @@ Legacy shape kept for backward compatibility and not returned by any function:
 | `citation` | `DetectedCitation` | the citation |
 | `reference` | `ParsedReference \| null` | best reference, or `null` |
 | `confidence` | `number` | `0`–`1` rule score |
-| `status` | `'matched' \| 'suggested' \| 'ambiguous' \| 'no_match'` | see [Matching](#matching) |
-| `matchMethod` | `string?` | `single_author`, `two_authors`, `et_al`, `group_author`, `secondary_source`, `multiple`, `fallback`, `year_mismatch`, `numeric_position` |
+| `status` | `'matched' \| 'suggested' \| 'ambiguous' \| 'no_match' \| 'unverifiable'` | see [Matching](#matching); `unverifiable`: a numeric citation to a number lost in extraction |
+| `matchMethod` | `string?` | `single_author`, `two_authors`, `et_al`, `group_author`, `secondary_source`, `multiple`, `fallback`, `year_mismatch`, `numeric_position`, `numeric_numbering_lost` |
 | `matchDetails` | `{ authorScore; yearScore; typeValidation? }?` | score components; `typeValidation` is `false` when the reference does not fit the citation type |
 | `alternativeMatches` | `{ reference; confidence }[]?` | close runners-up |
 
@@ -439,6 +464,7 @@ Legacy shape kept for backward compatibility and not returned by any function:
 | `YEAR_MISMATCH` | error | `validateReferenceCitationMatch` | citation year and reference year differ |
 | `HARVARD_COMMA_BEFORE_YEAR` | warning | `validateForStyle('harvard', …)` | see [Other styles](#other-styles-validateforstyle) |
 | `VANCOUVER_MISSING_REFS` | error | `validateForStyle('vancouver' \| 'ama', …)` | see above |
+| `VANCOUVER_NUMBERING_UNREADABLE` | info | `validateForStyle('vancouver' \| 'ama', …)` | see above |
 | `NATURE_AUTHOR_LIMIT` | warning | `validateForStyle('nature', …)` | see above |
 | `IEEE_NUMBERED_REFS` | info | `validateForStyle('ieee', …)` | see above |
 | `AOM_YEAR_NOT_PARENS` | warning | `validateForStyle('aom', …)` | see above |

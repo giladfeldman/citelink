@@ -81,7 +81,24 @@ function validateVancouver(citations: any[], references: any[]): StyleViolation[
     .map(c => c.citation_number as number)
     .sort((a, b) => a - b);
 
-  if (numericCitations.length > 0) {
+  // An entry whose number was lost in text extraction makes the count below a count of what was
+  // READ, not of what is printed: "only 35 references listed" for a list of 45. Say it could not
+  // be checked instead. Lost = citelink's `listNumberLost`, or, for host rows that store only
+  // `list_number`, an entry with no number in a list where other entries have one.
+  const numberOf = (r: any) => r?.listNumber ?? r?.list_number;
+  const anyNumbered = references.some((r) => typeof numberOf(r) === 'number');
+  const lost = references.filter((r) => r?.listNumberLost
+    || (anyNumbered && (r?.listNumber === undefined || r?.listNumber === null)
+      && (r?.list_number === undefined || r?.list_number === null))).length;
+  if (numericCitations.length > 0 && lost > 0) {
+    violations.push({
+      type: 'reference-match',
+      severity: 'info',
+      code: 'VANCOUVER_NUMBERING_UNREADABLE',
+      description: `Could not check that every cited number has a reference: ${lost} reference${lost === 1 ? '' : 's'} lost ${lost === 1 ? 'its number' : 'their numbers'} when the text was read`,
+      location: 'Reference list',
+    });
+  } else if (numericCitations.length > 0) {
     // Check for gaps in numbering vs reference count
     const maxCited = Math.max(...numericCitations);
     if (maxCited > references.length) {

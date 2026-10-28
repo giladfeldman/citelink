@@ -105,6 +105,13 @@ export interface ParsedReference {
   groupName?: string;
   groupAbbreviation?: string;
   listNumber?: number;
+  /** listNumber was not printed on the entry; it was recovered by `reconcileListNumbering`. */
+  listNumberRecovered?: true;
+  /**
+   * The entry sits in a numbered list but its number was lost in text extraction and could not
+   * be recovered with certainty. A numeric citation to it cannot be verified (never guessed).
+   */
+  listNumberLost?: true;
   type: 'journal' | 'book' | 'chapter' | 'website' | 'report' | 'unknown';
 }
 
@@ -755,6 +762,73 @@ function repairUrlOnlyTitle(ref: ParsedReference): ParsedReference {
  * Parse all references from text
  */
 export function parseReferences(text: string, style?: CitationStyleType): ParsedReference[] {
+  const refs = parseReferencesUnreconciled(text, style);
+  return reconcileListNumbering(refs, extractReferenceSection(text, style) ?? '', style);
+}
+
+const NUMBER_ONLY_LINE = /^\s*(?:\d{1,4}\.\s*){2,}$/;
+
+/**
+ * Two-column PDF layouts can print the list numbers as their own column, and text extraction
+ * then emits them apart from their entries: a line "9. 10. 11. ... 39." and the entries with no
+ * number at all (a numbered list read as 35 of 45, and "Citation [45] found but only 35
+ * references listed"). Before this, an unnumbered entry took its POSITION as its number, so a
+ * citation could be linked to the wrong work without any signal.
+ *
+ * Only for a numeric citation style (vancouver, ieee, nature, ama): in an author-year list a
+ * stray "12. 13." line or a "3M Company" entry says nothing about numbering. In a numeric list
+ * with an orphaned number line, or with any printed number beside an unnumbered entry:
+ * - entries that are nothing but numbers are dropped (they are the orphaned column);
+ * - a run of unnumbered entries between two known numbers gets the numbers in between, ONLY
+ *   when the run is exactly as long as the gap (an orphaned number line bounds the end of the
+ *   list); such entries carry `listNumberRecovered`;
+ * - every other unnumbered entry carries `listNumberLost`, and nothing is guessed.
+ * Lists with no numbering signal are returned unchanged.
+ */
+export function reconcileListNumbering(
+  refs: ParsedReference[],
+  refSection: string,
+  style?: CitationStyleType,
+): ParsedReference[] {
+  if (!style || !['vancouver', 'ieee', 'nature', 'ama'].includes(style)) return refs;
+  const orphans = new Set<number>();
+  const collect = (line: string) => {
+    for (const m of line.matchAll(/(\d{1,4})\./g)) orphans.add(parseInt(m[1], 10));
+  };
+  for (const line of refSection.split(/\r?\n/)) if (NUMBER_ONLY_LINE.test(line)) collect(line);
+  const kept = refs.filter((r) => {
+    if (!NUMBER_ONLY_LINE.test(r.raw)) return true;
+    collect(r.raw);
+    return false;
+  });
+  const explicit = kept.filter((r) => r.listNumber !== undefined);
+  const unnumbered = kept.length - explicit.length;
+  if (unnumbered === 0) return kept;
+  // A list that printed no number at all keeps position as its numbering.
+  if (orphans.size === 0 && explicit.length === 0) return kept;
+
+  const ascending = explicit.every((r, i) => i === 0 || r.listNumber! > explicit[i - 1].listNumber!);
+  const maxKnown = Math.max(0, ...explicit.map((r) => r.listNumber!), ...orphans);
+  const out = kept.map((r) => ({ ...r }));
+  let i = 0;
+  while (i < out.length) {
+    if (out[i].listNumber !== undefined) { i++; continue; }
+    let j = i;
+    while (j < out.length && out[j].listNumber === undefined) j++;
+    const prev = i > 0 ? out[i - 1].listNumber! : 0;
+    // The end of the list is known only from an orphaned number line.
+    const next = j < out.length ? out[j].listNumber! : (orphans.size > 0 ? maxKnown + 1 : undefined);
+    const fits = ascending && next !== undefined && next - prev - 1 === j - i;
+    for (let k = i; k < j; k++) {
+      if (fits) { out[k].listNumber = prev + 1 + (k - i); out[k].listNumberRecovered = true; }
+      else out[k].listNumberLost = true;
+    }
+    i = j;
+  }
+  return out;
+}
+
+function parseReferencesUnreconciled(text: string, style?: CitationStyleType): ParsedReference[] {
   // Find the References/Bibliography section
   const refSection = extractReferenceSection(text, style);
   if (!refSection) {
