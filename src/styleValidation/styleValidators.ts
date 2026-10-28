@@ -85,6 +85,7 @@ function validateVancouver(citations: any[], references: any[]): StyleViolation[
   // READ, not of what is printed: "only 35 references listed" for a list of 45. Say it could not
   // be checked instead. Lost = citelink's `listNumberLost`, or, for host rows that store only
   // `list_number`, an entry with no number in a list where other entries have one.
+  // reason: host rows are untyped (this file takes references as any[]).
   const numberOf = (r: any) => r?.listNumber ?? r?.list_number;
   const anyNumbered = references.some((r) => typeof numberOf(r) === 'number');
   const lost = references.filter((r) => r?.listNumberLost
