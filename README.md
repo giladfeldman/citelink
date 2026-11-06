@@ -289,10 +289,6 @@ Bug reports with a minimal text sample, and pull requests with a failing test, a
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development setup and the checks a change
 must pass (`npm test`, which includes the documentation-drift gate).
 
-## License
-
-MIT — see [LICENSE](./LICENSE). Copyright (c) 2026 Gilad Feldman.
-
 <!-- license-citation:start -->
 ## License and citation
 
