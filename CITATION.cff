@@ -3,11 +3,12 @@ message: "If you use citelink in your research, please cite it as below."
 type: software
 title: "citelink: Citation detection, reference parsing, and citation-reference matching for academic documents"
 version: "0.7.88"
-license: MIT
+license: AGPL-3.0-only
 repository-code: "https://github.com/giladfeldman/citelink"
 authors:
   - family-names: Feldman
     given-names: Gilad
+    orcid: "https://orcid.org/0000-0003-2812-6599"
     affiliation: University of Innsbruck
 keywords:
   - citations

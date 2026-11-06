@@ -2,7 +2,7 @@
   "name": "citelink",
   "version": "0.7.88",
   "description": "Citation detection, reference parsing, and citation-reference matching for academic documents.",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "https://github.com/giladfeldman/citelink.git"
