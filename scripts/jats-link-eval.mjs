@@ -36,13 +36,19 @@ export const NUMERIC_STYLES = new Set(['vancouver', 'ieee', 'nature', 'ama']);
 
 // ------------------------------------------------------------------ text helpers
 
-/** Collapse whitespace; return the collapsed string and a map collapsed index -> original index. */
+// typographic variants a parser may normalise; folded one character for one, so offsets keep
+const FOLD = {
+  '‘': "'", '’': "'", '‛': "'", '′': "'", '“': '"', '”': '"',
+  '‐': '-', '‑': '-', '‒': '-', '–': '-', '—': '-', '−': '-',
+};
+
+/** Collapse whitespace (and fold quote/dash variants); return the collapsed string and a map collapsed index -> original index. */
 export function collapse(s) {
   let out = '';
   const map = [];
   let prevSpace = true;
   for (let i = 0; i < s.length; i++) {
-    const c = s[i];
+    const c = FOLD[s[i]] || s[i];
     if (/\s/.test(c)) {
       if (!prevSpace) {
         out += ' ';
@@ -110,9 +116,13 @@ export function mapReferences(text, goldRefs, parsedRefs) {
     const probe = raw.slice(0, Math.min(40, raw.length));
     if (probe.length >= 12) {
       let at = sec.text.indexOf(probe, cursor);
-      if (at < 0) at = sec.text.indexOf(probe);
+      if (at < 0) {
+        // behind the cursor (references out of order): accept only an unambiguous hit,
+        // and never move the cursor back
+        const first = sec.text.indexOf(probe);
+        if (first >= 0 && sec.text.indexOf(probe, first + 1) < 0) at = first;
+      } else cursor = at + 1;
       if (at >= 0) {
-        cursor = at + 1;
         return { refId: refAt(secStart + sec.map[at]), how: 'exact' };
       }
     }
@@ -233,7 +243,8 @@ export function scorePaper(text, gold, analysis) {
     for (const x of gold.xrefs) {
       if (numeric && xrefGroup.get(x.index) === g.group) continue;
       if (x.start >= p.start && x.end <= p.end) {
-        const rs = xrefRefs.get(x.index) || new Set();
+        const rs = xrefRefs.get(x.index);
+        if (!rs || !rs.size) continue; // an orphan xref names no reference: nothing to claim
         if (![...rs].some((r) => own.has(r))) foreign = true;
       }
     }
@@ -299,17 +310,25 @@ export function scorePaper(text, gold, analysis) {
 
   // secondary: fields on 1:1 mapped references
   const fields = {};
+  // reference fields are also counted by how the gold reference text was made: the
+  // publisher's text, or text the gold builder rendered from structured fields (a
+  // canonical form that may favour the parser)
+  let render = null;
   const field = (name, ok) => {
     if (ok === null) return;
-    fields[name] = fields[name] || { n: 0, correct: 0 };
-    fields[name].n++;
-    if (ok) fields[name].correct++;
+    const keys = render ? [name, `${name} [gold text: ${render}]`] : [name];
+    for (const k of keys) {
+      fields[k] = fields[k] || { n: 0, correct: 0 };
+      fields[k].n++;
+      if (ok) fields[k].correct++;
+    }
   };
   analysis.references.forEach((p, i) => {
     const id = refMap[i].refId;
     if (!id || mappedCount.get(id) !== 1) return;
     const g = goldRefById.get(id);
-    const yr = (g.year || '').match(/\d{4}/);
+    render = /^fields/.test(g.render || '') ? 'rendered from fields' : 'publisher text';
+    const yr =(g.year || '').match(/\d{4}/);
     field('reference.year', yr ? (p.year || '').startsWith(yr[0]) : null);
     field(
       'reference.firstAuthorLastName',
@@ -324,6 +343,7 @@ export function scorePaper(text, gold, analysis) {
     field('reference.doi', inText ? (p.doi || '').toLowerCase().replace(/[.\s]+$/, '') === g.doi : null);
     field('reference.listNumber', numeric && g.label_num != null ? p.listNumber === g.label_num : null);
   });
+  render = null;
   for (const g of goldLinks) {
     if (g.paired === null || numeric) continue;
     const c = pred[g.paired].citation;
@@ -456,16 +476,46 @@ export function summarize(perPaper, boot) {
 /** Pre-registered before/after rule. Returns list of regressions (empty = pass). */
 export function compareSummaries(before, after) {
   const regressions = [];
-  for (const [group, a] of Object.entries(after)) {
-    const b = before[group];
-    if (!b) continue;
+  for (const [group, b] of Object.entries(before)) {
+    const a = after[group];
     for (const m of ['linkPrecision', 'linkRecall', 'positionAccuracy']) {
-      if (b[m].est === null || a[m].est === null) continue;
+      if (b[m].est === null) continue;
+      if (!a || a[m].est === null) {
+        // a group or estimate that vanished is a regression, never a skip
+        regressions.push({ group, metric: m, before: b[m].est, after: null, drop: b[m].est });
+        continue;
+      }
       const drop = b[m].est - a[m].est;
       if (drop > REGRESSION_TOLERANCE) regressions.push({ group, metric: m, before: b[m].est, after: a[m].est, drop });
     }
   }
   return regressions;
+}
+
+/**
+ * The gold builder records offsets in Unicode code points (Python); JavaScript strings index
+ * UTF-16 units. They differ after any character outside the Basic Multilingual Plane (an
+ * emoji, a mathematical letter). Returns the gold with every offset in UTF-16 units.
+ */
+export function goldToUtf16(text, gold) {
+  if (!/[\uD800-\uDBFF]/.test(text)) return gold;
+  const at = [0]; // at[codePointIndex] = utf16 index
+  for (const ch of text) at.push(at[at.length - 1] + ch.length);
+  const conv = (o) => {
+    const r = { ...o };
+    for (const k of ['start', 'end', 'group_start', 'group_end']) if (typeof r[k] === 'number') r[k] = at[r[k]];
+    return r;
+  };
+  return { ...gold, references: gold.references.map(conv), xrefs: gold.xrefs.map(conv), links: gold.links.map(conv) };
+}
+
+/** Both runs must score the same papers on the same gold rendering; returns what differs. */
+export function sameRunBasis(a, b) {
+  const diff = [];
+  if (!a || a.rendererVersion !== b.rendererVersion) diff.push('renderer version');
+  if (!a || a.papers !== b.papers) diff.push('paper count');
+  if (!a || JSON.stringify(a.paperSet || null) !== JSON.stringify(b.paperSet || null)) diff.push('paper set');
+  return diff;
 }
 
 /** Fields a consumer reads that this test does not score (reported as unverified). */
@@ -535,7 +585,7 @@ async function main() {
   const perPaper = [];
   for (const p of papers) {
     const text = fs.readFileSync(path.join(args.gold, 'text', `${p.stem}.txt`), 'utf8');
-    const gold = JSON.parse(fs.readFileSync(path.join(args.gold, 'links', `${p.stem}.json`), 'utf8'));
+    const gold = goldToUtf16(text, JSON.parse(fs.readFileSync(path.join(args.gold, 'links', `${p.stem}.json`), 'utf8')));
     const t0 = Date.now();
     const analysis = lib.analyze(text);
     const r = scorePaper(text, gold, analysis);
@@ -557,6 +607,7 @@ async function main() {
     })(),
     rendererVersion: manifest.renderer_version,
     papers: perPaper.length,
+    paperSet: perPaper.map((r) => r.stem).sort(),
     boot: args.boot,
     thresholds: THRESHOLDS,
     unscoredFields: UNSCORED_FIELDS,
@@ -579,11 +630,17 @@ async function main() {
   }
   console.log(`\nwrote ${outDir}`);
   if (args.compare) {
-    const before = JSON.parse(fs.readFileSync(args.compare, 'utf8')).summary;
-    const regs = compareSummaries(before, summary);
+    const prev = JSON.parse(fs.readFileSync(args.compare, 'utf8'));
+    const differs = sameRunBasis(prev.meta, meta);
+    if (differs.length) {
+      console.log(`\nNOT COMPARABLE: the comparison run differs in ${differs.join(', ')}`);
+      process.exit(1);
+    }
+    const regs = compareSummaries(prev.summary, summary);
     if (regs.length) {
       console.log(`\nREGRESSION (drop > ${REGRESSION_TOLERANCE * 100} points):`);
-      for (const r of regs) console.log(`  ${r.group} ${r.metric}: ${(100 * r.before).toFixed(1)}% -> ${(100 * r.after).toFixed(1)}%`);
+      for (const r of regs)
+        console.log(`  ${r.group} ${r.metric}: ${(100 * r.before).toFixed(1)}% -> ${r.after === null ? 'NO DATA' : (100 * r.after).toFixed(1) + '%'}`);
       process.exit(1);
     }
     console.log('\nno regression against the comparison run');

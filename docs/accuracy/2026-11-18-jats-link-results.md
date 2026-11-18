@@ -23,6 +23,16 @@ and the gold links, groups and references were unchanged (13,008 / 9,137 / 9,238
 threshold or sample change was made. The results below are from renderer version 2; the version 1
 runs are kept beside them in the gold folder.
 
+A cross-model review of the harness (a second Claude model, 2026-11-18) then found four latent
+defects in the scorer, none of which changed a verdict. They were fixed, each with a test that
+failed on the old scorer, and both versions were re-scored: reference mapping now folds curly
+quotes and dashes before matching and never moves backwards to a non-unique hit; an xref whose
+reference is missing from the gold no longer counts as a foreign citation in the position check;
+the before/after comparison treats a missing group or missing estimate as a fall, and refuses to
+compare runs built on different gold (renderer version or paper set); gold offsets are converted
+when the text holds characters outside the basic plane (none in this sample). The largest change
+to any number was 0.1 point. The numbers below are from the corrected scorer.
+
 ## Primary outcomes, v0.7.89
 
 | Group | Papers | Link precision | Link recall | Span position |
@@ -30,12 +40,12 @@ runs are kept beside them in the gold folder.
 | APA author-year (comma) | 16 | 99.8% [99.5, 100.0] PASS | 94.8% [92.9, 96.9] PASS | 99.4% [98.7, 100.0] PASS |
 | Harvard author-year (no comma) | 16 | 99.2% [98.7, 99.7] PASS | 85.5% [78.3, 91.2] INCONCLUSIVE | 97.7% [96.4, 98.6] PASS |
 | Numeric, brackets | 22 | 100.0% [100.0, 100.0] PASS | 96.5% [89.9, 99.8] PASS | 100.0% [100.0, 100.0] PASS |
-| Numeric, superscript | 22 | 75.2% [63.1, 86.6] FAIL | 45.9% [31.4, 68.3] FAIL | 99.9% [99.7, 100.0] PASS |
+| Numeric, superscript | 22 | 75.3% [63.2, 86.6] FAIL | 45.9% [31.4, 68.3] FAIL | 99.9% [99.7, 100.0] PASS |
 | Numeric, parentheses | 4 | 74.5% [41.0, 94.7] FAIL | 73.2% [67.6, 77.9] FAIL | 100.0% [100.0, 100.0] PASS |
 | More than 100 references | 26 | 89.7% [82.2, 96.6] INCONCLUSIVE | 65.1% [50.4, 83.0] FAIL | 99.5% [99.1, 99.9] PASS |
-| All papers | 80 | 90.0% [83.8, 95.4] INCONCLUSIVE | 72.7% [61.2, 84.9] FAIL | 99.5% [99.2, 99.7] PASS |
+| All papers | 80 | 90.0% [83.9, 95.4] INCONCLUSIVE | 72.8% [61.2, 84.9] FAIL | 99.5% [99.2, 99.8] PASS |
 
-Counts (pooled): 9,462 correct links of 10,519 made, of 13,008 gold links; 9,414 of the 9,462
+Counts (pooled): 9,464 correct links of 10,519 made, of 13,008 gold links; 9,416 of the 9,464
 correct links have the exact span. Paradigm (numeric vs author-year) detected correctly in 75 of 80
 papers.
 
@@ -46,10 +56,10 @@ papers.
 | APA | 99.8 → 99.8 | 90.4 → 94.8 | 96.9 → 99.4 |
 | Harvard | 99.2 → 99.2 | 85.4 → 85.5 | 97.7 → 97.7 |
 | Numeric, brackets | 100.0 → 100.0 | 86.0 → 96.5 | 100.0 → 100.0 |
-| Numeric, superscript | 70.8 → 75.2 | 41.0 → 45.9 | 99.9 → 99.9 |
+| Numeric, superscript | 70.8 → 75.3 | 41.0 → 45.9 | 99.9 → 99.9 |
 | Numeric, parentheses | 74.5 → 74.5 | 73.2 → 73.2 | 100.0 → 100.0 |
 | More than 100 references | 87.1 → 89.7 | 57.7 → 65.1 | 99.4 → 99.5 |
-| All papers | 88.4 → 90.0 | 67.6 → 72.7 | 99.1 → 99.5 |
+| All papers | 88.4 → 90.0 | 67.6 → 72.8 | 99.1 → 99.5 |
 
 No primary outcome fell in any group, so 0.7.89 passes the before/after rule. Pooled 0.7.88 recall
 here (67.6%) is lower than SaneCite's 80.1% on its own 80 papers; the two samples differ (this one
@@ -64,7 +74,7 @@ superscript false links are classified below.
 
 ## Failure classes (v0.7.89)
 
-Misses (gold links not found, 3,546 in all) and false links (1,057 in all), grouped by cause. Each
+Misses (gold links not found, 3,544 in all) and false links (1,055 in all), grouped by cause. Each
 is logged for fixing.
 
 | Class | Where | Count |
@@ -79,18 +89,27 @@ is logged for fixing.
 
 ## Secondary outcomes (descriptive)
 
-**Reference mapping.** 9,226 references parsed for 9,238 gold references: 9,152 mapped exactly,
-74 by token overlap, 0 unmapped; 11 gold references split across two parsed ones, 23 with no parsed
-reference.
+**Reference mapping.** 9,226 references parsed for 9,238 gold references: all 9,226 mapped exactly
+(after curly quotes and dash variants are folded to plain ones), 0 by token overlap, 0 unmapped;
+10 gold references split across two parsed ones, 22 with no parsed reference.
 
 **Field accuracy, references mapped one-to-one** (pooled; papers in brackets): year 99.96%
 (2,779/2,780; 30), first author 95.2% (2,554/2,683; 28), title 89.0% (2,418/2,716; 30), DOI 86.9%
-(6,378/7,336; 72), list number 99.96% (6,813/6,816; 48), issue 62.3% (198/318; 13), volume 7.5%
+(6,380/7,338; 72), list number 99.96% (6,815/6,818; 48), issue 62.3% (198/318; 13), volume 7.5%
 (198/2,646; 30), first page 7.7% (198/2,581; 30). Volume and pages are empty in citelink's output
 for most references (APA 0 of 388); this is a parsing gap, logged. On correct author-year links:
 citation year 100% (3,091/3,091), first author 99.3% (839/845).
 
-**Position overlap** (predicted span overlaps the gold citation at all): 100.0% pooled.
+**Field accuracy by how the gold reference text was made.** The plan promised this split. Of the
+references scored, most were written by the gold builder from the XML's structured fields rather
+than taken from the publisher's own printed text. Volume, issue and first page were scored almost
+only on rendered-from-fields references (volume 197 of 2,602 correct there, 1 of 44 on publisher
+text), so the volume/page gap is measured on text the gold builder wrote in the paper's paradigm,
+not on publishers' own reference strings. DOI differs most by kind: 100% (2,562/2,562) on rendered
+references, 79.9% (3,818/4,776) on publisher text. Year and list number are near 100% in both.
+
+**Position overlap** (predicted span overlaps the gold citation at all): 99.98% pooled
+(9,462/9,464).
 
 ## Fields this test does not score (unverified)
 
@@ -105,7 +124,12 @@ this test.
 The text is rendered from XML, so it has no PDF extraction damage; superscripts are written as
 plain digits glued to the preceding text, as PDF extraction writes them. Journals were chosen to
 show each style and are not a random sample. Per-style intervals are wide where papers differ
-sharply (one misdetected paper removes all of its links).
+sharply (one misdetected paper removes all of its links). The numeric-parenthesis group has only
+4 papers, so its bootstrap resamples 4 clusters and its interval is unreliable; read its verdicts
+as descriptive. Two known scoring artefacts, both small: in a same-author year list ("Parker 1978,
+1983") the scorer can count one predicted span against both gold works (about 31 cases), and one
+Harvard paper (10.1093/beheco/arab055) has 2 gold xrefs that point to the wrong reference in the
+publisher's XML.
 
 ## Papers
 

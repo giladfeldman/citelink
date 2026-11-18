@@ -168,6 +168,65 @@ describe('JATS link scoring', () => {
   });
 });
 
+describe('fixes from the cross-model review (2026-11-18)', () => {
+  it('a reference whose text differs only by a curly apostrophe maps to its own entry, not to a look-alike', () => {
+    const refs: Ref[] = [
+      { id: 'a', text: 'O’Shea JJ, Plenge R. JAK and STAT signaling molecules in immunoregulation. Immunity. 2012;36:542-50.', label: 1 },
+      { id: 'b', text: 'Smith J. Memory. J Things. 2020;1:1-10.', label: 2 },
+      { id: 'c', text: "O'Shea JJ, Plenge R. JAK and STAT signaling molecules in immunoregulation. Immunity. 2012;36:542-50.", label: 3 },
+    ];
+    const g = buildGold('Text [{{a|1}}].', refs, 'numeric');
+    const m = ev.mapReferences(g.text, g.gold.references, [
+      { raw: "1. O'Shea JJ, Plenge R. JAK and STAT signaling molecules in immunoregulation. Immunity. 2012;36:542-50." },
+      { raw: '2. Smith J. Memory. J Things. 2020;1:1-10.' },
+      { raw: "3. O'Shea JJ, Plenge R. JAK and STAT signaling molecules in immunoregulation. Immunity. 2012;36:542-50." },
+    ]);
+    expect(m.map((x: any) => x.refId)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('an xref that resolves to no reference inside a correct span is not a foreign citation', () => {
+    const { text, gold } = buildGold('Shown ({{r1|Smith, 2020}}; {{orphan|Gone, 2001}}).', REFS, 'author-year');
+    // the builder links every rid; an orphan rid has no reference, so no gold link
+    gold.links = gold.links.filter((l: any) => l.ref_id !== 'orphan');
+    const a = text.indexOf('Smith, 2020');
+    const e = text.indexOf('Gone, 2001') + 10;
+    const r = ev.scorePaper(text, gold, fakeAnalysis(text, [REFS[0].text], [{ s: a, e, ref: 0 }]));
+    expect([r.tp, r.posCorrect]).toEqual([1, 1]);
+  });
+
+  it('the before/after rule fails a group or estimate that disappears', () => {
+    const grp = (p: number | null) => ({ linkPrecision: { est: p }, linkRecall: { est: 0.9 }, positionAccuracy: { est: 0.99 } });
+    expect(ev.compareSummaries({ all: grp(0.97), 'style:x': grp(0.9) }, { all: grp(0.97) }).length).toBeGreaterThan(0);
+    expect(ev.compareSummaries({ all: grp(0.97) }, { all: grp(null) })).toHaveLength(1);
+  });
+
+  it('runs on different papers or gold renderings are not compared', () => {
+    const m = { rendererVersion: '2', papers: 2, paperSet: ['a', 'b'] };
+    expect(ev.sameRunBasis(m, { ...m })).toEqual([]);
+    expect(ev.sameRunBasis(m, { ...m, rendererVersion: '1' })).toEqual(['renderer version']);
+    expect(ev.sameRunBasis(m, { ...m, paperSet: ['a', 'c'] })).toEqual(['paper set']);
+  });
+
+  it('gold offsets in code points are converted to UTF-16 after an astral character', () => {
+    const text = 'x\u{1D49C} (Smith, 2020).';
+    const cp = Array.from(text);
+    const start = cp.indexOf('S');
+    const gold = { references: [], xrefs: [{ index: 0, start, end: start + 11, rids: ['r1'] }], links: [{ xref: 0, ref_id: 'r1', start, end: start + 11 }] };
+    const u = ev.goldToUtf16(text, gold);
+    expect(text.slice(u.xrefs[0].start, u.xrefs[0].end)).toBe('Smith, 2020');
+  });
+
+  it('reference fields are also reported by how the gold reference text was made', () => {
+    const { text, gold } = buildGold('Shown ({{r1|Smith, 2020}}).', REFS, 'author-year');
+    (gold.references[0] as any).render = 'fields:element-citation';
+    (gold.references[1] as any).render = 'citation-string';
+    const r = ev.scorePaper(text, gold, fakeAnalysis(text, [REFS[0].text, REFS[1].text], []));
+    expect(Object.keys(r.fields)).toEqual(
+      expect.arrayContaining(['reference.firstAuthorLastName [gold text: rendered from fields]', 'reference.firstAuthorLastName [gold text: publisher text]']),
+    );
+  });
+});
+
 describe('aggregation, CIs and verdicts', () => {
   it('the cluster bootstrap is reproducible and brackets the estimate', () => {
     const rows = [{ num: 9, den: 10 }, { num: 18, den: 20 }, { num: 5, den: 10 }, { num: 30, den: 30 }];
