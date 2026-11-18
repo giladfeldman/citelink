@@ -40,6 +40,10 @@ npm run docs:check # documentation-drift gate (also run by npm test, without the
    `CHANGELOG.md`, and updates the version in the README install pin and in `CITATION.cff`;
    the docs gate checks that all four agree.
 
+For a change to citation-to-reference linking, `node scripts/jats-link-eval.mjs --gold <dir>`
+re-scores the JATS-gold accuracy test (plan and results in `docs/accuracy/`); the gold lives
+outside this repository.
+
 ## Style
 
 TypeScript, strict mode, ES modules. Keep functions pure (text in, data out). Comment the

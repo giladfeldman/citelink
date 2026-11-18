@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+Test harness and documentation only; no change to `src/`.
+- Added `scripts/jats-link-eval.mjs` and `tests/jatsLinkEval.test.ts`: an exact accuracy test of
+  citation-to-reference links against PubMed Central JATS gold (kept outside this repository).
+  Analysis plan and results for 0.7.88 and 0.7.89: `docs/accuracy/`.
+
 ## 0.7.89
 
 Reported by SaneCite (2026-11-17), who ran 0.7.88 on 80 open-access papers with known

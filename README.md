@@ -234,6 +234,14 @@ citations with `citation_type` (`'parenthetical'` or `'numeric'`), `citation_tex
 `citation_number`; references with `raw_text` and `authors`. Passing `DetectedCitation`
 objects straight in finds nothing, because they have none of those fields.
 
+## Accuracy test
+
+How often a citation is linked to the right reference is measured against gold built from
+PubMed Central JATS XML (each in-text citation is an `<xref>` pointing at its `<ref>`), by
+`scripts/jats-link-eval.mjs`. The analysis plan and the per-style results (with 95% confidence
+intervals and failure classes) are in `docs/accuracy/`. The gold set is not in this repository;
+the papers are identified by PMCID and DOI only.
+
 ## Known limits
 
 Deliberate, test-pinned behaviour:

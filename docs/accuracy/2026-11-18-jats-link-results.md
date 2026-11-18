@@ -6,7 +6,8 @@ SaneCite measured) and 0.7.89. **Gold:** 80 PubMed Central open-access papers, 1
 9,137 citation groups, 9,238 references; held outside this repository (papers listed by PMCID and
 DOI at the end).
 
-All numbers below are produced by the harness; none is hand-computed. 95% confidence intervals are
+All numbers below are produced by the harness, except the per-class counts in the failure-class
+table, which were classified by hand from the harness's error records (their totals are the harness's). 95% confidence intervals are
 paper-cluster percentile bootstrap, 2,000 resamples, seed 20261118. Verdicts follow the plan: PASS
 when the lower bound is at or above the threshold, FAIL when the upper bound is below it, otherwise
 INCONCLUSIVE. Thresholds: link precision 0.95, link recall 0.85, span-position accuracy 0.95.
@@ -74,7 +75,9 @@ superscript false links are classified below.
 
 ## Failure classes (v0.7.89)
 
-Misses (gold links not found, 3,544 in all) and false links (1,055 in all), grouped by cause. Each
+Misses (gold links not found, 3,544 in all) and false links (1,055 in all), grouped by cause. The class counts come from reading the error records by hand
+and are approximate; the paper-level totals they split (for example 264 false links in
+parenthesis papers, 1,038 "no gold citation here" false links overall) are the harness's. Each
 is logged for fixing.
 
 | Class | Where | Count |
