@@ -31,8 +31,9 @@ describe('an integer interval in brackets is not a citation', () => {
     ['n ≤ [3,40] here', '[3,40]'],
     ['(SDIU = 19, RangeIU = [31, 121]) was larger', '[31, 121]'],
     ['median 23 years (IQR = [16, 30]) of experience', '[16, 30]'],
-    // A lone capital glued to it: a distribution or a test statistic.
-    ['a prior U[1,100] on the rate', '[1,100]'],
+    // A distribution after "~", or a glued capital with an operator after it (a test
+    // statistic). A bare glued capital is not enough: "vitamin D[12, 45]" is a citation.
+    ['a prior ~ U[1,100] on the rate', '[1,100]'],
     ['their interaction was not (F[1, 101] < 1, p = .85)', '[1, 101]'],
     // A named interval directly before.
     ['values drawn uniformly from [1,100] were used', '[1,100]'],

@@ -35,33 +35,62 @@ were named; each was one member of a wider class, and the whole class is fixed h
   `[10,200] ms`, `95% CI = [365, 379]`. 0.7.88 already emitted the spaced forms (`95% CI [13, 37]`,
   `the interval [1, 27]`) and some of them linked to references. New exported
   `isIntegerIntervalBracket`, used in the square-bracket, `Name [n]` and round-bracket branches: a
-  two-number bracket is an interval when a math operator or a glued lone capital stands before it
-  (`∈ = ≤ ≥ < >`, `U[`, `F[1, 101]`), when a named interval stands directly before it (`the
-  interval`, `, range`, `range of`, `CI`, `IQR`, `HPD`, `confidence interval`, `uniformly from`),
-  or when a unit follows it (`ms`, `%`, `years`, …). Nouns that sometimes name intervals but were
+  two-number bracket is an interval when a math operator stands before it (`∈ = ≤ ≥ < > ~`,
+  `~ U[1,100]`), when a glued lone capital has an operator after it (`F[1, 101] < 1`), when a
+  singular named interval stands directly before it (`the interval`, `, range`, `range of`, `CI`,
+  `IQR`, `HPD`, `confidence interval`, `uniformly from`), or when a unit follows a comma pair
+  (`ms`, `%`, `years`, …). A dash pair (`95% CI [13–37]`) is an interval only after an operator,
+  a statistical label or `the interval`; `[13–17]` after prose and `within their range [68-70]`
+  (a corpus citation) stay citation ranges. A plural (`bootstrapped CIs [7, 8]`) or a
+  bare glued capital (`vitamin D[12, 45]`, where extraction lost the space) is not enough. Nouns that sometimes name intervals but were
   measured in front of real citations stay citations: `conceptual domains [6, 7]`, `the Memory
   scale [5, 53]`, `coalition support [30, 31]`, `20 m intervals [36, 46]`, `social interaction
   range [29, 42]`, `low PI [31, 32]`. A skipped interval still counts as a bracket for the gates
   that keep the glued-digit recovery off; without that, one psychology paper lost its 15 CI
   brackets and the glued-digit branch invented 33 citations (`etap2`, `Mak1`).
   (`tests/integerIntervalNotCitation.test.ts`)
+- **Further members of the same classes, found by the release review** (a cross-model code
+  review and a full-corpus diff, each case reproduced before the fix;
+  `tests/releaseReviewClasses0789.test.ts`):
+  - A bracket member above 500 is not a reference number, in a list as on its own:
+    `[1990–2000]` was eleven citations and `[2008, 2010]` two; `[12, 610]` keeps 12. Extraction
+    glue such as `[124133,140-147]` now keeps 140–147 and drops 124133.
+  - Round brackets skip a formatted count inside a list or range: `(1,234, 2,345)` and
+    `(1,200–1,500)` (new exported `hasThousandsFormattedMember`). A standalone-line range written
+    with spaces (`3 – 5`) keeps its dash.
+  - Surnames that are also label words are authors: `(Block 2005; Hammond et al. 1987)` (a corpus
+    citation the label list dropped), `(Page 2010)`, `(Min 2012)`, `(Case 2015)`. Seasons and
+    prepositions before a year are not: `(Spring 2008)`, `(Fall 2015)`, `(Until 2010)`,
+    `(During 2010)`, `(Around 2010)`.
+  - `detectHarvardCitations` applies the no-comma check only to no-comma forms, as
+    `detectCitations` does: `(Lee, 2001; Block, 2008)` keeps Block.
+  - A superscript citation's span ends at its last digit: `findings¹²,` covers `¹²`.
+  - Tried and reverted: skipping a formatted count among glued digits (`kcal1,200`). On the PMC
+    link gold it cost 55 real citations in two papers (`screening276,277` is a superscript list),
+    so glued digits keep reading every comma as a separator; logged as debt d-4b4c2e.
 
 ### Measured
-On 1,491 corpus texts (one per DOI, `analyze()`, 0.7.88 against 0.7.89): 316 citations gained,
+First candidate, on 1,491 corpus texts (one per DOI, `analyze()`, 0.7.88 against it): 316 citations gained,
 0 lost, 294 more references linked (103,956 → 104,250), no style classification changed. The
 gained citations were read by eye; the false positives found (13 picture-set item numbers and one
 "maximum 1350") were removed by the guard above before this count.
 
 Numeric styles, measured separately because that corpus is mostly APA: of 9,138 texts (one per
 DOI) 944 are classified numeric (902 Vancouver, 25 Nature, 10 AMA, 7 IEEE; 18 with more than 100
-references). 0.7.88 against 0.7.89: 22 citations gained, all real (lists with a member of 100 or
-more, such as `[57,60,85,108-110]`); 13 more had their number list completed (0.7.88 read
-`[19,64,104-106]` as 19 alone); 34 interval brackets that 0.7.88 emitted as citations are gone,
-each read by eye (confidence intervals, IQRs, `the interval [1, 27]`); 0 real citations lost;
-references linked 24,097 → 24,131; no style classification changed. Before the interval guard the
-same build also emitted unspaced intervals, and 8 of the 34 intervals were linked to a reference.
-Two gained lists carry a number that text extraction glued together (`[124133,140-147]`); they
-are unmatched, not linked, and logged as debt d-0a588e.
+references). 0.7.88 against the released build: 22 citations gained, all real (lists with a member
+of 100 or more, such as `[57,60,85,108-110]`); 79 markers kept with a changed number list (0.7.88
+read `[19,64,104-106]` as 19 alone; extraction glue such as `[124133,140-147]` now keeps 140–147);
+52 brackets that 0.7.88 emitted as citations are gone, each read by eye (confidence intervals with
+a comma or a dash, IQRs, `the interval [1, 27]`, table values above 500, a grant number); 0 real
+citations lost; references linked 24,097 → 24,125 (the candidate before the interval guard linked
+24,139, 14 of them intervals tied to a reference); no style classification changed.
+
+All 9,138 texts, all styles, compared as a multiset of citations so two at one spot cannot merge:
+citations 707,381 → 712,849, references linked 594,252 → 599,681. Author-year: 5,569 gained, 71
+removed, each removal read (months and seasons before a year, specimen and item codes such as
+`(OPU 0522)`, `(Patient 2367)`, `(Version 2007)`); 105,603 `;`-list members moved to their own
+text. On 80 PMC papers with JATS citation links (outside truth), against 0.7.88: link precision
+88.4% → 90.0%, link recall 67.6% → 72.7%, position accuracy 99.1% → 99.5%; no style group lower.
 
 ### Consumers
 No API change. Citation positions of `;`-list members change (now correct); re-derive anything

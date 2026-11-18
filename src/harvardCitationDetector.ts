@@ -39,6 +39,12 @@ function extractContext(text: string, pos: number, len: number): string {
   return text.slice(Math.max(0, pos - r), Math.min(text.length, pos + len + r));
 }
 
+/** True when a comma separates the author run `name` from the year in `match`. */
+function commaBeforeYear(match: string, name: string): boolean {
+  const i = match.indexOf(name);
+  return i >= 0 && /^\s*,/.test(match.slice(i + name.length));
+}
+
 function parseYear(s: string): { year: string; suffix?: string } {
   const m = s.match(/^(\d{4})([a-z])?$/i);
   if (m) return { year: m[1], suffix: m[2]?.toLowerCase() };
@@ -259,8 +265,9 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
   // ── Single ──
   HARVARD_PATTERNS.single.lastIndex = 0;
   while ((m = HARVARD_PATTERNS.single.exec(text)) !== null) {
-    // "(Image 1750)", "(Since 2008)", "(June 2008)" are not citations.
-    if (isNonAuthorBeforeBareYear(m[1], m[2])) continue;
+    // "(Image 1750)", "(Since 2008)", "(June 2008)" are not citations. Only the no-comma
+    // form asks, as in detectCitations: "(May, 2008)" with a comma is an author named May.
+    if (!commaBeforeYear(m[0], m[1]) && isNonAuthorBeforeBareYear(m[1], m[2])) continue;
     const { year, suffix } = parseYear(m[2]);
     const authors = [createAuthor(m[1])];
     add({
@@ -313,7 +320,7 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
         const authNames = multiMatch[1].split(/,?\s+(?:and|&)\s+|,\s*/).filter(s => s.trim());
         authors = authNames.map(n => createAuthor(n));
         yearStr = multiMatch[2];
-      } else if (singleMatch && !isNonAuthorBeforeBareYear(singleMatch[1], singleMatch[2])) {
+      } else if (singleMatch && (commaBeforeYear(part, singleMatch[1]) || !isNonAuthorBeforeBareYear(singleMatch[1], singleMatch[2]))) {
         authors = [createAuthor(singleMatch[1])];
         yearStr = singleMatch[2];
       }

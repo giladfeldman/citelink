@@ -57,7 +57,8 @@ describe('bracket, narrative and superscript markers', () => {
     ['Prior work [3-5,110] showed.', '[3-5,110]', [3, 4, 5, 110]],
     ['Prior work [3–5,110] showed.', '[3–5,110]', [3, 4, 5, 110]],
     ['Prior work [7,110-112] showed.', '[7,110-112]', [7, 110, 111, 112]],
-    ['Prior work [12,345,678] showed.', '[12,345,678]', [12, 345, 678]],
+    // A member above 500 is no reference number and is dropped; the others stay.
+    ['Prior work [12,345,678] showed.', '[12,345,678]', [12, 345]],
     ['As Smith [110,111] said.', '[110,111]', [110, 111]],
     ['as in integrity¹¹⁰,¹¹¹ here.', '¹¹⁰,¹¹¹', [110, 111]],
   ])('%s', (text, raw, expected) => {

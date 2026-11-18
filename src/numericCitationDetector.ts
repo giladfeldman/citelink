@@ -88,6 +88,21 @@ export function isThousandsFormattedNumber(s: string): boolean {
 }
 
 /**
+ * True when any member of a list or range is a formatted count: "1,234, 2,345" (members
+ * split at a comma followed by a space) and "1,200–1,500" (a dash pair whose two sides
+ * are both counts; "3-5,110" is the range 3-5 and citation 110). Used only by the
+ * round-bracket branch, where prose does hold counts. Square brackets, glued digits and
+ * standalone lines are not asked: there "[110,111]" and "screening276,277" are citations.
+ */
+export function hasThousandsFormattedMember(s: string): boolean {
+  return s.trim().split(/,\s+/).some(part => {
+    if (isThousandsFormattedNumber(part)) return true;
+    const pair = part.match(/^\s*([\d,]+)\s*[–—-]\s*([\d,]+)\s*$/);
+    return !!pair && isThousandsFormattedNumber(pair[1]) && isThousandsFormattedNumber(pair[2]);
+  });
+}
+
+/**
  * Expand a citation-number list like "1,3-5,7" into [1,3,4,5,7].
  * Every comma is a list separator, with or without a following space; a caller
  * that may be looking at a formatted count checks isThousandsFormattedNumber first.
@@ -122,17 +137,29 @@ export function expandNumericRange(rangeStr: string): number[] {
  * statistical interval labels count on their own ("95% CI [13, 37]", "IQR [16, 30]").
  * scale, support, domain, window and bounds are deliberately NOT here, nor "PI"
  * ("low PI [31, 32]" in the corpus is an abbreviation followed by a citation).
+ * Singular only: one bracket holds one interval, while a plural names a method a paper
+ * cites ("bootstrapped CIs [7, 8]", "Wilson confidence intervals [12, 13]").
  */
 const INTERVAL_NOUN_BEFORE = new RegExp(
   [
     String.raw`(?:(?:^|[.!?]\s+|[,;(]\s*|\b(?:the|an?|this|that|its|their|unit|closed|open|whole|full)\s+)(?:interval|range)|\b(?:interval|range)\s+of)\s*$`,
-    String.raw`\b(?:(?:confidence|credible|credibility|compatibility|prediction|uncertainty)\s+intervals?|CIs?|CrIs?|HDIs?|HPDs?|IQRs?)\s*$`,
+    String.raw`\b(?:(?:confidence|credible|credibility|compatibility|prediction|uncertainty)\s+interval|CI|CrI|HDI|HPD|IQR)\s*$`,
     String.raw`\buniform(?:ly)?(?:\s+(?:from|on|over|in|between))?\s*$`,
   ].join('|'),
   'i',
 );
-/** A math operator directly before the bracket, or a lone capital glued to it ("U[1,100]", "F[1, 101]"). */
-const INTERVAL_OPERATOR_BEFORE = /(?:[∈∉=≤≥<>⊂⊆×]\s*|(?:^|[^\p{L}\p{N}])\p{Lu})$/u;
+/** The labels that make a DASH pair an interval: statistical intervals and "the interval". */
+const DASH_INTERVAL_LABEL_BEFORE =
+  /(?:\b(?:(?:confidence|credible|credibility|compatibility|prediction|uncertainty)\s+interval|CI|CrI|HDI|HPD|IQR)|\b(?:the|an?)\s+interval)\s*$/i;
+/** A math operator directly before the bracket ("x ∈ [1,100]", "CI = [5, 39]", "~ U[1,100]"). */
+const INTERVAL_OPERATOR_BEFORE = /(?:[∈∉=≤≥<>⊂⊆×~∼]\s*|[~∼]\s*\p{Lu})$/u;
+/**
+ * A lone capital glued to the bracket counts only with an operator after it
+ * ("F[1, 101] < 1"): on its own it is as often a citation whose space the extraction
+ * lost ("vitamin D[12, 45]", "hepatitis B[23,24]").
+ */
+const GLUED_CAPITAL_BEFORE = /(?:^|[^\p{L}\p{N}])\p{Lu}$/u;
+const OPERATOR_AFTER = /^\s*[=<>≤≥]/;
 /**
  * A measurement unit directly after the bracket ("[10,200] ms", "CI [5, 32]%").
  * Not "points": "Over [51, 52] points out that" is a citation followed by a verb.
@@ -143,9 +170,10 @@ const INTERVAL_UNIT_AFTER =
 /**
  * True when a bracket of exactly two plain integers ("[1,100]", "[2, 500]") is a
  * numeric INTERVAL rather than a citation list, judged by its surroundings: a math
- * operator or a glued lone capital before it ("x ∈ [1,100]", "U[1,100]", "CI = [5, 39]"),
- * a named interval directly before it (see INTERVAL_NOUN_BEFORE), or a unit directly
- * after it ("[10,200] ms"). The numbers alone never decide it: "shown before [12,110]"
+ * operator before it ("x ∈ [1,100]", "~ U[1,100]", "CI = [5, 39]"), a glued lone capital
+ * with an operator after it ("F[1, 101] < 1"), a named interval directly before it (see
+ * INTERVAL_NOUN_BEFORE), or a unit directly after it ("[10,200] ms"). A dash pair
+ * ("CI [13–37]") counts on the first three only. The numbers alone never decide it: "shown before [12,110]"
  * is a citation. Lists with a range part or a third member are never intervals.
  *
  * v0.7.89 made every bracket comma a list separator, which turned these intervals into
@@ -153,12 +181,15 @@ const INTERVAL_UNIT_AFTER =
  * already emitted the spaced "[1, 100]" and "95% CI [13, 37]"). Measured 2026-11-18.
  */
 export function isIntegerIntervalBracket(inner: string, before: string, after: string): boolean {
+  const operator = INTERVAL_OPERATOR_BEFORE.test(before) ||
+    (GLUED_CAPITAL_BEFORE.test(before) && OPERATOR_AFTER.test(after));
+  // A dash pair is far more often a citation range ("[13–17]"), so only an operator, a
+  // statistical label or "the interval" makes it one ("95% CI [13–37]"); never "range"
+  // ("within their range [68-70]" is a corpus citation) and never a unit after it.
+  if (/^\s*\d+\s*[-–—]\s*\d+\s*$/.test(inner)) return operator || DASH_INTERVAL_LABEL_BEFORE.test(before);
+  const named = operator || INTERVAL_NOUN_BEFORE.test(before);
   if (!/^\s*\d+\s*,\s*\d+\s*$/.test(inner)) return false;
-  return (
-    INTERVAL_OPERATOR_BEFORE.test(before) ||
-    INTERVAL_NOUN_BEFORE.test(before) ||
-    INTERVAL_UNIT_AFTER.test(after)
-  );
+  return named || INTERVAL_UNIT_AFTER.test(after);
 }
 
 /** Extract context around a position */
@@ -203,7 +234,10 @@ export function detectNumericCitations(
     if (processedPositions.has(posKey)) continue;
     processedPositions.add(posKey);
 
-    const numbers = expandNumericRange(m[1]);
+    // A member above 500 is no reference number ("[1990–2000]", "[2008, 2010]"); the
+    // other members of the list stay ("[12, 610]" -> 12). This is the rule single
+    // numbers always had, applied to every member.
+    const numbers = expandNumericRange(m[1]).filter(n => n <= 500);
     if (numbers.length === 0) continue;
     // "[1,100]" after "x ∈", "the range", or before "ms" is an interval, not citations 1 and 100.
     if (isIntegerIntervalBracket(m[1], before, text.slice(m.index + m[0].length, m.index + m[0].length + 12))) {
@@ -212,8 +246,6 @@ export function detectNumericCitations(
     }
     // Skip if any number is 0 — reference numbers start at 1; [0, 1] is a math interval
     if (numbers.some(n => n === 0)) continue;
-    // Skip single numbers that look like years (1800-2099) or are implausibly large (>500)
-    if (numbers.length === 1 && (numbers[0] >= 1800 || numbers[0] > 500)) continue;
 
     citations.push({
       raw: m[0],
@@ -248,7 +280,7 @@ export function detectNumericCitations(
     if (processedPositions.has(bracketPosKey)) continue;
     processedPositions.add(posKey);
 
-    const numbers = expandNumericRange(m[2]);
+    const numbers = expandNumericRange(m[2]).filter(n => n <= 500); // as in the bracket branch
     if (numbers.length === 0) continue;
     if (numbers.some(n => n === 0)) continue;
     // "Range [1,100]": the capitalised word is an interval noun, not an author.
@@ -294,13 +326,15 @@ export function detectNumericCitations(
     // Must follow a word character or period
     if (m.index > 0 && !/[a-zA-Z.]/.test(text[m.index - 1])) continue;
 
-    const posKey = `${m.index}-${m.index + m[0].length}`;
+    // The span ends at its last digit: "findings¹²," is "¹²", not "¹²,".
+    const supRaw = m[0].replace(/[⁻,–—-]+$/, '');
+    const posKey = `${m.index}-${m.index + supRaw.length}`;
     if (processedPositions.has(posKey)) continue;
     processedPositions.add(posKey);
 
     // Convert superscript to ASCII digits
     let asciiStr = '';
-    for (const ch of m[0]) {
+    for (const ch of supRaw) {
       asciiStr += superscriptMap[ch] || ch;
     }
     // Replace minus sign (⁻) with dash
@@ -311,15 +345,15 @@ export function detectNumericCitations(
     if (numbers.some(n => n === 0)) continue;
 
     citations.push({
-      raw: m[0],
+      raw: supRaw,
       normalized: `[${asciiStr}]`,
       type: 'numeric' as any,
       citationStyle: 'parenthetical',
       authors: [] as ParsedCitationAuthor[],
       year: '',
       citationNumbers: numbers,
-      position: { start: m.index, end: m.index + m[0].length },
-      context: extractContext(text, m.index, m[0].length),
+      position: { start: m.index, end: m.index + supRaw.length },
+      context: extractContext(text, m.index, supRaw.length),
     });
   }
 
@@ -429,6 +463,9 @@ export function detectNumericCitations(
     if (processedPositions.has(posKey)) continue;
     processedPositions.add(posKey);
 
+    // No formatted-count check here: glued, "screening276,277" is a superscript list far
+    // more often than a count (a count guard cost 55 real citations in two PMC papers,
+    // 2026-11-18), so "kcal1,200" still reads as 1 and 200 (debt).
     const numbers = expandNumericRange(digitStr);
     if (numbers.length === 0) continue;
     // Every member, not only the first, must be a plausible reference number:
@@ -496,8 +533,8 @@ export function detectNumericCitations(
       if (referenceSectionStart !== undefined && m.index >= referenceSectionStart) continue;
 
       const innerText = m[1].trim();
-      // "(1,234)" in prose is a formatted count, not citations 1 and 234.
-      if (isThousandsFormattedNumber(innerText)) continue;
+      // "(1,234)", "(1,234, 2,345)", "(1,200–1,500)" in prose are formatted counts.
+      if (hasThousandsFormattedMember(innerText)) continue;
       const numbers = expandNumericRange(innerText);
       if (numbers.length === 0) continue;
 
@@ -581,7 +618,8 @@ export function detectNumericCitations(
       if (referenceSectionStart !== undefined && m.index >= referenceSectionStart) continue;
 
       const digitStr = m[2].trim();
-      const numbers = expandNumericRange(digitStr.replace(/\s+/g, ','));
+      // Spaces separate members, except around a dash: "3 – 5" is the range 3-5.
+      const numbers = expandNumericRange(digitStr.replace(/\s*([–-])\s*/g, '$1').replace(/\s+/g, ','));
       if (numbers.length === 0) continue;
       if (numbers.some(n => n === 0 || n > 300)) continue;
 

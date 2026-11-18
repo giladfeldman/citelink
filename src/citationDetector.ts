@@ -838,10 +838,18 @@ const LEADING_NON_NAME_WORDS = new Set([
 const BARE_NUMBER_LABELS = new Set([
   'image', 'picture', 'photo', 'slide', 'item', 'items', 'stimulus', 'study', 'studies',
   'experiment', 'table', 'figure', 'fig', 'sample', 'wave', 'model', 'version', 'trial',
-  'block', 'phase', 'step', 'session', 'participant', 'subject', 'case', 'room', 'no',
-  'number', 'maximum', 'minimum', 'max', 'min', 'total', 'range', 'year', 'years', 'page',
+  'phase', 'step', 'session', 'participant', 'subject', 'room', 'no',
+  'number', 'maximum', 'minimum', 'max', 'total', 'range', 'year', 'years',
   'pages', 'chapter', 'section', 'appendix', 'condition', 'group', 'level', 'grade',
   'code', 'id', 'unit', 'scale', 'score', 'class', 'cohort', 'round',
+]);
+// Not labels, because they are common surnames: Block, Case, Min, Page. "(Block 2005;
+// Hammond et al. 1987)" is a corpus citation the label list dropped (2026-11-18).
+
+/** Seasons and prepositions that stand before a year in prose: "(Spring 2008)", "(Until 2010)". */
+const NON_AUTHOR_BEFORE_YEAR = new Set([
+  'spring', 'summer', 'fall', 'autumn', 'until', 'through', 'throughout', 'during',
+  'around', 'circa', 'ca', 'between', 'pre', 'post', 'mid', 'early', 'late',
 ]);
 
 /**
@@ -857,7 +865,7 @@ export function isNonAuthorBeforeBareYear(word: string, year?: string): boolean 
   // Lowercase only as a particle before a capitalised surname ("van Dijk 2008").
   if (!/^\p{Lu}/u.test(trimmed) && !/\s\p{Lu}/u.test(trimmed)) return true;
   if (isMonthName(trimmed) || isSentenceConnector(trimmed)) return true;
-  if (LEADING_NON_NAME_WORDS.has(w) || BARE_NUMBER_LABELS.has(w)) return true;
+  if (LEADING_NON_NAME_WORDS.has(w) || BARE_NUMBER_LABELS.has(w) || NON_AUTHOR_BEFORE_YEAR.has(w)) return true;
   if (year !== undefined && /^\d/.test(year)) {
     const y = parseInt(year, 10);
     if (!(y >= 1600 && y <= new Date().getFullYear() + 1)) return true;
