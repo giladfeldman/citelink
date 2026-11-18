@@ -71,4 +71,17 @@ describe('documentation-drift gate', () => {
   it('refuses a quickstart with no js block', () => {
     expect(() => gate.quickstartBlocks('# x\n\n## Quickstart\n\nno code here\n\n## Next\n')).toThrow();
   });
+
+  // v0.7.89: the README Output block lacked a new `unverifiable: 0` line and the gate passed,
+  // because it only checked that the block ran.
+  it('pairs each js block with the text Output block after it, CRLF included', () => {
+    const readme = ['## Quickstart', '', '```js', 'console.log(1);', '```', '', 'Output (v1):', '', '```text', '1', '```', '', '## Next', ''].join('\r\n');
+    expect(gate.quickstartExpectedOutputs(readme)).toEqual(['1\n']);
+    expect(gate.quickstartExpectedOutputs('## Quickstart\n\n```js\nx\n```\n\n## Next\n')).toEqual([null]);
+  });
+
+  it('a stale Output block (a missing line) is a difference; trailing whitespace is not', () => {
+    expect(gate.sameOutput('{\n  a: 0,\n  b: 0\n}\n', '{\n  a: 0,\n}\n')).toBe(false);
+    expect(gate.sameOutput('x  \r\ny\n\n', 'x\ny')).toBe(true);
+  });
 });

@@ -69,6 +69,11 @@ were named; each was one member of a wider class, and the whole class is fixed h
     link gold it cost 55 real citations in two papers (`screening276,277` is a superscript list),
     so glued digits keep reading every comma as a separator; logged as debt d-4b4c2e.
 
+- **The README quickstart output is checked, not only run.** `npm run docs:check` ran the
+  quickstart and passed while the README's "Output" block lacked the `unverifiable: 0` line that
+  `getMatchStatistics` prints. The gate now compares what each block prints with the `text` block
+  under it, line by line; the README block is updated.
+
 ### Measured
 First candidate, on 1,491 corpus texts (one per DOI, `analyze()`, 0.7.88 against it): 316 citations gained,
 0 lost, 294 more references linked (103,956 → 104,250), no style classification changed. The

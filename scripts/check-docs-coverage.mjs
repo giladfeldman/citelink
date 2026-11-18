@@ -199,6 +199,27 @@ export function quickstartBlocks(readme) {
   return blocks;
 }
 
+/**
+ * The printed output the README shows for each quickstart js block: the first ```text block
+ * after it, before the next js block (null when none). Running a block proved it works, not
+ * that the README's "Output" block still shows what it prints: v0.7.89 printed a new
+ * `unverifiable: 0` line the README lacked, and the gate passed.
+ */
+export function quickstartExpectedOutputs(readme) {
+  const text = (readme ?? fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8')).replace(/\r\n/g, '\n');
+  const start = text.indexOf(QUICKSTART_HEADING);
+  const next = text.indexOf('\n## ', start + QUICKSTART_HEADING.length);
+  const body = text.slice(start, next > 0 ? next : text.length);
+  return [...body.matchAll(/```(?:js|javascript|mjs)\n[\s\S]*?```([^`]*?```text\n([\s\S]*?)```)?/g)]
+    .map((m) => (m[2] === undefined ? null : m[2]));
+}
+
+/** Compare printed output line by line, ignoring trailing whitespace and edge blank lines. */
+export function sameOutput(actual, expected) {
+  const norm = (s) => s.replace(/\r\n/g, '\n').split('\n').map((l) => l.trimEnd()).join('\n').trim();
+  return norm(actual) === norm(expected);
+}
+
 /** Build dist/, install this tree as `citelink` in a temp dir, and run each quickstart block. */
 export function runQuickstart() {
   const problems = [];
@@ -208,6 +229,7 @@ export function runQuickstart() {
   if (tsc.status !== 0) return [`build: tsc exited ${tsc.status}:\n${(tsc.stdout + tsc.stderr).slice(-1500)}`];
 
   const blocks = quickstartBlocks();
+  const expected = quickstartExpectedOutputs();
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'citelink-quickstart-'));
   try {
     fs.mkdirSync(path.join(tmp, 'node_modules'));
@@ -219,13 +241,17 @@ export function runQuickstart() {
       const r = spawnSync(process.execPath, [file], { cwd: tmp, encoding: 'utf8', timeout: 120000 });
       if (r.status !== 0 || !r.stdout.trim()) {
         problems.push(`quickstart js block ${i + 1} exited ${r.status} with ${r.stdout.length} chars of output:\n${(r.stderr || '').slice(-1500)}`);
+      } else if (expected[i] == null) {
+        problems.push(`quickstart js block ${i + 1} has no \`\`\`text Output block after it in README.md`);
+      } else if (!sameOutput(r.stdout, expected[i])) {
+        problems.push(`quickstart js block ${i + 1}: README "Output" block differs from what it prints. It prints:\n${r.stdout}`);
       }
     });
   } finally {
     fs.unlinkSync(path.join(tmp, 'node_modules', 'citelink'));
     fs.rmSync(tmp, { recursive: true, force: true });
   }
-  if (!problems.length) console.log(`quickstart: ${blocks.length} js block(s) built and ran OK`);
+  if (!problems.length) console.log(`quickstart: ${blocks.length} js block(s) built, ran, and printed the README's Output`);
   return problems;
 }
 

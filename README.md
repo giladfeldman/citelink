@@ -114,7 +114,7 @@ for (const m of result.matches) {
 console.log(getMatchStatistics(result.matches));
 ```
 
-Output (v0.7.88):
+Output (v0.7.89):
 
 ```text
 { style: 'apa', paradigm: 'author-year', confidence: 0.95 }
@@ -127,6 +127,7 @@ Cedar et al. (2021) -> matched Cedar 0.96
   suggested: 0,
   ambiguous: 0,
   noMatch: 0,
+  unverifiable: 0,
   matchRate: 1
 }
 ```
