@@ -111,6 +111,56 @@ export function expandNumericRange(rangeStr: string): number[] {
   return nums;
 }
 
+/**
+ * An interval named directly before the bracket. Every word here was checked against
+ * the 9,138-text corpus (2026-11-18), because nouns are where intervals and citations
+ * collide: "conceptual domains [6, 7]", "the Memory scale [5, 53]", "coalition support
+ * [30, 31]", "20 m intervals [36, 46]" and "social interaction range [29, 42]" are all
+ * citations. So "interval"/"range" count only when singular AND introduced by an
+ * article, a determiner, a comma or a sentence start ("the interval [30, 150]",
+ * ", range [18, 73]"), or followed by "of" ("the range of [0, 1]"); and the
+ * statistical interval labels count on their own ("95% CI [13, 37]", "IQR [16, 30]").
+ * scale, support, domain, window and bounds are deliberately NOT here, nor "PI"
+ * ("low PI [31, 32]" in the corpus is an abbreviation followed by a citation).
+ */
+const INTERVAL_NOUN_BEFORE = new RegExp(
+  [
+    String.raw`(?:(?:^|[.!?]\s+|[,;(]\s*|\b(?:the|an?|this|that|its|their|unit|closed|open|whole|full)\s+)(?:interval|range)|\b(?:interval|range)\s+of)\s*$`,
+    String.raw`\b(?:(?:confidence|credible|credibility|compatibility|prediction|uncertainty)\s+intervals?|CIs?|CrIs?|HDIs?|HPDs?|IQRs?)\s*$`,
+    String.raw`\buniform(?:ly)?(?:\s+(?:from|on|over|in|between))?\s*$`,
+  ].join('|'),
+  'i',
+);
+/** A math operator directly before the bracket, or a lone capital glued to it ("U[1,100]", "F[1, 101]"). */
+const INTERVAL_OPERATOR_BEFORE = /(?:[∈∉=≤≥<>⊂⊆×]\s*|(?:^|[^\p{L}\p{N}])\p{Lu})$/u;
+/**
+ * A measurement unit directly after the bracket ("[10,200] ms", "CI [5, 32]%").
+ * Not "points": "Over [51, 52] points out that" is a citation followed by a verb.
+ */
+const INTERVAL_UNIT_AFTER =
+  /^\s*(?:%|‰|°|(?:ms|msec|sec|min|hrs?|Hz|kHz|MHz|mm|cm|km|nm|mg|kg|ml|mL|dB|px|pixels?|years?|yrs?|months?|weeks?|days?)\b)/;
+
+/**
+ * True when a bracket of exactly two plain integers ("[1,100]", "[2, 500]") is a
+ * numeric INTERVAL rather than a citation list, judged by its surroundings: a math
+ * operator or a glued lone capital before it ("x ∈ [1,100]", "U[1,100]", "CI = [5, 39]"),
+ * a named interval directly before it (see INTERVAL_NOUN_BEFORE), or a unit directly
+ * after it ("[10,200] ms"). The numbers alone never decide it: "shown before [12,110]"
+ * is a citation. Lists with a range part or a third member are never intervals.
+ *
+ * v0.7.89 made every bracket comma a list separator, which turned these intervals into
+ * citations (v0.7.88 skipped the no-space forms only by reading "1,100" as 1100, and
+ * already emitted the spaced "[1, 100]" and "95% CI [13, 37]"). Measured 2026-11-18.
+ */
+export function isIntegerIntervalBracket(inner: string, before: string, after: string): boolean {
+  if (!/^\s*\d+\s*,\s*\d+\s*$/.test(inner)) return false;
+  return (
+    INTERVAL_OPERATOR_BEFORE.test(before) ||
+    INTERVAL_NOUN_BEFORE.test(before) ||
+    INTERVAL_UNIT_AFTER.test(after)
+  );
+}
+
 /** Extract context around a position */
 function extractContext(text: string, pos: number, len: number): string {
   const radius = 100;
@@ -128,6 +178,13 @@ export function detectNumericCitations(
 ): DetectedCitation[] {
   const citations: DetectedCitation[] = [];
   const processedPositions = new Set<string>();
+  // Square-bracket intervals skipped below ("95% CI [13, 37]"). They still count as
+  // brackets for the paradigm gates further down: before the interval guard they were
+  // emitted as citations, which kept the glued-digit, round-bracket and standalone-line
+  // recovery branches off in stats-heavy texts. Without this, one corpus paper with 15
+  // CI brackets lost them all and the glued-digit branch invented 33 citations
+  // ("etap2", "k1", ".19") (2026-11-18).
+  let intervalBrackets = 0;
 
   // ── Bracket patterns ──
   const bracketPattern =
@@ -148,6 +205,11 @@ export function detectNumericCitations(
 
     const numbers = expandNumericRange(m[1]);
     if (numbers.length === 0) continue;
+    // "[1,100]" after "x ∈", "the range", or before "ms" is an interval, not citations 1 and 100.
+    if (isIntegerIntervalBracket(m[1], before, text.slice(m.index + m[0].length, m.index + m[0].length + 12))) {
+      intervalBrackets++;
+      continue;
+    }
     // Skip if any number is 0 — reference numbers start at 1; [0, 1] is a math interval
     if (numbers.some(n => n === 0)) continue;
     // Skip single numbers that look like years (1800-2099) or are implausibly large (>500)
@@ -189,6 +251,9 @@ export function detectNumericCitations(
     const numbers = expandNumericRange(m[2]);
     if (numbers.length === 0) continue;
     if (numbers.some(n => n === 0)) continue;
+    // "Range [1,100]": the capitalised word is an interval noun, not an author.
+    if (isIntegerIntervalBracket(m[2], text.slice(Math.max(0, m.index - 40), bracketStart),
+      text.slice(m.index + m[0].length, m.index + m[0].length + 12))) continue;
 
     const authorName = m[1].trim();
     const authors: ParsedCitationAuthor[] = [{
@@ -282,7 +347,7 @@ export function detectNumericCitations(
   // nat_comms_2 (0 brackets, superscript paradigm) keeps the recovery untouched.
   // (the platform's hardening workflow 2026-06-08 — ieee_access_2 "beta1/beta2", plos_med_1.)
   const bracketParadigm =
-    citations.filter(c => String(c.raw).startsWith('[')).length >= 3;
+    citations.filter(c => String(c.raw).startsWith('[')).length + intervalBrackets >= 3;
 
   const plainDigitPattern = /([a-z.)"])(\d{1,3}(?:[,–-]\d{1,3})*)/g;
   while (!bracketParadigm && (m = plainDigitPattern.exec(text)) !== null) {
@@ -423,7 +488,7 @@ export function detectNumericCitations(
   // ── Parenthetical numeric: (1), (1, 2), (1–3), (1, 3–5, 7) ──
   // Used by PNAS, some science journals. High false-positive risk — needs careful filtering.
   // Only activated when bracket citations are scarce (< 3) to avoid double-counting.
-  if (citations.filter(c => c.raw.startsWith('[')).length < 3) {
+  if (citations.filter(c => c.raw.startsWith('[')).length + intervalBrackets < 3) {
     const parenPattern =
       /\((\d+(?:\s*[-–—]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-–—]\s*\d+)?)*)\)/g;
 
@@ -455,6 +520,8 @@ export function detectNumericCitations(
       if (/[=<>≤≥nNpPrRdDfFtTzZχ]\s*$/.test(before40)) continue;
       // Skip after percent, dollar, or other numeric contexts
       if (/\d\s*$/.test(before40)) continue;
+      // "x ∈ (1, 100)", "range (18, 73)", "(10, 200) ms": an interval, as in the bracket branch.
+      if (isIntegerIntervalBracket(innerText, before40, text.slice(m.index + m[0].length, m.index + m[0].length + 12))) continue;
       // Skip "SD" "SE" "CI" "OR" "HR" "RR" "M" before parens
       if (/(?:SD|SE|CI|OR|HR|RR|M|df|SS)\s*$/i.test(before40)) continue;
 
@@ -505,7 +572,7 @@ export function detectNumericCitations(
   // appear on their own line as plain digits: "...care.\n1–3\n...choice.\n4–6\n"
   // Only activate if very few citations were found by other patterns,
   // AND there are enough standalone number patterns to be confident.
-  if (citations.length < 3) {
+  if (citations.length + intervalBrackets < 3) {
     const standalonePattern =
       /([.,:;!?)\]"])\s*\n[ \t]*(\d{1,3}(?:[\s,–-]+\d{1,3})*)[ \t]*(?:\n|$)/g;
 

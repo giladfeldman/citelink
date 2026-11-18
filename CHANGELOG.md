@@ -30,12 +30,38 @@ were named; each was one member of a wider class, and the whole class is fixed h
   `isNonAuthorBeforeBareYear`, used by every no-comma pattern in both detectors: `(Since 2008)`,
   `(In 2008)`, `(Image 1750; …)`, `(maximum 1350; …)` and implausible years are not citations.
   `(Since 2008)` and `(However 2008)` were emitted as citations by 0.7.88.
+- **A bracket holding a numeric interval is not a citation.** Reading every bracket comma as a
+  separator turned intervals into citation lists: `[1,100]`, `x ∈ [2,500]`, `U[1,100]`,
+  `[10,200] ms`, `95% CI = [365, 379]`. 0.7.88 already emitted the spaced forms (`95% CI [13, 37]`,
+  `the interval [1, 27]`) and some of them linked to references. New exported
+  `isIntegerIntervalBracket`, used in the square-bracket, `Name [n]` and round-bracket branches: a
+  two-number bracket is an interval when a math operator or a glued lone capital stands before it
+  (`∈ = ≤ ≥ < >`, `U[`, `F[1, 101]`), when a named interval stands directly before it (`the
+  interval`, `, range`, `range of`, `CI`, `IQR`, `HPD`, `confidence interval`, `uniformly from`),
+  or when a unit follows it (`ms`, `%`, `years`, …). Nouns that sometimes name intervals but were
+  measured in front of real citations stay citations: `conceptual domains [6, 7]`, `the Memory
+  scale [5, 53]`, `coalition support [30, 31]`, `20 m intervals [36, 46]`, `social interaction
+  range [29, 42]`, `low PI [31, 32]`. A skipped interval still counts as a bracket for the gates
+  that keep the glued-digit recovery off; without that, one psychology paper lost its 15 CI
+  brackets and the glued-digit branch invented 33 citations (`etap2`, `Mak1`).
+  (`tests/integerIntervalNotCitation.test.ts`)
 
 ### Measured
 On 1,491 corpus texts (one per DOI, `analyze()`, 0.7.88 against 0.7.89): 316 citations gained,
 0 lost, 294 more references linked (103,956 → 104,250), no style classification changed. The
 gained citations were read by eye; the false positives found (13 picture-set item numbers and one
 "maximum 1350") were removed by the guard above before this count.
+
+Numeric styles, measured separately because that corpus is mostly APA: of 9,138 texts (one per
+DOI) 944 are classified numeric (902 Vancouver, 25 Nature, 10 AMA, 7 IEEE; 18 with more than 100
+references). 0.7.88 against 0.7.89: 22 citations gained, all real (lists with a member of 100 or
+more, such as `[57,60,85,108-110]`); 13 more had their number list completed (0.7.88 read
+`[19,64,104-106]` as 19 alone); 34 interval brackets that 0.7.88 emitted as citations are gone,
+each read by eye (confidence intervals, IQRs, `the interval [1, 27]`); 0 real citations lost;
+references linked 24,097 → 24,131; no style classification changed. Before the interval guard the
+same build also emitted unspaced intervals, and 8 of the 34 intervals were linked to a reference.
+Two gained lists carry a number that text extraction glued together (`[124133,140-147]`); they
+are unmatched, not linked, and logged as debt d-0a588e.
 
 ### Consumers
 No API change. Citation positions of `;`-list members change (now correct); re-derive anything
