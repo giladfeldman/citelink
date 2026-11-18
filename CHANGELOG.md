@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.7.89
+
+Reported by SaneCite (2026-11-17), who ran 0.7.88 on 80 open-access papers with known
+citation-reference links: 7,970 of 9,948 links found, 97% of links made correct. Two cases
+were named; each was one member of a wider class, and the whole class is fixed here.
+
+### Fixed
+- **A comma inside a numeric citation marker is a list separator, with or without a space.**
+  `expandNumericRange` collapsed any `d,ddd` as a thousands separator, in every branch. Measured
+  on 0.7.88: `[110,111]` was dropped (read as 110111); `[3-5,110]` became citations 3 to 102 (98
+  invented); `[7,110-112]` was dropped; `[12,345,678]` became `[12345, 678]`; the superscript
+  `¹¹⁰,¹¹¹` became citation 110111. Only the round-bracket `(n)` branch still skips a formatted
+  count such as `(1,234)`, via the new `isThousandsFormattedNumber`. Plain digits glued to a word
+  now require every member, not only the first, to be 1–300. (`tests/numericListCommaIsSeparator.test.ts`)
+- **A citation inside a `;` list is found exactly when it is found on its own.** The list-member
+  matchers of `detectCitations` took only `&` between authors and only `, ` before the year, so
+  `(Lee, 2001; Smith and Jones, 2008)` gave Lee 2001 alone. They now take `and` and a bare space
+  before a numeric year. `detectHarvardCitations` found nothing written with a comma before the
+  year (`(Lee, 2001)`) and its three-author form took only `and`; both fixed. New stand-alone
+  pattern for `(Smith, Brown, & Jones 2008)` in `detectCitations`. Checked as a 168-cell matrix:
+  7 author shapes × comma or not × 6 positions × both detectors. (`tests/bundleMemberConnectorParity.test.ts`)
+- **Positions of `;`-list members point at their own text.** Each member's span was a running sum
+  of the stripped member lengths, so a lead-in (`e.g., `), a page locator or extra spacing shifted
+  every later member. On 400 corpus papers, 4,756 of 22,863 author-year spans (21%) did not cover
+  their own author and year in 0.7.88; after the fix, none do. Any consumer that reads text at a
+  citation's position (`findClaimSpan`, the citing sentence) was reading the wrong text for them.
+- **A year written without a comma needs an author in front of it.** New exported
+  `isNonAuthorBeforeBareYear`, used by every no-comma pattern in both detectors: `(Since 2008)`,
+  `(In 2008)`, `(Image 1750; …)`, `(maximum 1350; …)` and implausible years are not citations.
+  `(Since 2008)` and `(However 2008)` were emitted as citations by 0.7.88.
+
+### Measured
+On 1,491 corpus texts (one per DOI, `analyze()`, 0.7.88 against 0.7.89): 316 citations gained,
+0 lost, 294 more references linked (103,956 → 104,250), no style classification changed. The
+gained citations were read by eye; the false positives found (13 picture-set item numbers and one
+"maximum 1350") were removed by the guard above before this count.
+
+### Consumers
+No API change. Citation positions of `;`-list members change (now correct); re-derive anything
+stored from them.
+
 ## 0.7.88
 
 ### Fixed

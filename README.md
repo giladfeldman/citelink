@@ -69,14 +69,14 @@ citelink is distributed as a **git-tag dependency**, not through the npm registr
 ```jsonc
 // package.json
 "dependencies": {
-  "citelink": "github:giladfeldman/citelink#v0.7.88"
+  "citelink": "github:giladfeldman/citelink#v0.7.89"
 }
 ```
 
 or from the command line:
 
 ```bash
-npm install github:giladfeldman/citelink#v0.7.88
+npm install github:giladfeldman/citelink#v0.7.89
 ```
 
 npm clones the repository and runs the `prepare` script, which builds `dist/`, so a tag pin
@@ -280,7 +280,7 @@ Failure modes to plan for:
 If you use citelink in research, please cite the software (see [CITATION.cff](./CITATION.cff)):
 
 > Feldman, G. (2026). *citelink: Citation detection, reference parsing, and
-> citation-reference matching for academic documents* (Version 0.7.88) [Computer software].
+> citation-reference matching for academic documents* (Version 0.7.89) [Computer software].
 > https://github.com/giladfeldman/citelink
 
 ## Contributing
@@ -302,6 +302,6 @@ Versions released before 2026-11-06 were licensed under MIT and remain available
 
 **How to cite.** If you use this software in research, please cite it. GitHub's *Cite this repository* button (from [CITATION.cff](CITATION.cff)) gives APA and BibTeX. In APA style:
 
-> Feldman, G. (2026). *citelink: Citation detection, reference parsing, and citation-reference matching for academic documents* (Version 0.7.88) [Computer software]. https://github.com/giladfeldman/citelink
+> Feldman, G. (2026). *citelink: Citation detection, reference parsing, and citation-reference matching for academic documents* (Version 0.7.89) [Computer software]. https://github.com/giladfeldman/citelink
 
 <!-- license-citation:end -->

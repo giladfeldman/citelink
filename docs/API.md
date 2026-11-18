@@ -349,7 +349,9 @@ The inputs are database-row shaped records, **not** `DetectedCitation` / `Parsed
 | `normalizeName(name)` | comparison key for a surname: lowercase, no accents, hyphens, apostrophes or other punctuation (`Müller-Lüdenscheidt` → `mullerludenscheidt`) |
 | `decomposeLigatures(text)` | the text with Latin ligatures U+FB00–U+FB06 spelled out (`ﬁ` → `fi`); the shared helper behind every text comparison |
 | `maskPageRunningHeadYears(text)` | the text with a page running head that is a bare year, trapped inside a parenthetical citation, replaced by the same number of spaces, so the real year is detected and every offset still indexes the original string |
-| `expandNumericRange(rangeStr)` | `'1,3-5,7'` → `[1, 3, 4, 5, 7]` |
+| `expandNumericRange(rangeStr)` | `'1,3-5,7'` → `[1, 3, 4, 5, 7]`. Every comma separates numbers, with or without a space: `'110,111'` → `[110, 111]` (before 0.7.89 it was read as 110111) |
+| `isThousandsFormattedNumber(s)` | `true` when the whole string is one number with thousands separators (`'1,234'`, `'12,345,678'`). Only the round-bracket `(n)` branch uses it, to skip counts such as `(1,234)` |
+| `isNonAuthorBeforeBareYear(word, year?)` | `true` when the word before a year written without a comma is not an author: a lowercase word (other than a particle before a surname, `van Dijk`), a month, a sentence connector or lead-in (`Since`, `In`), or a numbered-item label (`Image`, `Study`, `Item`, …); or when the numeric `year` is before 1600 or after next year. Used by the no-comma patterns of both author-year detectors |
 | `endsInBracketLabel(before, tail?)` | `true` when the text before a `[n]` ends in a label word (`Table`, `Fig`, `Eq.`, `Supplementary-Table`, …) rather than a citing word. The label must be a whole word; lowercase `model`, `sample`, `protocol` and `condition` count as prose. `tail` overrides the label pattern |
 
 ## Organisation authors

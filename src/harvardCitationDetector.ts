@@ -14,6 +14,7 @@ import {
   ParsedCitationAuthor,
   CitationType,
   normalizeText,
+  isNonAuthorBeforeBareYear,
 } from './citationDetector.js';
 
 // ── helpers ──────────────────────────────────────────────────────────────
@@ -132,6 +133,12 @@ const NAME_RUN = String.raw`${SURNAME}(?:${SEP}(?:&|and)${SEP}${SURNAME}){0,2}`;
 /** Year with optional letter suffix or n.d. — a CAPTURE group. */
 const YEAR = String.raw`(\d{4}[a-z]?|n\.d\.)`;
 
+/** What may stand between the author(s) and the year: a space, or a comma. A paper
+ *  routed here because most of its citations drop the comma still writes some with
+ *  it ("(Lee, 2001; Smith and Jones 2008)"), and every one of those was dropped:
+ *  the patterns took only a space (SaneCite report follow-up, 2026-11-18). */
+const YSEP = String.raw`(?:\s*,\s*|\s+)`;
+
 /** Optional trailing page locator after the year, e.g. ", 513" / ", S5" /
  *  ", 43-5" / ", p. 15" / ", pp. 15-20". Harvard frequently omits the p./pp.
  *  prefix, which every year-anchored pattern previously rejected — so any
@@ -143,16 +150,16 @@ const PAGE = String.raw`(?:\s*,\s*(?:pp?\.\s*)?[A-Z]?\d+(?:\s*[–\-]\s*\d+)?)?`
 const HARVARD_PATTERNS = {
   // (Smith 2020) / (Santos Silva 2020a) / (Smith n.d.) — NAME_RUN so a paren
   // two-/three-author span is captured as one span and deduped against it.
-  single: new RegExp(String.raw`\(\s*(${NAME_RUN})\s+${YEAR}${PAGE}\s*\)`, 'gi'),
+  single: new RegExp(String.raw`\(\s*(${NAME_RUN})${YSEP}${YEAR}${PAGE}\s*\)`, 'gi'),
 
   // (Smith & Jones 2020) / (Barros and Santos Silva 2020) / (Kurer and Van Staalduinen 2022)
-  twoAuthor: new RegExp(String.raw`\(\s*(${SURNAME})\s+(?:&|and)\s+(${SURNAME})\s+${YEAR}${PAGE}\s*\)`, 'gi'),
+  twoAuthor: new RegExp(String.raw`\(\s*(${SURNAME})\s+(?:&|and)\s+(${SURNAME})${YSEP}${YEAR}${PAGE}\s*\)`, 'gi'),
 
   // (Author, Author, and Author Year) — ASA 3+ author style
-  threeAuthor: new RegExp(String.raw`\(\s*(${SURNAME}(?:,\s+${SURNAME})*),?\s+and\s+(${SURNAME})\s+${YEAR}${PAGE}\s*\)`, 'gi'),
+  threeAuthor: new RegExp(String.raw`\(\s*(${SURNAME}(?:,\s+${SURNAME})*),?\s+(?:and|&)\s+(${SURNAME})${YSEP}${YEAR}${PAGE}\s*\)`, 'gi'),
 
   // (Smith et al. 2020) / (Rhodes-Purdy et al. 2020)
-  etAl: new RegExp(String.raw`\(\s*(${CORE})\s+et\s*\.?\s*al\.?\s+${YEAR}${PAGE}\s*\)`, 'gi'),
+  etAl: new RegExp(String.raw`\(\s*(${CORE})\s+et\s*\.?\s*al\.?${YSEP}${YEAR}${PAGE}\s*\)`, 'gi'),
 
   // (Smith 2020, p. 15) or (Smith 2020, pp. 15-20)
   singleWithPage: new RegExp(String.raw`\(\s*(${SURNAME})\s+(\d{4}[a-z]?)\s*,\s*(pp?\.\s*[\d–\-]+)\s*\)`, 'gi'),
@@ -252,6 +259,8 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
   // ── Single ──
   HARVARD_PATTERNS.single.lastIndex = 0;
   while ((m = HARVARD_PATTERNS.single.exec(text)) !== null) {
+    // "(Image 1750)", "(Since 2008)", "(June 2008)" are not citations.
+    if (isNonAuthorBeforeBareYear(m[1], m[2])) continue;
     const { year, suffix } = parseYear(m[2]);
     const authors = [createAuthor(m[1])];
     add({
@@ -273,17 +282,22 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
     const posKey = `${m.index}-${m.index + m[0].length}`;
     if (processedPositions.has(posKey)) continue;
 
-    const parts = m[1].split(';').map(s => s.trim());
-    let pos = m.index + 1;
-    for (const part of parts) {
+    // Each member's position comes from where it sits in the text, not from a
+    // running "length + 2", which drifted on any spacing other than exactly "; ".
+    const innerStart = m.index + m[0].indexOf(m[1]);
+    let partOffset = 0;
+    for (const rawPart of m[1].split(';')) {
+      const pos = innerStart + partOffset + (rawPart.length - rawPart.trimStart().length);
+      partOffset += rawPart.length + 1;
+      const part = rawPart.trim();
       // Try et al.: "Author et al. Year"
-      const etAlMatch = part.match(new RegExp(String.raw`^(${CORE})\s+et\s*\.?\s*al\.?\s+${YEAR}${PAGE}$`, 'i'));
+      const etAlMatch = part.match(new RegExp(String.raw`^(${CORE})\s+et\s*\.?\s*al\.?${YSEP}${YEAR}${PAGE}$`, 'i'));
       // Try two-author: "Author & Author Year" or "Author and Author Year"
-      const twoMatch = part.match(new RegExp(String.raw`^(${SURNAME})\s+(?:&|and)\s+(${SURNAME})\s+${YEAR}${PAGE}$`, 'i'));
+      const twoMatch = part.match(new RegExp(String.raw`^(${SURNAME})\s+(?:&|and)\s+(${SURNAME})${YSEP}${YEAR}${PAGE}$`, 'i'));
       // Try multi-author: "Author, Author, and Author Year"
-      const multiMatch = part.match(new RegExp(String.raw`^(${SURNAME}(?:,\s*${SURNAME})*,?\s+and\s+${SURNAME})\s+${YEAR}${PAGE}$`, 'i'));
+      const multiMatch = part.match(new RegExp(String.raw`^(${SURNAME}(?:,\s*${SURNAME})*,?\s+(?:and|&)\s+${SURNAME})${YSEP}${YEAR}${PAGE}$`, 'i'));
       // Try single: "Author Year"
-      const singleMatch = part.match(new RegExp(String.raw`^(${NAME_RUN})\s+${YEAR}${PAGE}$`, 'i'));
+      const singleMatch = part.match(new RegExp(String.raw`^(${NAME_RUN})${YSEP}${YEAR}${PAGE}$`, 'i'));
 
       let authors: ParsedCitationAuthor[] = [];
       let yearStr = '';
@@ -296,10 +310,10 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
         yearStr = twoMatch[3];
       } else if (multiMatch) {
         // Extract individual authors from comma/and-separated list
-        const authNames = multiMatch[1].split(/,\s+and\s+|,\s+|\s+and\s+/).filter(s => s.trim());
+        const authNames = multiMatch[1].split(/,?\s+(?:and|&)\s+|,\s*/).filter(s => s.trim());
         authors = authNames.map(n => createAuthor(n));
         yearStr = multiMatch[2];
-      } else if (singleMatch) {
+      } else if (singleMatch && !isNonAuthorBeforeBareYear(singleMatch[1], singleMatch[2])) {
         authors = [createAuthor(singleMatch[1])];
         yearStr = singleMatch[2];
       }
@@ -318,7 +332,6 @@ export function detectHarvardCitations(text: string): DetectedCitation[] {
           context: extractContext(text, pos, part.length),
         });
       }
-      pos += part.length + 2;
     }
   }
 

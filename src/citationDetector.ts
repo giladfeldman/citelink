@@ -319,6 +319,15 @@ const NARRATIVE_QUALIFIER =
 // prose - "(as noted in press releases)" - pose as a citation.
 const YEAR_TOKEN = '\\d{4}[a-z]?|n\\.d\\.[a-z]?|in\\s+press';
 
+// Connectors for the ';'-bundle member matchers in detectCitations. A member of
+// "(Lee, 2001; Smith and Jones, 2008)" was dropped: those matchers took only "&"
+// between authors and only ", " before the year, while the same citation on its
+// own was found (SaneCite report, 2026-11-17). They now take "&" or "and"
+// (optionally after a comma) and a comma or a plain space before a numeric year,
+// the forms the standalone patterns already accept.
+const BUNDLE_AND = '(?:\\s*&\\s*|\\s+and\\s+)';
+const BUNDLE_YEAR_SEP = '(?:\\s*,\\s*|\\s+(?=\\d{4}))';
+
 // Comprehensive APA 7 citation patterns
 const CITATION_PATTERNS = {
   // ============ PARENTHETICAL PATTERNS ============
@@ -432,6 +441,14 @@ const CITATION_PATTERNS = {
   // (Smith & Jones 2020) — the ampersand no-comma form is also valid Harvard.
   twoAuthorParentheticalHarvardNoComma: new RegExp(
     `\\(\\s*(${SURNAME_LASTNAME})\\s+(?:and|&)\\s+(${SURNAME_LASTNAME})\\s+(\\d{4}[a-z]?)\\s*\\)`,
+    'g',
+  ),
+
+  // Three to six authors, Harvard no-comma: (Smith, Brown, & Jones 2020) /
+  // (Smith, Brown and Jones 2020). The two-author and single no-comma forms were
+  // found and this one alone was not (SaneCite report follow-up, 2026-11-18).
+  multiAuthorParentheticalHarvardNoComma: new RegExp(
+    `\\(\\s*(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*(?:&|\\band)\\s+(${COMPOUND_SURNAME})\\s+(\\d{4}[a-z]?)\\s*\\)`,
     'g',
   ),
 
@@ -814,6 +831,39 @@ const LEADING_NON_NAME_WORDS = new Set([
   'whereas', 'after', 'before', 'unlike', 'like', 'per', 'following', 'given',
   'in', 'on', 'at', 'by', 'for', 'with', 'from', 'and', 'but', 'or', 'so', 'see',
 ]);
+
+/** Numbered-item labels that stand before a bare number in prose: "(Image 1750;
+ *  mean valence = 8.19)" is a picture-set item, not a citation (measured: 12 IAPS
+ *  image numbers in one paper read as citations, 2026-11-18). */
+const BARE_NUMBER_LABELS = new Set([
+  'image', 'picture', 'photo', 'slide', 'item', 'items', 'stimulus', 'study', 'studies',
+  'experiment', 'table', 'figure', 'fig', 'sample', 'wave', 'model', 'version', 'trial',
+  'block', 'phase', 'step', 'session', 'participant', 'subject', 'case', 'room', 'no',
+  'number', 'maximum', 'minimum', 'max', 'min', 'total', 'range', 'year', 'years', 'page',
+  'pages', 'chapter', 'section', 'appendix', 'condition', 'group', 'level', 'grade',
+  'code', 'id', 'unit', 'scale', 'score', 'class', 'cohort', 'round',
+]);
+
+/**
+ * True when the word standing before a BARE year (no comma: "(Since 2008)",
+ * "(…; June 2008)", "(Image 1750; …)") is not an author: a date, a prose word,
+ * a numbered-item label, a lowercase word, or a "year" no citation can carry.
+ * Only the no-comma forms ask this: "(May, 2008)" with a comma is an author
+ * named May.
+ */
+export function isNonAuthorBeforeBareYear(word: string, year?: string): boolean {
+  const trimmed = word.trim();
+  const w = trimmed.toLowerCase();
+  // Lowercase only as a particle before a capitalised surname ("van Dijk 2008").
+  if (!/^\p{Lu}/u.test(trimmed) && !/\s\p{Lu}/u.test(trimmed)) return true;
+  if (isMonthName(trimmed) || isSentenceConnector(trimmed)) return true;
+  if (LEADING_NON_NAME_WORDS.has(w) || BARE_NUMBER_LABELS.has(w)) return true;
+  if (year !== undefined && /^\d/.test(year)) {
+    const y = parseInt(year, 10);
+    if (!(y >= 1600 && y <= new Date().getFullYear() + 1)) return true;
+  }
+  return false;
+}
 
 /**
  * A compound surname whose first author admits a leading particle can over-capture
@@ -1699,6 +1749,29 @@ export function detectCitations(rawText: string): DetectedCitation[] {
     });
   }
 
+  // ============ HARVARD NO-COMMA: THREE+ AUTHORS PARENTHETICAL ============
+  CITATION_PATTERNS.multiAuthorParentheticalHarvardNoComma.lastIndex = 0;
+  while ((match = CITATION_PATTERNS.multiAuthorParentheticalHarvardNoComma.exec(text)) !== null) {
+    const firstToken = match[1].split(/\s*,\s*/)[0] ?? '';
+    if (isSentenceConnector(firstToken) || isMonthName(firstToken)) continue;
+    const { year, suffix } = parseYear(match[3]);
+    const authors = [
+      ...match[1].split(/\s*,\s*/).map(a => createParsedAuthor(a)),
+      createParsedAuthor(match[2]),
+    ];
+    addCitation({
+      raw: match[0],
+      normalized: normalizeCitation(match[0]),
+      type: classifyCitation(authors, false, false),
+      citationStyle: 'parenthetical',
+      authors,
+      year,
+      yearSuffix: suffix,
+      position: { start: match.index, end: match.index + match[0].length },
+      context: extractContext(text, match.index, match[0].length),
+    });
+  }
+
   // ============ HARVARD NO-COMMA: TWO AUTHORS PARENTHETICAL (B34) ============
   CITATION_PATTERNS.twoAuthorParentheticalHarvardNoComma.lastIndex = 0;
   while ((match = CITATION_PATTERNS.twoAuthorParentheticalHarvardNoComma.exec(text)) !== null) {
@@ -1723,7 +1796,8 @@ export function detectCitations(rawText: string): DetectedCitation[] {
   // ============ HARVARD NO-COMMA: SINGLE PARENTHETICAL (B34) ============
   CITATION_PATTERNS.singleParentheticalHarvardNoComma.lastIndex = 0;
   while ((match = CITATION_PATTERNS.singleParentheticalHarvardNoComma.exec(text)) !== null) {
-    if (isMonthName(match[1])) continue;  // "(January 2023)" is a date, not an author
+    // "(January 2023)" is a date, "(Since 2008)" prose, "(Image 1750)" an item label.
+    if (isNonAuthorBeforeBareYear(match[1], match[2])) continue;
     const { year, suffix } = parseYear(match[2]);
     const authors = parseAuthors(match[1]);
     addCitation({
@@ -1991,11 +2065,21 @@ export function detectCitations(rawText: string): DetectedCitation[] {
     const posKey = `${match.index}-${match.index + match[0].length}`;
     if (processedPositions.has(posKey)) continue;
     
-    // Split by semicolon and process each citation
-    const multipleCites = match[1].split(';').map(cite => cite.trim());
-    let currentPos = match.index + 1; // Start after opening parenthesis
+    // Split by semicolon and process each citation. Each member's position is
+    // computed from where it actually sits in the text. It used to be a running
+    // sum of the STRIPPED member lengths + 2, so a stripped lead-in ("e.g., "), a
+    // stripped page locator, or any spacing other than exactly "; " shifted every
+    // later member's span off its text (SaneCite report follow-up, 2026-11-18).
+    const innerStart = match.index + match[0].indexOf(match[1]);
+    const rawParts = match[1].split(';');
+    let partOffset = 0;
+    let currentPos = innerStart;
 
-    for (const rawCiteText of multipleCites) {
+    for (const rawPart of rawParts) {
+      const partStart = innerStart + partOffset;
+      partOffset += rawPart.length + 1;
+      const rawCiteText = rawPart.trim();
+      const leadWs = rawPart.length - rawPart.trimStart().length;
       // Strip leading signal-phrase prefixes ("e.g.", "i.e.", "cf.", "see",
       // "as in", "e.g.,") — these prevent the anchored `^` regexes below
       // from matching the first item of a multi-citation bundle like
@@ -2052,6 +2136,8 @@ export function detectCitations(rawText: string): DetectedCitation[] {
         // "and"/"in" strip above), and a year suffix ("2020a") has no space so
         // it is untouched.
         .replace(/(,\s*\d{4}[a-z]?)\s+[a-z][\s\S]*$/, '$1');
+      // Every strip above removes a prefix or a suffix, so citeText is a substring.
+      currentPos = partStart + leadWs + Math.max(0, rawCiteText.indexOf(citeText));
       // Try to match individual citation patterns
 
       // TC-MULTIYEAR-MULTIAUTHOR bundle form (the platform's hardening workflow 2026-07-03):
@@ -2138,7 +2224,6 @@ export function detectCitations(rawText: string): DetectedCitation[] {
           position: { start: currentPos, end: currentPos + citeText.length },
           context: extractContext(text, currentPos, citeText.length),
         });
-        currentPos += citeText.length + 2;
         continue;
       }
 
@@ -2168,7 +2253,6 @@ export function detectCitations(rawText: string): DetectedCitation[] {
           position: { start: currentPos, end: currentPos + citeText.length },
           context: extractContext(text, currentPos, citeText.length),
         });
-        currentPos += citeText.length + 2;
         continue;
       }
 
@@ -2209,7 +2293,6 @@ export function detectCitations(rawText: string): DetectedCitation[] {
             context: extractContext(text, currentPos, citeText.length),
           });
         }
-        currentPos += citeText.length + 2;
         continue;
       }
 
@@ -2243,7 +2326,6 @@ export function detectCitations(rawText: string): DetectedCitation[] {
           position: { start: currentPos, end: currentPos + citeText.length },
           context: extractContext(text, currentPos, citeText.length)
         });
-        currentPos += citeText.length + 2;
         continue;
       }
       
@@ -2254,7 +2336,7 @@ export function detectCitations(rawText: string): DetectedCitation[] {
       // pattern already does; cycle 22 brings the anchored bundle fragment to
       // parity, recovering "(…; Hom Jr & Van Nuland, 2019; …)".
       const twoAuthorMatch = citeText.match(new RegExp(
-        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*&\\s*${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
+        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})${BUNDLE_AND}${INITIAL_PREFIX}(${COMPOUND_SURNAME})${BUNDLE_YEAR_SEP}(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (twoAuthorMatch) {
@@ -2276,7 +2358,6 @@ export function detectCitations(rawText: string): DetectedCitation[] {
             context: extractContext(text, currentPos, citeText.length)
           });
         }
-        currentPos += citeText.length + 2;
         continue;
       }
       
@@ -2304,13 +2385,12 @@ export function detectCitations(rawText: string): DetectedCitation[] {
             context: extractContext(text, currentPos, citeText.length),
           });
         }
-        currentPos += citeText.length + 2;
         continue;
       }
 
       // Multi-author pattern (3-6 authors): "Bosco, Aguinis, Field, & Dalton, 2016"
       const multiAuthorMatch = citeText.match(new RegExp(
-        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?\\s*&\\s*(${COMPOUND_SURNAME})\\s*,\\s*(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
+        `^(${COMPOUND_SURNAME}(?:,\\s+${COMPOUND_SURNAME}){1,5})\\s*,?${BUNDLE_AND}(${COMPOUND_SURNAME})${BUNDLE_YEAR_SEP}(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
       if (multiAuthorMatch) {
@@ -2333,16 +2413,21 @@ export function detectCitations(rawText: string): DetectedCitation[] {
             context: extractContext(text, currentPos, citeText.length),
           });
         }
-        currentPos += citeText.length + 2;
         continue;
       }
 
       // Single author pattern (with optional initial prefix — "S. Lee, 2018")
       const singleMatch = citeText.match(new RegExp(
-        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})\\s*,\\s*(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
+        `^${INITIAL_PREFIX}(${COMPOUND_SURNAME})${BUNDLE_YEAR_SEP}(${YEAR_TOKEN})(?:\\s*,\\s*\\d{4}[a-z]?)*$`,
         'i',
       ));
-      if (singleMatch) {
+      // Without a comma, "June 2008" or "Since 2008" is a date or prose, not an author.
+      const singleNoComma =
+        !!singleMatch && !/,\s*$/.test(citeText.slice(0, citeText.indexOf(singleMatch[2])));
+      if (
+        singleMatch &&
+        !(singleNoComma && isNonAuthorBeforeBareYear(singleMatch[1], singleMatch[2]))
+      ) {
         const { year, suffix } = parseYear(singleMatch[2]);
         const authors = parseAuthors(singleMatch[1]);
         const smType = classifyCitation(authors, false, false);
@@ -2388,7 +2473,6 @@ export function detectCitations(rawText: string): DetectedCitation[] {
         }
       }
 
-      currentPos += citeText.length + 2; // +2 for "; "
     }
   }
   

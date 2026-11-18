@@ -1,6 +1,6 @@
 {
   "name": "citelink",
-  "version": "0.7.88",
+  "version": "0.7.89",
   "description": "Citation detection, reference parsing, and citation-reference matching for academic documents.",
   "license": "AGPL-3.0-only",
   "repository": {

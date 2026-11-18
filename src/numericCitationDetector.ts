@@ -69,13 +69,32 @@ export function endsInBracketLabel(before: string, tail: RegExp = BRACKET_LABEL_
   return true;
 }
 
-/** Expand a range string like "1,3-5,7" into [1,3,4,5,7] */
+/**
+ * True when the WHOLE string is one number written with thousands separators
+ * ("1,234", "12,345,678"): digit groups of exactly three after the first, no
+ * spaces, no ranges.
+ *
+ * Only the parenthetical "(n)" branch asks this, because round brackets in prose
+ * do hold formatted counts ("(1,234)"). Inside a citation marker — "[110,111]",
+ * a superscript "¹¹⁰,¹¹¹", "Smith [110,111]" — the comma always separates
+ * reference numbers. expandNumericRange used to collapse such commas everywhere,
+ * which dropped "[110,111]" (read as 110111, then rejected as too large), turned
+ * "[3-5,110]" into the range 3–5110 (citations 3 to 102, 98 of them invented),
+ * read "[12,345,678]" as [12345, 678], and emitted the superscript "¹¹⁰,¹¹¹" as
+ * citation 110111 (SaneCite report, 2026-11-17).
+ */
+export function isThousandsFormattedNumber(s: string): boolean {
+  return /^\d{1,3}(?:,\d{3})+$/.test(s.trim());
+}
+
+/**
+ * Expand a citation-number list like "1,3-5,7" into [1,3,4,5,7].
+ * Every comma is a list separator, with or without a following space; a caller
+ * that may be looking at a formatted count checks isThousandsFormattedNumber first.
+ */
 export function expandNumericRange(rangeStr: string): number[] {
   const nums: number[] = [];
-  // First, handle thousands-separator commas: "1,234" should be 1234, not [1, 234]
-  // A comma between digit groups of exactly 3 is a thousands separator
-  const cleaned = rangeStr.replace(/(\d),(\d{3})(?!\d)/g, '$1$2');
-  const parts = cleaned.split(/\s*,\s*/);
+  const parts = rangeStr.split(/\s*,\s*/);
   for (const part of parts) {
     const rangeMatch = part.match(/^(\d+)\s*[-–—]\s*(\d+)$/);
     if (rangeMatch) {
@@ -169,6 +188,7 @@ export function detectNumericCitations(
 
     const numbers = expandNumericRange(m[2]);
     if (numbers.length === 0) continue;
+    if (numbers.some(n => n === 0)) continue;
 
     const authorName = m[1].trim();
     const authors: ParsedCitationAuthor[] = [{
@@ -223,6 +243,7 @@ export function detectNumericCitations(
 
     const numbers = expandNumericRange(asciiStr);
     if (numbers.length === 0) continue;
+    if (numbers.some(n => n === 0)) continue;
 
     citations.push({
       raw: m[0],
@@ -345,6 +366,9 @@ export function detectNumericCitations(
 
     const numbers = expandNumericRange(digitStr);
     if (numbers.length === 0) continue;
+    // Every member, not only the first, must be a plausible reference number:
+    // "word1,000" is a formatted count, not citations 1 and 0.
+    if (numbers.some(n => n === 0 || n > 300)) continue;
 
     citations.push({
       raw: m[0],
@@ -407,6 +431,8 @@ export function detectNumericCitations(
       if (referenceSectionStart !== undefined && m.index >= referenceSectionStart) continue;
 
       const innerText = m[1].trim();
+      // "(1,234)" in prose is a formatted count, not citations 1 and 234.
+      if (isThousandsFormattedNumber(innerText)) continue;
       const numbers = expandNumericRange(innerText);
       if (numbers.length === 0) continue;
 
